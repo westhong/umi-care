@@ -63,7 +63,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.1', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.2', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -264,29 +264,53 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  // Cron trigger: runs every 5 min to send due-task notifications (Calgary MST UTC-7)
+  // Cron trigger: runs every 5 min to send due-task notifications
   async scheduled(event, env, ctx) {
     const KV = env.UMICARE_DATA;
     const raw = await KV.get('push:subscription');
     if (!raw) return; // no subscriber
     const sub = JSON.parse(raw);
 
-    // Calgary MST = UTC-7
+    // Calgary time: DST-aware (MST=UTC-7, MDT=UTC-6)
     const now = new Date();
-    const localNow = new Date(now.getTime() - 7 * 3600000);
-    const hktHour = localNow.getUTCHours();
-    const hktMin  = localNow.getUTCMinutes();
-    const hktTotalMin = hktHour * 60 + hktMin;
-    const today = localNow.toISOString().split('T')[0];
+    const year = now.getUTCFullYear();
+    // DST starts 2nd Sunday of March 09:00 UTC (= 02:00 MST)
+    const dstStart = (() => {
+      const d = new Date(Date.UTC(year, 2, 1));
+      let sundays = 0;
+      while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
+      d.setUTCHours(9, 0, 0, 0);
+      return d;
+    })();
+    // DST ends 1st Sunday of November 08:00 UTC (= 02:00 MDT)
+    const dstEnd = (() => {
+      const d = new Date(Date.UTC(year, 10, 1));
+      while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
+      d.setUTCHours(8, 0, 0, 0);
+      return d;
+    })();
+    const isDST = now >= dstStart && now < dstEnd;
+    const offset = isDST ? -6 : -7;
+    const calgaryNow = new Date(now.getTime() + offset * 3600000);
+    const calgaryHour = calgaryNow.getUTCHours();
+    const calgaryMin  = calgaryNow.getUTCMinutes();
+    const calgaryTotalMin = calgaryHour * 60 + calgaryMin;
+
+    // KV date key uses UTC (backend always stores as UTC)
+    const today = now.toISOString().split('T')[0];
 
     // Load tasks + today's checkins
     const tasksRaw = await KV.get('tasks:list');
-    const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;  // fallback to defaults if never customized
+    const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;
     const checkinsRaw = await KV.get('checkins:' + today);
     const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
     const doneIds = new Set(checkins.map(c => c.taskId));
 
-    // Find OVERDUE tasks: scheduledTime has passed AND not done
+    // Get cat name for push title
+    const catRaw = await KV.get('cat:profile');
+    const catName = catRaw ? (JSON.parse(catRaw).name || '喔咪') : '喔咪';
+
+    // Find OVERDUE tasks: Calgary time has passed AND not done/skipped
     const overdue = [];
     for (const task of tasks) {
       if (doneIds.has(task.id)) continue;
@@ -294,31 +318,31 @@ export default {
       for (const t of times) {
         const [th, tm] = t.split(':').map(Number);
         const taskMin = th * 60 + tm;
-        if (hktTotalMin >= taskMin) { // past scheduled time
+        if (calgaryTotalMin >= taskMin) {
           overdue.push(task);
-          break; // count task once even if multiple times
+          break;
         }
       }
     }
 
     if (overdue.length === 0) return; // nothing to remind
 
-    // Send ONE batched notification (24/7 - user in Calgary wants round-the-clock alerts)
     const firstName = overdue[0].name;
     const body = overdue.length === 1
       ? `${firstName} 未完成，快去記錄！`
       : `${firstName} 等 ${overdue.length} 項任務未完成`;
 
     const result = await sendWebPush(env, sub, {
-      title: '🐾 喔咪照護提醒',
+      title: `🐾 ${catName} 照護提醒`,
       body,
       tag: 'umicare-reminder',
       icon: '/icon-192.png',
     });
-    // Store last push result in KV for debugging
     await KV.put('debug:last_push', JSON.stringify({
       time: new Date().toISOString(),
-      hktTime: `${hktHour}:${String(hktMin).padStart(2,'0')}`,
+      calgaryTime: `${calgaryHour}:${String(calgaryMin).padStart(2,'0')}`,
+      isDST,
+      utcDate: today,
       result,
       overdue: overdue.length,
       firstTask: firstName,
@@ -546,7 +570,7 @@ async function handlePushApi(path, method, request, env) {
       const firstName = overdue[0].name;
       const body = overdue.length === 1 ? `${firstName} 未完成，快去記錄！` : `${firstName} 等 ${overdue.length} 項任務未完成`;
       try {
-        pushResult = await sendWebPush(env, sub, { title: '🐾 喔咪照護提醒 (simulate)', body, tag: 'umicare-reminder', icon: '/icon-192.png' });
+        pushResult = await sendWebPush(env, sub, { title: `🐾 喔咪照護提醒 (simulate)`, body, tag: 'umicare-reminder', icon: '/icon-192.png' });
       } catch(e) { pushResult = { error: e.message }; }
     }
 
