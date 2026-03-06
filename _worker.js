@@ -1,4 +1,8 @@
-// UmiCare v3 – Cloudflare Worker with Static Assets
+// UmiCare v3.1 – Cloudflare Worker with Static Assets
+// ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
+//     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
+//                     settings, cat:profile, pin
+//     Only push:subscription and debug:* are safe to delete.
 // Architecture: Worker handles /api/* ; everything else → ASSETS (index.html)
 // KV binding: UMICARE_DATA (configured in wrangler.toml)
 
@@ -59,7 +63,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.0', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.1', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -127,7 +131,12 @@ async function handleApi(request, env, url) {
         return json(JSON.parse(raw));
       }
       if (method === 'POST') {
-        await KV.put('tasks:list', JSON.stringify(await request.json()));
+        const newTasks = await request.json();
+        // ⚠️ DATA PROTECTION: refuse to overwrite with empty array
+        if (!Array.isArray(newTasks) || newTasks.length === 0) {
+          return json({ error: 'Refusing to save empty tasks list – data protection' }, 400);
+        }
+        await KV.put('tasks:list', JSON.stringify(newTasks));
         return json({ ok: true });
       }
     }
