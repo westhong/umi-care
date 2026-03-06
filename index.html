@@ -585,7 +585,10 @@ body::before {
         <h1>UmiCare 🐾</h1>
         <div class="date" id="todayDate"></div>
       </div>
-      <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
+        <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
+      </div>
     </div>
 
     <div class="progress-section">
@@ -723,11 +726,6 @@ body::before {
           <button class="btn btn-primary" onclick="changePin()">更改 PIN</button>
         </div>
         
-        <div class="card mt-16">
-          <div style="font-weight:600;margin-bottom:10px">🔔 推播通知</div>
-          <button id="push-btn" class="push-btn" onclick="togglePushNotification()">🔔 啟用任務提醒通知</button>
-          <div id="push-status" style="font-size:12px;color:#999;text-align:center;margin-top:6px;">點擊後瀏覽器會詢問是否允許通知</div>
-        </div>
         <div class="card mt-16">
           <div style="font-weight:600;margin-bottom:10px">📥 匯出資料</div>
           <button class="btn btn-secondary" onclick="exportData()">下載 JSON</button>
@@ -1557,17 +1555,18 @@ async function togglePushNotification() {
   const btn = document.getElementById('push-btn');
   const status = document.getElementById('push-status');
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    status.textContent = '❌ 此裝置不支援推播通知';
+    showToast('❌ 此裝置不支援推播通知');
     return;
   }
   const perm = Notification.permission;
   if (perm === 'denied') {
-    status.textContent = '❌ 通知已被封鎖，請在瀏覽器設定中手動允許';
-    btn.className = 'push-btn denied';
+    showToast('❌ 通知已被封鎖，請在瀏覽器設定中手動允許');
+    btn.style.color = '#ccc';
+    btn.title = '通知已封鎖';
     return;
   }
   try {
-    status.textContent = '正在啟用…';
+    btn.textContent = '⏳';
     // Register SW
     const reg = await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;
@@ -1592,7 +1591,7 @@ async function togglePushNotification() {
     }
   } catch (err) {
     console.error('Push subscribe error:', err);
-    status.textContent = '❌ 啟用失敗：' + err.message;
+    showToast('❌ 通知啟用失敗：' + err.message);
   }
 }
 
@@ -1602,8 +1601,9 @@ async function checkPushStatus() {
   const status = document.getElementById('push-status');
   if (!btn) return;
   if (Notification.permission === 'denied') {
-    btn.className = 'push-btn denied';
-    btn.textContent = '🔕 通知已封鎖';
+    btn.textContent = '🔕';
+    btn.style.color = '#ccc';
+    btn.title = '通知已封鎖';
     return;
   }
   try {
@@ -1611,9 +1611,9 @@ async function checkPushStatus() {
     if (reg) {
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        btn.textContent = '✅ 通知已啟用';
-        btn.className = 'push-btn enabled';
-        status.textContent = '每30分鐘自動檢查待辦任務並發送提醒';
+        btn.textContent = '🔔';
+        btn.style.color = '#4caf50';
+        btn.title = '通知已啟用 ✅';
       }
     }
   } catch(e) { /* ignore */ }
