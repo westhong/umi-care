@@ -209,6 +209,40 @@ body::before {
 /* ─── TASK LIST ─── */
 .task-section { padding: 16px; }
 .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 12px; }
+/* ─── PENDING / COMPLETED SECTIONS ─── */
+.tasks-pending-section { margin-bottom: 8px; }
+.tasks-done-section { margin-top: 6px; }
+.tasks-done-section .section-title { color: #4ade80; }
+.tasks-done-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 16px 0 10px;
+}
+.tasks-done-divider span {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
+  color: #4ade80; text-transform: uppercase; white-space: nowrap;
+}
+.tasks-done-divider::before, .tasks-done-divider::after {
+  content: ''; flex: 1;
+  height: 1px; background: rgba(74,222,128,0.25);
+}
+
+/* ─── SLIDE-DOWN ANIMATION when task becomes done ─── */
+@keyframes taskSlideDone {
+  0%   { transform: translateY(0) scale(1);   opacity: 1; }
+  30%  { transform: translateY(-6px) scale(1.02); opacity: 1; }
+  70%  { transform: translateY(24px) scale(0.97); opacity: 0.5; }
+  100% { transform: translateY(0) scale(1);   opacity: 1; }
+}
+@keyframes taskSlideIn {
+  from { transform: translateY(-10px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+.task-card.animating-done {
+  animation: taskSlideDone 0.45s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+.task-card.slide-in {
+  animation: taskSlideIn 0.3s ease forwards;
+}
 
 .task-card {
   background: var(--bg-card);
@@ -521,7 +555,19 @@ body::before {
 
 
   /* Push Notification Button */
-  .push-btn {
+  /* push debug banner */
+#push-debug-banner {
+  display: none;
+  background: rgba(255,50,50,0.1);
+  border: 1px solid rgba(255,50,50,0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: #f87171;
+  margin: 4px 8px;
+  word-break: break-all;
+}
+.push-btn {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -955,20 +1001,11 @@ function switchPage(page) {
 }
 
 // ─── TASK RENDERING ────────────────────────────────────────────
-function renderTaskList() {
-  const container = document.getElementById('taskList');
-  if (!state.tasks.length) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">暫無任務</div>';
-    return;
-  }
-
-  container.innerHTML = state.tasks.map(task => {
-    const checkin = state.checkins.find(c => c.taskId === task.id);
-    const status = checkin ? (checkin.isDone ? 'done' : 'skip') : getOverdueStatus(task);
-    const statusLabel = { done: '✅ 完成', skip: '跳過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
-    const statusClass = 'status-' + status;
-
-    return `<div class="task-card ${status === 'done' ? 'done' : ''}" id="card-${task.id}">
+function renderTaskCard(task, checkin) {
+  const status = checkin ? (checkin.isDone ? 'done' : 'skip') : getOverdueStatus(task);
+  const statusLabel = { done: '✅ 完成', skip: '跳過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
+  const statusClass = 'status-' + status;
+  return `<div class="task-card ${status === 'done' ? 'done' : ''}" id="card-${task.id}">
       <div class="task-header" onclick="toggleTask('${task.id}')">
         <div class="task-icon">${task.icon || '📌'}</div>
         <div class="task-info">
@@ -981,7 +1018,42 @@ function renderTaskList() {
         ${renderTaskPanel(task, checkin)}
       </div>
     </div>`;
-  }).join('');
+}
+
+function renderTaskList() {
+  const container = document.getElementById('taskList');
+  if (!state.tasks.length) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">暫無任務</div>';
+    return;
+  }
+
+  const pending = [];
+  const done    = [];
+
+  state.tasks.forEach(task => {
+    const checkin = state.checkins.find(c => c.taskId === task.id);
+    const isDone  = checkin?.isDone;
+    const isSkip  = checkin && !checkin.isDone;
+    if (isDone || isSkip) done.push({ task, checkin });
+    else pending.push({ task, checkin });
+  });
+
+  let html = '<div class="tasks-pending-section">';
+  if (pending.length === 0) {
+    html += '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.9rem">🎉 所有任務已完成！</div>';
+  } else {
+    html += pending.map(({ task, checkin }) => renderTaskCard(task, checkin)).join('');
+  }
+  html += '</div>';
+
+  if (done.length > 0) {
+    html += `<div class="tasks-done-divider"><span>✅ 已完成 (${done.length})</span></div>`;
+    html += '<div class="tasks-done-section">';
+    html += done.map(({ task, checkin }) => renderTaskCard(task, checkin)).join('');
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
 }
 
 function getOverdueStatus(task) {
@@ -1135,8 +1207,7 @@ async function submitWeight(taskId) {
     const cat = (carryW - personW).toFixed(2);
     showToast(`🐱 喔咪體重：${cat} kg ✅`);
     confetti();
-    await reloadCheckins();
-    toggleTask(taskId);
+    await reloadCheckins(taskId);
   } catch(e) {
     showToast('❌ 記錄失敗，請重試');
   }
@@ -1160,20 +1231,36 @@ async function submitCheckin(taskId) {
     else showToast('📝 已記錄');
     delete taskDoneState[taskId];
     delete taskResultState[taskId];
-    await reloadCheckins();
-    toggleTask(taskId);
+    await reloadCheckins(isDone ? taskId : null);
+    if (!isDone) toggleTask(taskId);
   } catch(e) {
     showToast('❌ 提交失敗，請重試');
   }
 }
 
-async function reloadCheckins() {
+async function reloadCheckins(justCompletedId) {
   try {
     state.checkins = await api('/api/checkins?date=' + state.currentDate);
   } catch(e) {}
+  if (justCompletedId) {
+    // Animate the card sliding down before re-render
+    const card = document.getElementById('card-' + justCompletedId);
+    if (card) {
+      card.classList.add('animating-done');
+      await new Promise(r => setTimeout(r, 450));
+    }
+  }
   renderTaskList();
   renderProgress();
   checkAlerts();
+  // Fade in newly-rendered done card
+  if (justCompletedId) {
+    const newCard = document.getElementById('card-' + justCompletedId);
+    if (newCard) {
+      newCard.classList.add('slide-in');
+      setTimeout(() => newCard.classList.remove('slide-in'), 350);
+    }
+  }
 }
 
 // ─── PROGRESS ──────────────────────────────────────────────────
@@ -1556,13 +1643,36 @@ function urlBase64ToUint8Array(base64String) {
 
 async function togglePushNotification() {
   const btn = document.getElementById('push-btn');
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    showToast('❌ 此裝置不支援推播通知');
+
+  // Check if already subscribed → unsubscribe
+  if (btn && btn.dataset.subscribed === 'true') {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+      if (reg) {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      }
+      await fetch('/api/push/subscribe', { method: 'DELETE' });
+      btn.textContent = '🔔';
+      btn.style.color = '';
+      btn.title = '啟用通知';
+      btn.dataset.subscribed = 'false';
+      showToast('🔕 推播通知已關閉');
+    } catch(e) { showToast('❌ 取消失敗：' + e.message); }
+    return;
+  }
+
+  if (!('serviceWorker' in navigator)) {
+    showToast('❌ 此裝置不支援 ServiceWorker（請使用 Chrome 或已加入主畫面的 Safari）');
+    return;
+  }
+  if (!('PushManager' in window)) {
+    showToast('❌ 此裝置不支援 Web Push（iOS 請先加入主畫面）');
     return;
   }
   const perm = Notification.permission;
   if (perm === 'denied') {
-    showToast('❌ 通知已被封鎖，請在瀏覽器設定中手動允許');
+    showToast('❌ 通知已被封鎖，請在瀏覽器設定 → 此網站 → 通知 → 允許');
     btn.style.color = '#ccc';
     btn.title = '通知已封鎖';
     return;
@@ -1572,28 +1682,49 @@ async function togglePushNotification() {
     // Register SW
     const reg = await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;
+    // Request permission explicitly first (for iOS)
+    if (Notification.permission === 'default') {
+      const result = await Notification.requestPermission();
+      if (result !== 'granted') {
+        btn.textContent = '🔔';
+        showToast('❌ 通知權限被拒絕');
+        return;
+      }
+    }
     // Subscribe
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     });
     // Send subscription to server
+    const subJson = sub.toJSON();
+    console.log('[Push] Subscription:', JSON.stringify(subJson).substring(0,100));
     const resp = await fetch('/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sub.toJSON())
+      body: JSON.stringify(subJson)
     });
     const data = await resp.json();
     if (data.ok) {
       btn.textContent = '🔔';
       btn.style.color = '#4caf50';
-      btn.title = '通知已啟用 ✅';
+      btn.title = '通知已啟用 ✅（點擊關閉）';
+      btn.dataset.subscribed = 'true';
       showToast('✅ 推播通知已啟用！');
+      // Send immediate test push to confirm
+      setTimeout(async () => {
+        try {
+          const r = await fetch('/api/push/test', { method: 'POST' });
+          const d = await r.json();
+          if (!d.ok) console.warn('[Push] Test failed:', d);
+        } catch(e) {}
+      }, 1500);
     } else {
       throw new Error(data.error || 'subscribe failed');
     }
   } catch (err) {
-    console.error('Push subscribe error:', err);
+    btn.textContent = '🔔';
+    console.error('[Push] Subscribe error:', err);
     showToast('❌ 通知啟用失敗：' + err.message);
   }
 }
@@ -1606,6 +1737,7 @@ async function checkPushStatus() {
     btn.textContent = '🔕';
     btn.style.color = '#ccc';
     btn.title = '通知已封鎖';
+    btn.dataset.subscribed = 'false';
     return;
   }
   try {
@@ -1615,10 +1747,13 @@ async function checkPushStatus() {
       if (sub) {
         btn.textContent = '🔔';
         btn.style.color = '#4caf50';
-        btn.title = '通知已啟用 ✅';
+        btn.title = '通知已啟用 ✅（點擊關閉）';
+        btn.dataset.subscribed = 'true';
+        return;
       }
     }
   } catch(e) { /* ignore */ }
+  btn.dataset.subscribed = 'false';
 }
 // ===== END PUSH =====
 
