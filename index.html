@@ -769,7 +769,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.3</span>
+        <span id="version-badge">v3.4</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -869,16 +869,22 @@ body::before {
     </div>
     <div class="admin-panel">
       <div class="admin-tabs">
-        <button class="admin-tab active" onclick="switchAdminTab('records')">📋 打卡紀錄</button>
+        <button class="admin-tab active" onclick="switchAdminTab('overview')">📊 今日概覽</button>
+        <button class="admin-tab" onclick="switchAdminTab('records')">📋 歷史紀錄</button>
         <button class="admin-tab" onclick="switchAdminTab('weights')">⚖️ 體重</button>
-        <button class="admin-tab" onclick="switchAdminTab('tasks')">✏️ 任務管理</button>
+        <button class="admin-tab" onclick="switchAdminTab('tasks')">✏️ 任務排程</button>
         <button class="admin-tab" onclick="switchAdminTab('periodic')">🔄 不定期</button>
         <button class="admin-tab" onclick="switchAdminTab('cat')">🐾 貓咪</button>
         <button class="admin-tab" onclick="switchAdminTab('settings')">⚙️ 設定</button>
       </div>
 
+      <!-- Overview Tab (default) -->
+      <div id="adminTabOverview" class="admin-tab-content active">
+        <div id="adminOverviewContent"><div class="loading-spin"></div></div>
+      </div>
+
       <!-- Records Tab -->
-      <div id="adminTabRecords" class="admin-tab-content active">
+      <div id="adminTabRecords" class="admin-tab-content">
         <div class="form-field">
           <label>選擇日期</label>
           <input type="date" id="recordsDatePicker" onchange="loadAdminRecords()">
@@ -894,27 +900,7 @@ body::before {
       <!-- Tasks Tab -->
       <div id="adminTabTasks" class="admin-tab-content">
         <div id="adminTasksList"></div>
-        <button class="btn btn-primary mt-16" onclick="showAddTaskForm()">＋ 新增任務</button>
-        <div id="addTaskForm" style="display:none;margin-top:16px;" class="card">
-          <div class="form-field"><label>任務名稱</label><input type="text" id="newTaskName" placeholder="例：早餐"></div>
-          <div class="form-field"><label>圖示 (emoji)</label><input type="text" id="newTaskIcon" placeholder="🍽️" maxlength="2"></div>
-          <div class="form-field">
-            <label>類型</label>
-            <select id="newTaskType">
-              <option value="meal">🍽️ 餐食</option>
-              <option value="litter">🪣 貓砂</option>
-              <option value="water">💧 飲水</option>
-              <option value="weight">⚖️ 體重</option>
-              <option value="groom">✂️ 美容</option>
-              <option value="other">📌 其他</option>
-            </select>
-          </div>
-          <div class="form-field"><label>時間 (HH:MM)</label><input type="time" id="newTaskTime"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <button class="btn btn-success" onclick="saveNewTask()">儲存</button>
-            <button class="btn btn-secondary" onclick="document.getElementById('addTaskForm').style.display='none'">取消</button>
-          </div>
-        </div>
+        <button class="btn btn-primary mt-16" onclick="openTaskModal(null)">＋ 新增任務</button>
       </div>
 
       <!-- Periodic Tab -->
@@ -1785,23 +1771,94 @@ function calNextMonth() {
 // ─── ADMIN ─────────────────────────────────────────────────────
 function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab').forEach((t,i) => {
-    const tabs = ['records','weights','tasks','periodic','cat','settings'];
+    const tabs = ['overview','records','weights','tasks','periodic','cat','settings'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('adminTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
   if (tab === 'cat') loadAdminCat();
+  if (tab === 'records') loadAdminRecords();
+  if (tab === 'weights') loadAdminWeights();
+  if (tab === 'overview') loadAdminOverview();
 }
 
 async function loadAdminData() {
-  // Set today's date in records picker
   document.getElementById('recordsDatePicker').value = state.currentDate;
-  loadAdminRecords();
-  loadAdminWeights();
+  loadAdminOverview();   // default tab
   loadAdminTasks();
   loadAdminPeriodic();
   loadAdminCat();
   loadAdminSettings();
+}
+
+async function loadAdminOverview() {
+  const container = document.getElementById('adminOverviewContent');
+  container.innerHTML = '<div class="loading-spin"></div>';
+  try {
+    const date = state.currentDate;
+    const checkins = await api('/api/checkins?date=' + date).catch(() => []);
+    const catName = state.cat?.name || state.catName || '屋咪';
+    const now = getCalgaryDate();
+    const nowMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+    const total = state.tasks.length;
+    const done  = checkins.filter(c => c.isDone).length;
+    const skipped = checkins.filter(c => !c.isDone && c.taskId).length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+
+    // Build timeline items (sorted by scheduled time)
+    const sorted = [...state.tasks].sort((a,b) => {
+      const ta = (a.scheduledTimes?.[0] || '99:99');
+      const tb = (b.scheduledTimes?.[0] || '99:99');
+      return ta.localeCompare(tb);
+    });
+
+    const doneItems = [], pendItems = [];
+    sorted.forEach(task => {
+      const ci = checkins.find(c => c.taskId === task.id);
+      const schedTime = task.scheduledTimes?.[0] || '';
+      const schedMins = schedTime ? parseInt(schedTime.split(':')[0])*60+parseInt(schedTime.split(':')[1]) : 0;
+      let status = 'pending';
+      if (ci?.isDone) status = 'done';
+      else if (ci && !ci.isDone) status = 'skip';
+      else if (schedTime && schedMins < nowMins) status = 'overdue';
+
+      const doneTime = ci?.time ? utcToCalgaryClock(ci.time) : null;
+      const badgeMap = { done:'badge-tl-done', skip:'badge-tl-skip', overdue:'badge-tl-over', pending:'badge-tl-pend' };
+      const labelMap = { done:'✅ 完成', skip:'⏭️ 跳過', overdue:'⚠️ 逾時', pending:'待完成' };
+      const card = `<div class="tl-item tl-${status}" onclick="openTaskDetailModal('${task.id}',${ci?JSON.stringify(ci).replace(/"/g,"'"):null})">
+        <div class="tl-card">
+          <div style="display:flex;align-items:center;flex:1;min-width:0">
+            <span class="tl-icon">${task.icon}</span>
+            <div style="min-width:0">
+              <div class="tl-name">${task.name}</div>
+              <div class="tl-sched">${schedTime || '—'}</div>
+            </div>
+          </div>
+          <div class="tl-right">
+            <span class="tl-status-badge ${badgeMap[status]}">${labelMap[status]}</span>
+            ${doneTime ? `<div class="tl-time">✔ ${doneTime}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+      if (status === 'done' || status === 'skip') doneItems.push(card);
+      else pendItems.push(card);
+    });
+
+    container.innerHTML = `
+      <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">📅 ${date} · ${catName} 的照護紀錄</div>
+      <div class="overview-summary">
+        <div class="ov-stat"><div class="ov-stat-num">${done}</div><div class="ov-stat-label">已完成</div></div>
+        <div class="ov-stat"><div class="ov-stat-num" style="color:${pct>=80?'#4ade80':pct>=50?'#fb923c':'#f87171'}">${pct}%</div><div class="ov-stat-label">完成率</div></div>
+        <div class="ov-stat"><div class="ov-stat-num" style="color:#6b7280">${total - done - skipped}</div><div class="ov-stat-label">待完成</div></div>
+      </div>
+      ${pendItems.length ? `<div class="ov-section-title">⏳ 待完成 / 逾時</div><div class="timeline">${pendItems.join('')}</div>` : ''}
+      ${doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 跳過</div><div class="timeline">${doneItems.join('')}</div>` : ''}
+      ${(!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : ''}
+    `;
+  } catch(e) {
+    container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
+  }
 }
 
 async function loadAdminRecords() {
@@ -1816,7 +1873,7 @@ async function loadAdminRecords() {
     }
     const rows = checkins.map(c => {
       const task = state.tasks.find(t => t.id === c.taskId);
-      const timeStr = c.time ? new Date(c.time).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}) : '-';
+      const timeStr = c.time ? utcToCalgaryClock(c.time) : '-';
       return `<tr>
         <td>${task?.icon || ''} ${task?.name || c.taskId}</td>
         <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅ 完成' : '⏭️ 跳過'}</td>
@@ -1867,54 +1924,244 @@ async function loadAdminWeights() {
 async function loadAdminTasks() {
   const container = document.getElementById('adminTasksList');
   container.innerHTML = '';
-  state.tasks.forEach((task, idx) => {
-    container.innerHTML += `<div class="card flex-between" style="padding:12px 16px">
-      <div><span style="font-size:1.2rem">${task.icon}</span> ${task.name}
-        <div class="text-muted">${task.scheduledTimes?.join(', ') || ''}</div>
+  const schedLabel = {daily:'每天',weekly:'每週指定日',weekdays:'平日',weekends:'週末'};
+  state.tasks.forEach((task) => {
+    const times = (task.scheduledTimes || []).map(t => `<span class="sched-time-chip">${t}</span>`).join(' ');
+    const stype = schedLabel[task.scheduleType || 'daily'] || '每天';
+    container.innerHTML += `<div class="task-sched-card" onclick="openTaskModal('${task.id}')">
+      <div class="task-sched-left">
+        <span class="task-sched-icon">${task.icon}</span>
+        <div>
+          <div class="task-sched-name">${task.name}</div>
+          <div class="task-sched-meta">${stype}${task.weekDays ? ' · ' + task.weekDays.map(d=>['日','一','二','三','四','五','六'][d]).join('、') : ''}</div>
+        </div>
       </div>
-      <button onclick="deleteTask('${task.id}')" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:1.1rem">🗑️</button>
+      <div class="task-sched-right">${times}<span class="sched-edit-btn">✏️ 編輯</span></div>
     </div>`;
   });
 }
 
-function showAddTaskForm() {
-  document.getElementById('addTaskForm').style.display = 'block';
+function showAddTaskForm() { openTaskModal(null); } // backward compat
+
+// ── Task Edit Modal Logic ──────────────────────────────────────────────
+let _temTimes = [];   // working copy of scheduled times
+
+function openTaskModal(taskId) {
+  const modal = document.getElementById('taskEditModal');
+  const isNew = !taskId;
+  document.getElementById('temTitle').textContent = isNew ? '＋ 新增任務' : '✏️ 編輯任務';
+  document.getElementById('temTaskId').value = taskId || '';
+  document.getElementById('temDeleteRow').style.display = isNew ? 'none' : 'block';
+
+  if (isNew) {
+    document.getElementById('temIcon').value = '📌';
+    document.getElementById('temName').value = '';
+    document.getElementById('temType').value = 'other';
+    document.getElementById('temScheduleType').value = 'daily';
+    document.getElementById('temRequireNote').value = 'false';
+    _temTimes = [];
+  } else {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+    document.getElementById('temIcon').value = task.icon || '📌';
+    document.getElementById('temName').value = task.name || '';
+    document.getElementById('temType').value = task.type || 'other';
+    document.getElementById('temScheduleType').value = task.scheduleType || 'daily';
+    document.getElementById('temRequireNote').value = task.requireNote ? 'optional' : 'false';
+    _temTimes = [...(task.scheduledTimes || [])];
+    // restore weekdays
+    if (task.weekDays) {
+      document.querySelectorAll('#temWeekdaysRow input[type=checkbox]').forEach(cb => {
+        cb.checked = task.weekDays.includes(Number(cb.value));
+        updateWdChip(cb);
+      });
+    }
+    // show result preview
+    const opts = (task.resultOptions || []).map(o=>o.label).join(' / ');
+    document.getElementById('temResultPreview').textContent = opts || '(無結果選項)';
+  }
+
+  updateTemWeekdays();
+  renderTemTimes();
+  modal.classList.remove('hidden');
 }
 
-async function saveNewTask() {
-  const name = document.getElementById('newTaskName').value.trim();
-  const icon = document.getElementById('newTaskIcon').value.trim() || '📌';
-  const type = document.getElementById('newTaskType').value;
-  const time = document.getElementById('newTaskTime').value;
-  if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
-  const newTask = {
-    id: 't' + Date.now(),
-    name, icon, type,
-    scheduleType: 'daily',
-    scheduledTimes: time ? [time] : [],
-    resultOptions: type === 'litter' ? [
-      {label:'💩 有屎',value:'poop'},{label:'💦 有尿',value:'urine'},
-      {label:'💩💦 都有',value:'both'},{label:'✨ 都沒有',value:'none'}
-    ] : type === 'meal' ? [
-      {label:'正常進食 ✅',value:'normal'},{label:'少量進食',value:'little'},{label:'完全不吃',value:'none'}
-    ] : [],
-    requireNote: false,
+function updateWdChip(cb) {
+  // style the parent label
+  const lbl = cb.closest('.wd-btn');
+  if (!lbl) return;
+  const chip = lbl.querySelector('.wd-chip');
+  if (chip) {
+    if (cb.checked) { chip.style.background='var(--cat-accent)'; chip.style.color='#fff'; chip.style.borderColor='var(--cat-accent)'; }
+    else { chip.style.background=''; chip.style.color=''; chip.style.borderColor=''; }
+  }
+}
+
+function closeTaskModal() {
+  document.getElementById('taskEditModal').classList.add('hidden');
+}
+
+function updateTemWeekdays() {
+  const type = document.getElementById('temScheduleType').value;
+  const row = document.getElementById('temWeekdaysRow');
+  row.classList.toggle('hidden', type !== 'weekly');
+}
+
+function renderTemTimes() {
+  const container = document.getElementById('temTimesList');
+  container.innerHTML = _temTimes.map((t,i) =>
+    `<span class="time-chip-item">${t}<button class="time-chip-remove" onclick="_temTimes.splice(${i},1);renderTemTimes()">×</button></span>`
+  ).join('');
+}
+
+function addTemTime() {
+  const v = document.getElementById('temNewTime').value;
+  if (!v) { showToast('⚠️ 請選擇時間'); return; }
+  if (_temTimes.includes(v)) { showToast('⚠️ 該時間已存在'); return; }
+  _temTimes.push(v);
+  _temTimes.sort();
+  renderTemTimes();
+  document.getElementById('temNewTime').value = '';
+}
+
+function updateTemResultOptions() {
+  const type = document.getElementById('temType').value;
+  const presets = {
+    meal: '🍽️ 餐食: 正常 / 少量 / 完全不吃',
+    litter: '🪣 貓砂: 💩有屎 / 💦有尿 / 都有 / 都沒有',
+    water: '💧 飲水: 完成 / 加水',
   };
-  state.tasks.push(newTask);
+  document.getElementById('temResultPreview').textContent = presets[type] || '(無預設 — 可從下方選擇)';
+}
+
+function applyResultPreset() {
+  const p = document.getElementById('temResultPreset').value;
+  const presets = {
+    meal: '🍽️ 餐食: 正常進食 / 少量進食 / 完全不吃',
+    litter: '🪣 貓砂: 💩有屎 / 💦有尿 / 都有 / 都沒有',
+    water: '💧 飲水: 完成 / 加水',
+    none: '(清空)',
+  };
+  if (p) document.getElementById('temResultPreview').textContent = presets[p] || '';
+}
+
+function getResultOptionsForPreset(preset) {
+  const map = {
+    meal: [{label:'正常進食 ✅',value:'normal'},{label:'少量進食',value:'little'},{label:'完全不吃',value:'none'}],
+    litter: [{label:'💩 有屎',value:'poop'},{label:'💦 有尿',value:'urine'},{label:'💩💦 都有',value:'both'},{label:'✨ 都沒有',value:'none'}],
+    water: [{label:'✅ 完成',value:'done'},{label:'💧 加水',value:'topped'}],
+    none: [],
+  };
+  return map[preset] || null;
+}
+
+async function saveTaskModal() {
+  const taskId = document.getElementById('temTaskId').value;
+  const name = document.getElementById('temName').value.trim();
+  const icon = document.getElementById('temIcon').value.trim() || '📌';
+  const type = document.getElementById('temType').value;
+  const scheduleType = document.getElementById('temScheduleType').value;
+  const requireNote = document.getElementById('temRequireNote').value !== 'false';
+
+  if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
+  if (_temTimes.length === 0) { showToast('⚠️ 請至少新增一個時間'); return; }
+
+  // weekdays
+  let weekDays = null;
+  if (scheduleType === 'weekly') {
+    weekDays = [];
+    document.querySelectorAll('#temWeekdaysRow input[type=checkbox]').forEach(cb => {
+      if (cb.checked) weekDays.push(Number(cb.value));
+    });
+    if (!weekDays.length) { showToast('⚠️ 請選擇重複日'); return; }
+  } else if (scheduleType === 'weekdays') {
+    weekDays = [1,2,3,4,5];
+  } else if (scheduleType === 'weekends') {
+    weekDays = [0,6];
+  }
+
+  // result options
+  const preset = document.getElementById('temResultPreset').value;
+  let resultOptions = null;
+  if (preset) {
+    resultOptions = getResultOptionsForPreset(preset);
+  }
+
+  const isNew = !taskId;
+  if (isNew) {
+    // auto result options by type if not set
+    if (resultOptions === null) {
+      resultOptions = getResultOptionsForPreset(type) || [];
+    }
+    const newTask = { id:'t'+Date.now(), name, icon, type, scheduleType, scheduledTimes: _temTimes, weekDays, resultOptions, requireNote };
+    state.tasks.push(newTask);
+  } else {
+    const idx = state.tasks.findIndex(t => t.id === taskId);
+    if (idx < 0) return;
+    const existing = state.tasks[idx];
+    state.tasks[idx] = {
+      ...existing,
+      name, icon, type, scheduleType,
+      scheduledTimes: _temTimes,
+      weekDays,
+      requireNote,
+      resultOptions: resultOptions !== null ? resultOptions : existing.resultOptions,
+    };
+  }
+
   await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
-  showToast('✅ 任務已新增');
-  document.getElementById('addTaskForm').style.display = 'none';
+  showToast(isNew ? '✅ 任務已新增' : '✅ 任務已更新');
+  closeTaskModal();
+  loadAdminTasks();
+  renderTaskList();
+}
+
+async function deleteCurrentTask() {
+  const taskId = document.getElementById('temTaskId').value;
+  if (!taskId) return;
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!confirm(`確定刪除「${task?.name || taskId}」？`)) return;
+  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
+  showToast('🗑️ 任務已刪除');
+  closeTaskModal();
   loadAdminTasks();
   renderTaskList();
 }
 
 async function deleteTask(taskId) {
-  if (!confirm('確定刪除此任務？')) return;
+  // legacy wrapper
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!confirm(`確定刪除「${task?.name || taskId}」？`)) return;
   state.tasks = state.tasks.filter(t => t.id !== taskId);
   await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
   showToast('🗑️ 任務已刪除');
   loadAdminTasks();
   renderTaskList();
+}
+
+// ── Task Detail Modal ─────────────────────────────────────────────────────
+function openTaskDetailModal(taskId, checkin) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const modal = document.getElementById('taskDetailModal');
+  document.getElementById('tdmTitle').textContent = task.icon + ' ' + task.name;
+  let rows = [];
+  rows.push(['狀態', checkin?.isDone === false ? '⏭️ 跳過' : checkin?.isDone ? '✅ 完成' : '⏳ 待完成']);
+  if (checkin?.time) rows.push(['完成時間', utcToCalgaryClock(checkin.time) + ' (Calgary)']);
+  if (checkin?.result) rows.push(['結果', checkin.result]);
+  if (checkin?.note) rows.push(['備注', checkin.note]);
+  rows.push(['排程時間', (task.scheduledTimes||[]).join(', ') || '-']);
+  rows.push(['重複規則', ({daily:'每天',weekly:'每週指定日',weekdays:'平日',weekends:'週末'})[task.scheduleType||'daily']]);
+  if (task.weekDays) rows.push(['重複日', task.weekDays.map(d=>['日','一','二','三','四','五','六'][d]).join('、')]);
+  rows.push(['類型', task.type || '-']);
+  document.getElementById('tdmBody').innerHTML = rows.map(([l,v]) =>
+    `<div class="detail-row"><span class="detail-label">${l}</span><span class="detail-value">${v}</span></div>`
+  ).join('');
+  modal.classList.remove('hidden');
+}
+function closeTaskDetailModal() {
+  document.getElementById('taskDetailModal').classList.add('hidden');
 }
 
 async function loadAdminPeriodic() {
@@ -2228,5 +2475,273 @@ async function checkPushStatus() {
 // ===== END PUSH =====
 
 </script>
+
+<!-- ========== TASK DETAIL MODAL ========== -->
+<div id="taskDetailModal" class="modal-overlay hidden" onclick="if(event.target===this)closeTaskDetailModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="tdmTitle" style="font-size:1.15rem;font-weight:700"></span>
+      <button class="modal-close" onclick="closeTaskDetailModal()">✕</button>
+    </div>
+    <div id="tdmBody" style="padding:16px 20px"></div>
+  </div>
+</div>
+
+<!-- ========== TASK EDIT MODAL ========== -->
+<div id="taskEditModal" class="modal-overlay hidden" onclick="if(event.target===this)closeTaskModal()">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <span id="temTitle" style="font-size:1.1rem;font-weight:700">✏️ 編輯任務</span>
+      <button class="modal-close" onclick="closeTaskModal()">✕</button>
+    </div>
+    <div style="padding:16px 20px;overflow-y:auto;max-height:70vh">
+      <input type="hidden" id="temTaskId">
+
+      <div class="form-row-2">
+        <div class="form-field">
+          <label>圖示 (emoji)</label>
+          <input type="text" id="temIcon" placeholder="🍽️" maxlength="2" class="emoji-input">
+        </div>
+        <div class="form-field" style="flex:3">
+          <label>任務名稱</label>
+          <input type="text" id="temName" placeholder="例：早餐">
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label>類型</label>
+        <select id="temType" onchange="updateTemResultOptions()">
+          <option value="meal">🍽️ 餐食</option>
+          <option value="litter">🪣 貓砂</option>
+          <option value="water">💧 飲水</option>
+          <option value="weight">⚖️ 體重</option>
+          <option value="groom">✂️ 美容</option>
+          <option value="other">📌 其他</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label>重複規則</label>
+        <select id="temScheduleType" onchange="updateTemWeekdays()">
+          <option value="daily">📅 每天</option>
+          <option value="weekly">🗓️ 每週指定日</option>
+          <option value="weekdays">💼 平日 (週一至五)</option>
+          <option value="weekends">🌴 週末 (週六日)</option>
+        </select>
+      </div>
+
+      <div id="temWeekdaysRow" class="form-field hidden">
+        <label>重複日</label>
+        <div class="weekday-picker">
+          <label class="wd-btn"><input type="checkbox" value="0" onchange="updateWdChip(this)"><span class="wd-chip">日</span></label>
+          <label class="wd-btn"><input type="checkbox" value="1" onchange="updateWdChip(this)"><span class="wd-chip">一</span></label>
+          <label class="wd-btn"><input type="checkbox" value="2" onchange="updateWdChip(this)"><span class="wd-chip">二</span></label>
+          <label class="wd-btn"><input type="checkbox" value="3" onchange="updateWdChip(this)"><span class="wd-chip">三</span></label>
+          <label class="wd-btn"><input type="checkbox" value="4" onchange="updateWdChip(this)"><span class="wd-chip">四</span></label>
+          <label class="wd-btn"><input type="checkbox" value="5" onchange="updateWdChip(this)"><span class="wd-chip">五</span></label>
+          <label class="wd-btn"><input type="checkbox" value="6" onchange="updateWdChip(this)"><span class="wd-chip">六</span></label>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label>執行時間</label>
+        <div id="temTimesList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="time" id="temNewTime" style="flex:1">
+          <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem" onclick="addTemTime()">＋ 新增時間</button>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label>結果選項 <span style="font-size:0.75rem;color:var(--text-muted)">(空白 = 不需選)</span></label>
+        <div id="temResultPreview" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:4px"></div>
+        <select id="temResultPreset" onchange="applyResultPreset()">
+          <option value="">— 自訂 / 保留現有 —</option>
+          <option value="meal">🍽️ 餐食: 正常/少量/完全不吃</option>
+          <option value="litter">🪣 貓砂: 屎/尿/都有/都沒有</option>
+          <option value="water">💧 飲水: 完成/加水</option>
+          <option value="none">✕ 清空 (不需選結果)</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label>備注欄位</label>
+        <select id="temRequireNote">
+          <option value="false">不需要</option>
+          <option value="optional">可選填</option>
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">
+        <button class="btn btn-success" onclick="saveTaskModal()">💾 儲存任務</button>
+        <button class="btn btn-secondary" onclick="closeTaskModal()">取消</button>
+      </div>
+      <div id="temDeleteRow" style="margin-top:12px;text-align:center;display:none">
+        <button class="btn" style="background:#fee2e2;color:#dc2626;width:100%" onclick="deleteCurrentTask()">🗑️ 刪除此任務</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ── Modal base ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9000; padding: 16px;
+}
+.modal-overlay.hidden { display: none !important; }
+.modal-box {
+  background: var(--card-bg, #fff); border-radius: 16px;
+  width: 100%; max-width: 480px; box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+  animation: modalIn 0.2s ease;
+}
+@keyframes modalIn {
+  from { transform: scale(0.92) translateY(12px); opacity:0; }
+  to   { transform: scale(1) translateY(0);     opacity:1; }
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+.modal-close {
+  background: none; border: none; font-size: 1.1rem; cursor: pointer;
+  color: var(--text-muted, #9ca3af); padding: 4px 8px; border-radius: 6px;
+}
+.modal-close:hover { background: var(--border-color, #f3f4f6); }
+
+/* ── Overview tab ── */
+.overview-summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 16px;
+}
+.ov-stat {
+  background: var(--card-bg); border-radius: 12px;
+  padding: 12px; text-align: center; border: 1px solid var(--border-color);
+}
+.ov-stat-num { font-size: 1.6rem; font-weight: 700; color: var(--cat-accent); }
+.ov-stat-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+.timeline { position: relative; padding-left: 28px; }
+.timeline::before {
+  content: ''; position: absolute; left: 10px; top: 0; bottom: 0;
+  width: 2px; background: var(--border-color);
+}
+.tl-item {
+  position: relative; margin-bottom: 8px; cursor: pointer;
+}
+.tl-item::before {
+  content: ''; position: absolute; left: -22px; top: 14px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--border-color); border: 2px solid var(--card-bg);
+  transition: background 0.2s;
+}
+.tl-item.tl-done::before { background: #4ade80; }
+.tl-item.tl-skip::before { background: #fb923c; }
+.tl-item.tl-overdue::before { background: #f87171; }
+.tl-item.tl-pending::before { background: #d1d5db; }
+
+.tl-card {
+  background: var(--card-bg); border: 1px solid var(--border-color);
+  border-radius: 10px; padding: 10px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: box-shadow 0.15s;
+}
+.tl-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+.tl-item.tl-done .tl-card { border-left: 3px solid #4ade80; }
+.tl-item.tl-skip .tl-card { border-left: 3px solid #fb923c; }
+.tl-item.tl-overdue .tl-card { border-left: 3px solid #f87171; }
+
+.tl-icon { font-size: 1.2rem; margin-right: 10px; }
+.tl-name { font-weight: 600; font-size: 0.9rem; }
+.tl-sched { font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono); }
+.tl-right { text-align: right; flex-shrink: 0; margin-left: 10px; }
+.tl-status-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 12px;
+  font-size: 0.72rem; font-weight: 600;
+}
+.badge-tl-done  { background: #dcfce7; color: #16a34a; }
+.badge-tl-skip  { background: #fff7ed; color: #c2410c; }
+.badge-tl-over  { background: #fef2f2; color: #dc2626; }
+.badge-tl-pend  { background: #f3f4f6; color: #6b7280; }
+.tl-time { font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono); margin-top: 3px; }
+
+.ov-section-title {
+  font-size: 0.8rem; font-weight: 700; color: var(--text-muted);
+  letter-spacing: 0.05em; text-transform: uppercase; margin: 16px 0 8px;
+}
+
+/* ── Task schedule tab ── */
+.task-sched-card {
+  background: var(--card-bg); border: 1px solid var(--border-color);
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: box-shadow 0.15s;
+}
+.task-sched-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+.task-sched-left { display: flex; align-items: center; gap: 10px; }
+.task-sched-icon { font-size: 1.3rem; }
+.task-sched-name { font-weight: 600; font-size: 0.9rem; }
+.task-sched-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.task-sched-right { display: flex; align-items: center; gap: 8px; }
+.sched-time-chip {
+  background: var(--bg-secondary, #f3f4f6); border-radius: 6px;
+  padding: 2px 8px; font-size: 0.78rem; font-family: var(--mono); color: var(--text-main);
+}
+.sched-edit-btn {
+  background: none; border: 1px solid var(--border-color); border-radius: 8px;
+  padding: 5px 10px; cursor: pointer; font-size: 0.8rem; color: var(--text-muted);
+}
+.sched-edit-btn:hover { background: var(--border-color); }
+
+/* ── Weekday picker ── */
+.weekday-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+.wd-btn { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.wd-btn input[type=checkbox] { display: none; }
+.wd-btn span, .wd-btn { 
+  padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
+  border: 1.5px solid var(--border-color); background: var(--card-bg);
+  transition: all 0.15s; user-select: none;
+}
+.wd-btn input:checked + span, .wd-btn:has(input:checked) {
+  background: var(--cat-accent); color: #fff; border-color: var(--cat-accent);
+}
+
+/* make wd-btn label look right */
+.wd-btn {
+  padding: 0;
+  border: none;
+  background: none;
+}
+.wd-chip {
+  padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
+  border: 1.5px solid var(--border-color); background: var(--card-bg);
+  display: inline-block; transition: all 0.15s; cursor: pointer;
+}
+
+/* ── Time chips in modal ── */
+.time-chip-item {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg-secondary, #f3f4f6); border-radius: 8px;
+  padding: 4px 10px; font-size: 0.85rem; font-family: var(--mono);
+}
+.time-chip-remove {
+  background: none; border: none; color: #f87171; cursor: pointer; font-size: 0.9rem; padding: 0 2px;
+}
+
+/* ── Form helpers ── */
+.form-row-2 { display: flex; gap: 10px; }
+.emoji-input { text-align: center; font-size: 1.3rem; }
+
+/* ── Detail modal body ── */
+.detail-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border-color);
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-label { font-size: 0.8rem; color: var(--text-muted); }
+.detail-value { font-weight: 600; font-size: 0.9rem; }
+</style>
+
 </body>
 </html>
