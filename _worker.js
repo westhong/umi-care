@@ -63,7 +63,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.4', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.5.3', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -261,7 +261,16 @@ export default {
     const url = new URL(request.url);
     if (!env.VAPID_PUBLIC_KEY) env = { ...env, VAPID_PUBLIC_KEY: VAPID_PUBLIC_KEY };
     if (url.pathname.startsWith('/api/')) return handleApi(request, env, url);
-    return env.ASSETS.fetch(request);
+    // Serve static assets; force no-cache for HTML to prevent stale page issues
+    const assetResp = await env.ASSETS.fetch(request);
+    const ct = assetResp.headers.get('Content-Type') || '';
+    if (ct.includes('text/html')) {
+      const newHeaders = new Headers(assetResp.headers);
+      newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      newHeaders.set('Pragma', 'no-cache');
+      return new Response(assetResp.body, { status: assetResp.status, headers: newHeaders });
+    }
+    return assetResp;
   },
 
   // Cron trigger: runs every 5 min to send due-task notifications
