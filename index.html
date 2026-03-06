@@ -819,7 +819,7 @@ let state = {
 
 function todayStr() {
   // Use HKT (UTC+8) date so frontend matches the server-side cron
-  const d = new Date(Date.now() + 8 * 3600 * 1000);
+  const d = new Date(Date.now() - 7 * 3600 * 1000); // Calgary MST UTC-7
   return d.toISOString().split('T')[0];
 }
 
