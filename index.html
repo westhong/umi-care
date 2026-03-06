@@ -1,0 +1,2965 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="/icon-192.png">
+  <meta name="theme-color" content="#ff85a1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>UmiCare 🐱 喔咪照護</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="UmiCare">
+<meta name="theme-color" content="#fff8f5">
+<link rel="apple-touch-icon" href="/icon-192.png"></meta>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #ff85a1;
+  --secondary: #c8a8e9;
+  --accent: #ffb347;
+  --cat-accent: #ff8c69;
+  --cat-warm: #ffb347;
+  --bg-primary: #fff8f5;
+  --bg-secondary: #fff0eb;
+  --bg-card: #ffffff;
+  --bg-card2: #fef2f5;
+  --text-primary: #3d2c35;
+  --text-secondary: rgba(61,44,53,0.65);
+  --text-muted: rgba(61,44,53,0.38);
+  --glass: rgba(255,255,255,0.85);
+  --glass-border: rgba(255,133,161,0.25);
+  --success: #52c77e;
+  --warning: #ffb347;
+  --danger: #ff7c7c;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --font: 'Space Grotesk', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Background animation */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 15% 15%, rgba(255,133,161,0.18) 0%, transparent 55%),
+              radial-gradient(ellipse at 85% 85%, rgba(200,168,233,0.14) 0%, transparent 50%),
+              radial-gradient(ellipse at 65% 5%, rgba(255,179,71,0.1) 0%, transparent 40%),
+              radial-gradient(ellipse at 50% 100%, rgba(255,133,161,0.08) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── OVERLAY & MODALS ─── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.overlay.hidden { display: none; }
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 32px 24px;
+  width: 100%; max-width: 380px;
+  text-align: center;
+  animation: slideUp 0.3s ease;
+  box-shadow: 0 20px 60px rgba(255,133,161,0.18), 0 4px 20px rgba(0,0,0,0.06);
+}
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal h2 { font-size: 1.4rem; margin-bottom: 8px; }
+.modal p { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; }
+
+/* ─── PIN INPUT ─── */
+.pin-dots {
+  display: flex; gap: 12px; justify-content: center; margin-bottom: 24px;
+}
+.pin-dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--glass-border);
+  background: transparent;
+  transition: all 0.2s;
+}
+.pin-dot.filled { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 8px rgba(255,133,161,0.5); }
+
+.pin-pad {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 10px; max-width: 240px; margin: 0 auto;
+}
+.pin-btn {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 1.2rem; font-weight: 600;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-user-select: none;
+}
+.pin-btn:active { transform: scale(0.92); background: var(--primary); }
+.pin-btn.del { font-size: 0.9rem; color: var(--text-muted); }
+.pin-btn.empty { visibility: hidden; }
+
+.btn {
+  display: block; width: 100%;
+  padding: 14px 20px;
+  border: none; border-radius: var(--radius-sm);
+  font-family: var(--font); font-size: 1rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; }
+.btn-primary:active { transform: scale(0.97); }
+.btn-secondary { background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-secondary); }
+.btn-success { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+.btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+.btn + .btn { margin-top: 10px; }
+
+/* ─── APP SHELL ─── */
+#app { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 80px; }
+#app.hidden { display: none; }
+/* pages hidden/shown by JS — must be explicit since .page has no display rule */
+.page { display: block; }
+.page.hidden { display: none !important; }
+
+/* ─── HEADER ─── */
+.header {
+  padding: 20px 20px 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-left h1 {
+  font-size: 1.5rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--primary), var(--cat-accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.header-left .date {
+  font-size: 0.8rem; color: var(--text-muted);
+  font-family: var(--mono);
+}
+.admin-btn {
+  width: 40px; height: 40px;
+  background: rgba(255,133,161,0.12); border: 1px solid rgba(255,133,161,0.3);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1.1rem; transition: all 0.2s;
+}
+.admin-btn:active { transform: scale(0.9); background: var(--primary); }
+
+/* ─── PROGRESS RING ─── */
+.progress-section {
+  padding: 20px;
+  display: flex; align-items: center; gap: 20px;
+  background: linear-gradient(135deg, rgba(255,133,161,0.08) 0%, rgba(200,168,233,0.08) 100%);
+  margin: 12px 16px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255,133,161,0.15);
+  box-shadow: 0 2px 12px rgba(255,133,161,0.08);
+}
+.progress-ring-wrap {
+  position: relative; flex-shrink: 0;
+}
+.progress-ring-wrap svg { transform: rotate(-90deg); }
+.progress-ring-bg { fill: none; stroke: var(--glass-border); stroke-width: 6; }
+.progress-ring-fill {
+  fill: none; stroke-width: 6; stroke-linecap: round;
+  stroke: url(#ringGrad);
+  transition: stroke-dashoffset 0.6s ease;
+}
+.progress-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.progress-pct { font-size: 1.3rem; font-weight: 700; line-height: 1; }
+.progress-label { font-size: 0.6rem; color: var(--text-muted); margin-top: 2px; }
+
+.progress-info h2 { font-size: 1.3rem; font-weight: 600; }
+.progress-info .sub { font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px; }
+.progress-info .count { font-size: 0.75rem; color: var(--text-muted); font-family: var(--mono); margin-top: 2px; }
+
+/* ─── ALERTS ─── */
+.alerts { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; }
+.alert {
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  font-size: 0.85rem; display: flex; align-items: center; gap: 8px;
+}
+.alert-red { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5; }
+.alert-orange { background: rgba(251,146,60,0.15); border: 1px solid rgba(251,146,60,0.3); color: #fdba74; }
+.alert-blue { background: rgba(200,168,233,0.12); border: 1px solid rgba(200,168,233,0.3); color: #a78bc4; }
+
+/* ─── TASK LIST ─── */
+.task-section { padding: 16px; }
+.section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 12px; }
+/* ─── PENDING / COMPLETED SECTIONS ─── */
+.tasks-pending-section { margin-bottom: 8px; }
+.tasks-done-section { margin-top: 6px; }
+.tasks-done-section .section-title { color: #4ade80; }
+.tasks-done-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 16px 0 10px;
+}
+.tasks-done-divider span {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
+  color: #4ade80; text-transform: uppercase; white-space: nowrap;
+}
+.tasks-done-divider::before, .tasks-done-divider::after {
+  content: ''; flex: 1;
+  height: 1px; background: rgba(74,222,128,0.25);
+}
+
+/* ─── SLIDE-DOWN ANIMATION when task becomes done ─── */
+@keyframes taskSlideDone {
+  0%   { transform: translateY(0) scale(1);   opacity: 1; }
+  30%  { transform: translateY(-6px) scale(1.02); opacity: 1; }
+  70%  { transform: translateY(24px) scale(0.97); opacity: 0.5; }
+  100% { transform: translateY(0) scale(1);   opacity: 1; }
+}
+@keyframes taskSlideIn {
+  from { transform: translateY(-10px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+.task-card.animating-done {
+  animation: taskSlideDone 0.45s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+.task-card.slide-in {
+  animation: taskSlideIn 0.3s ease forwards;
+}
+
+/* Cat Admin Form */
+.cat-admin-form {
+  padding: 16px 4px;
+}
+.cat-admin-avatar {
+  text-align: center;
+  font-size: 3.5rem;
+  margin-bottom: 16px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(255,133,161,0.4));
+}
+.cat-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.95rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.cat-input:focus {
+  outline: none;
+  border-color: rgba(255,133,161,0.6);
+  box-shadow: 0 0 0 3px rgba(255,133,161,0.12);
+}
+.cat-save-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  font-size: 1rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ff85a1, #ffb347);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 14px rgba(255,133,161,0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.cat-save-btn:active { transform: scale(0.98); }
+
+/* Cat Profile Card */
+.cat-profile-wrap {
+  margin: 0 0 12px 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,133,161,0.25);
+  background: rgba(255,133,161,0.06);
+}
+.cat-card-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text);
+  font-weight: 600;
+  text-align: left;
+}
+.cat-card-subtitle { color: var(--text-muted); font-weight: 400; font-size: 0.85rem; }
+.cat-card-body { padding: 0 14px 12px; }
+.cat-card-body.hidden { display: none; }
+.cat-stats-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cat-stat {
+  flex: 1;
+  min-width: 80px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.cat-stat-label { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; }
+.cat-stat-value { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+
+
+/* Weight recorded view */
+.weight-recorded-view {
+  background: rgba(74,222,128,0.08);
+  border: 1px solid rgba(74,222,128,0.25);
+  border-radius: 12px;
+  padding: 14px;
+}
+.weight-recorded-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.weight-recorded-time { color: var(--text-muted); font-weight: 400; }
+.weight-recorded-row {
+  display: flex;
+  gap: 8px;
+}
+.weight-rec-item {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.cat-weight-highlight {
+  background: rgba(255,133,161,0.12);
+  border: 1px solid rgba(255,133,161,0.25);
+}
+.weight-rec-label { font-size: 0.68rem; color: var(--text-muted); margin-bottom: 3px; }
+.weight-rec-val { font-size: 0.92rem; font-weight: 700; color: var(--text); }
+.weight-rec-note { margin-top: 8px; font-size: 0.8rem; color: var(--text-muted); }
+.task-card {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: all 0.2s;
+  box-shadow: 0 2px 12px rgba(255,133,161,0.1), 0 1px 4px rgba(0,0,0,0.04);
+}
+.task-card.done { border-color: rgba(82,199,126,0.4); background: rgba(82,199,126,0.06); }
+.task-card.expanded { border-color: rgba(102,126,234,0.4); }
+
+.task-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; cursor: pointer;
+}
+.task-icon {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, #fff0f5, #fde8f0);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(255,133,161,0.15);
+}
+.task-info { flex: 1; }
+.task-name { font-size: 0.95rem; font-weight: 600; }
+.task-time { font-size: 0.75rem; color: var(--text-muted); font-family: var(--mono); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.checkin-time { font-size: 0.72rem; color: #4ade80; font-weight: 600; letter-spacing: 0.01em; }
+.task-card.skip .checkin-time { color: #fb923c; }
+.task-status {
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 0.75rem; font-weight: 600;
+}
+.status-pending { background: rgba(255,255,255,0.08); color: var(--text-muted); }
+.status-done { background: rgba(74,222,128,0.2); color: #4ade80; }
+.status-skip { background: rgba(251,146,60,0.2); color: #fb923c; }
+.status-overdue { background: rgba(248,113,113,0.2); color: #f87171; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+/* ─── TASK EXPAND PANEL ─── */
+.task-panel {
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(255,133,161,0.15);
+  background: #fff9fb;
+  display: none;
+}
+.task-panel.open { display: block; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+.done-toggle {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0;
+}
+.toggle-btn {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font); font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.toggle-btn.selected-done { border-color: #4ade80; background: rgba(74,222,128,0.15); color: #4ade80; }
+.toggle-btn.selected-skip { border-color: #f87171; background: rgba(248,113,113,0.15); color: #f87171; }
+
+.result-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
+}
+.result-btn {
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text-secondary);
+  font-family: var(--font); font-size: 0.82rem; font-weight: 500;
+  cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.result-btn.selected { border-color: var(--primary); background: rgba(102,126,234,0.2); color: var(--primary); }
+
+/* Weight inputs */
+.weight-inputs { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+.weight-field label { font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px; }
+.weight-field input {
+  width: 100%; padding: 12px 14px;
+  background: var(--bg-card2); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm); color: var(--text-primary);
+  font-family: var(--mono); font-size: 1.1rem;
+}
+.weight-result {
+  background: rgba(255,133,161,0.08);
+  border: 1px solid rgba(255,133,161,0.25);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.weight-result .label { font-size: 0.85rem; color: var(--text-secondary); }
+.weight-result .value { font-size: 1.3rem; font-weight: 700; color: var(--cat-accent); font-family: var(--mono); }
+
+.note-input {
+  width: 100%; padding: 10px 14px;
+  background: var(--bg-card2); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm); color: var(--text-primary);
+  font-family: var(--font); font-size: 0.9rem;
+  resize: none; margin-bottom: 14px;
+}
+.note-input::placeholder { color: var(--text-muted); }
+
+.confirm-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.confirm-row .btn { padding: 12px; }
+
+/* ─── CALENDAR VIEW ─── */
+.calendar-section { padding: 16px; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cal-nav { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 8px; padding: 6px 12px; color: var(--text-primary); cursor: pointer; font-size: 1rem; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-day-label { text-align: center; font-size: 0.7rem; color: var(--text-muted); padding: 4px 0; }
+.cal-day {
+  aspect-ratio: 1; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 500; cursor: pointer;
+  transition: all 0.15s;
+}
+.cal-day.empty { background: transparent; }
+.cal-day.today { border: 2px solid var(--primary); }
+.cal-day.full { background: rgba(74,222,128,0.25); color: #4ade80; }
+.cal-day.partial { background: rgba(251,146,60,0.2); color: #fb923c; }
+.cal-day.missed { background: rgba(248,113,113,0.2); color: #f87171; }
+.cal-day.future { background: var(--glass); color: var(--text-muted); }
+.cal-day.no-data { background: var(--glass); color: var(--text-muted); }
+
+/* ─── ADMIN PANEL ─── */
+.admin-panel { padding: 16px; }
+.admin-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 16px; }
+.admin-tab {
+  padding: 8px 14px; border-radius: 20px; border: 1px solid var(--glass-border);
+  background: var(--glass); color: var(--text-muted);
+  font-family: var(--font); font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: all 0.15s;
+}
+.admin-tab.active { background: linear-gradient(135deg, var(--primary), var(--secondary)); border-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(255,133,161,0.3); }
+
+.admin-tab-content { display: none; }
+.admin-tab-content.active { display: block; animation: fadeIn 0.2s ease; }
+
+/* Records table */
+.records-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.records-table th { color: var(--text-muted); padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--glass-border); }
+.records-table td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+.badge-done { color: #4ade80; }
+.badge-skip { color: #f87171; }
+.badge-pending { color: var(--text-muted); }
+
+.card {
+  background: var(--bg-card); border: 1px solid var(--glass-border);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 10px;
+  box-shadow: 0 2px 12px rgba(255,133,161,0.08);
+}
+.card-title { font-weight: 600; margin-bottom: 4px; }
+.card-sub { font-size: 0.82rem; color: var(--text-muted); }
+.card-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+}
+.badge-overdue { background: rgba(248,113,113,0.2); color: #f87171; }
+.badge-due-soon { background: rgba(251,146,60,0.2); color: #fb923c; }
+.badge-ok { background: rgba(74,222,128,0.15); color: #4ade80; }
+
+.form-field { margin-bottom: 14px; }
+.form-field label { font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 6px; }
+.form-field input, .form-field select, .form-field textarea {
+  width: 100%; padding: 10px 14px;
+  background: var(--bg-card2); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm); color: var(--text-primary);
+  font-family: var(--font); font-size: 0.9rem;
+}
+.form-field textarea { resize: none; }
+
+/* ─── BOTTOM NAV ─── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,133,161,0.2);
+  display: flex; z-index: 50;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  box-shadow: 0 -4px 20px rgba(255,133,161,0.1);
+}
+.nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 10px 0 8px;
+  cursor: pointer; transition: all 0.15s;
+  border: none; background: transparent; color: var(--text-muted);
+  font-family: var(--font); font-size: 0.7rem;
+}
+.nav-btn .icon { font-size: 1.3rem; margin-bottom: 2px; }
+.nav-btn.active { color: var(--primary); }
+
+/* ─── TOAST ─── */
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--bg-card); border: 1px solid var(--glass-border);
+  border-radius: 30px; padding: 10px 20px;
+  font-size: 0.9rem; font-weight: 600;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  opacity: 0; transition: all 0.3s; z-index: 200; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ─── CONFETTI ─── */
+.confetti-piece {
+  position: fixed; width: 8px; height: 8px; border-radius: 2px;
+  pointer-events: none; z-index: 300;
+  animation: confettiFall 1.5s ease-out forwards;
+}
+@keyframes confettiFall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(80vh) rotate(720deg); opacity: 0; }
+}
+
+/* ─── LOADING ─── */
+.loading-spin {
+  width: 20px; height: 20px; border: 2px solid var(--glass-border);
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: spin 0.8s linear infinite; margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── MISC ─── */
+.divider { height: 1px; background: var(--glass-border); margin: 16px 0; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.text-muted { color: var(--text-muted); font-size: 0.82rem; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+
+/* ── CUTE EXTRAS ── */
+.section-title {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--primary); font-weight: 700; margin-bottom: 12px;
+}
+
+.progress-pct {
+  font-size: 1.3rem; font-weight: 700; line-height: 1;
+  color: var(--primary);
+}
+
+.header-left h1 {
+  background: linear-gradient(135deg, #ff85a1 0%, #c8a8e9 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+.toggle-btn.selected-done { border-color: #52c77e; background: rgba(82,199,126,0.12); color: #3aaa63; }
+.toggle-btn.selected-skip { border-color: #ff7c7c; background: rgba(255,124,124,0.12); color: #e05555; }
+
+.pin-btn {
+  background: rgba(255,133,161,0.06);
+  border: 1.5px solid rgba(255,133,161,0.2);
+}
+.pin-btn:active { background: var(--primary); color: white; }
+
+.btn-primary {
+  background: linear-gradient(135deg, #ff85a1, #c8a8e9);
+  box-shadow: 0 4px 14px rgba(255,133,161,0.35);
+}
+
+.btn-success { background: linear-gradient(135deg, #52c77e, #3aaa63); }
+.btn-danger  { background: linear-gradient(135deg, #ff7c7c, #e05555); }
+
+.overlay { background: rgba(255,240,245,0.75); }
+
+.cal-day.full    { background: rgba(82,199,126,0.2); color: #3aaa63; }
+.cal-day.partial { background: rgba(255,179,71,0.2); color: #d4831a; }
+.cal-day.missed  { background: rgba(255,124,124,0.18); color: #c44; }
+.cal-day.today   { border: 2px solid var(--primary); }
+
+/* Cute floating hearts/paws in background */
+.header::after {
+  content: '🐾';
+  position: absolute;
+  right: 70px; top: 22px;
+  font-size: 0.9rem; opacity: 0.2;
+  pointer-events: none;
+}
+
+/* weight result value */
+.weight-result .value { color: var(--primary); }
+
+/* nav active */
+.nav-btn.active { color: var(--primary); }
+.nav-btn { color: var(--text-muted); }
+
+/* records table */
+.badge-done { color: #3aaa63; }
+.badge-skip { color: #e05555; }
+
+/* toast */
+.toast {
+  background: white;
+  border: 1px solid rgba(255,133,161,0.3);
+  color: var(--text-primary);
+  box-shadow: 0 8px 32px rgba(255,133,161,0.2);
+}
+
+/* form inputs */
+.form-field input, .form-field select, .form-field textarea,
+.weight-field input, .note-input {
+  background: #fff; border: 1.5px solid rgba(255,133,161,0.2);
+  color: var(--text-primary);
+}
+.form-field input:focus, .weight-field input:focus {
+  border-color: var(--primary); outline: none;
+  box-shadow: 0 0 0 3px rgba(255,133,161,0.15);
+}
+
+
+  /* Push Notification Button */
+  /* push debug banner */
+#push-debug-banner {
+  display: none;
+  background: rgba(255,50,50,0.1);
+  border: 1px solid rgba(255,50,50,0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: #f87171;
+  margin: 4px 8px;
+  word-break: break-all;
+}
+.push-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #ff85a1, #c8a8e9);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(255,133,161,0.35);
+    transition: all 0.2s;
+    margin: 8px auto;
+    width: fit-content;
+  }
+  .push-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(255,133,161,0.45); }
+  .push-btn.enabled { background: linear-gradient(135deg, #a8e6cf, #7ec8a0); }
+  .push-btn.denied { background: #ccc; cursor: not-allowed; }
+  #push-status { font-size: 12px; color: #999; text-align: center; margin-top: 4px; }
+
+
+/* ─── VERSION BADGE ─── */
+#version-badge {
+  font-size: 0.6rem;
+  font-family: var(--mono);
+  background: rgba(255,133,161,0.15);
+  color: var(--text-muted);
+  border: 1px solid rgba(255,133,161,0.25);
+  border-radius: 10px;
+  padding: 2px 7px;
+  letter-spacing: 0.05em;
+  user-select: none;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+
+<!-- PIN SETUP OVERLAY -->
+<div id="pinSetupOverlay" class="overlay">
+  <div class="modal">
+    <div style="font-size:3rem;margin-bottom:12px">🐾</div>
+    <h2>歡迎使用 UmiCare</h2>
+    <p>首次使用，請設定管理員 PIN 碼<br><small style="color:var(--text-muted)">PIN 只存在伺服器，App 不記錄</small></p>
+    <div class="pin-dots" id="setupDots">
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div id="setupConfirmMsg" style="font-size:0.82rem;color:var(--cat-accent);margin-bottom:12px;min-height:20px;"></div>
+    <div class="pin-pad" id="setupPad"></div>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN OVERLAY -->
+<div id="adminLoginOverlay" class="overlay hidden">
+  <div class="modal">
+    <div style="font-size:2rem;margin-bottom:12px">🔐</div>
+    <h2>管理員登入</h2>
+    <p>請輸入 PIN 碼</p>
+    <div class="pin-dots" id="loginDots">
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div id="loginError" style="font-size:0.82rem;color:#f87171;margin-bottom:12px;min-height:20px;"></div>
+    <div class="pin-pad" id="loginPad"></div>
+    <button class="btn btn-secondary mt-8" onclick="closeAdminLogin()">取消</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="hidden">
+
+  <!-- PAGE: TODAY -->
+  <div id="pageTasks" class="page">
+    <div class="header">
+      <div class="header-left">
+        <h1>UmiCare 🐾</h1>
+        <div class="date" id="todayDate"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="version-badge">v3.5.3</span>
+        <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
+        <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-ring-wrap">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ff85a1"/>
+              <stop offset="100%" style="stop-color:#ffb347"/>
+            </linearGradient>
+          </defs>
+          <circle class="progress-ring-bg" cx="40" cy="40" r="33"/>
+          <circle class="progress-ring-fill" id="progressRing" cx="40" cy="40" r="33"
+            stroke-dasharray="207.3" stroke-dashoffset="207.3"/>
+        </svg>
+        <div class="progress-center">
+          <div class="progress-pct" id="progressPct">0%</div>
+          <div class="progress-label">完成</div>
+        </div>
+      </div>
+      <div class="progress-info">
+        <h2 id="catNameDisplay">喔咪</h2>
+        <div class="sub" id="progressSub">今日任務</div>
+        <div class="count" id="progressCount">0 / 0 完成</div>
+      </div>
+    </div>
+
+    <!-- Collapsible Cat Profile Card -->
+    <div class="cat-profile-wrap" id="catProfileWrap">
+      <button class="cat-card-toggle" onclick="toggleCatCard()">
+        <span id="catCardToggleIcon">▶</span>
+        <span id="catCardName">屋咪</span>
+        <span class="cat-card-subtitle">的資料</span>
+      </button>
+      <div class="cat-card-body hidden" id="catCardBody">
+        <div class="cat-stats-row">
+          <div class="cat-stat">
+            <div class="cat-stat-label">品種</div>
+            <div class="cat-stat-value" id="catCardBreed">未設定</div>
+          </div>
+          <div class="cat-stat">
+            <div class="cat-stat-label">生日</div>
+            <div class="cat-stat-value" id="catCardBday">未設定</div>
+          </div>
+          <div class="cat-stat">
+            <div class="cat-stat-label">體重</div>
+            <div class="cat-stat-value" id="catCardWeight">未記錄</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="alerts" id="alertsContainer"></div>
+
+    <div class="task-section">
+      <div class="section-title">📋 今日任務</div>
+      <div id="taskList"><div style="text-align:center;padding:40px"><div class="loading-spin"></div></div></div>
+    </div>
+  </div>
+
+  <!-- PAGE: CALENDAR -->
+  <div id="pageCalendar" class="page hidden" style="display:none">
+    <div class="header">
+      <div class="header-left"><h1>📅 日曆</h1></div>
+    </div>
+    <div class="calendar-section">
+      <div class="cal-header">
+        <button class="cal-nav" onclick="calPrevMonth()">‹</button>
+        <div style="font-weight:600" id="calMonthLabel"></div>
+        <button class="cal-nav" onclick="calNextMonth()">›</button>
+      </div>
+      <div class="cal-grid" id="calDayLabels">
+        <div class="cal-day-label">日</div><div class="cal-day-label">一</div>
+        <div class="cal-day-label">二</div><div class="cal-day-label">三</div>
+        <div class="cal-day-label">四</div><div class="cal-day-label">五</div>
+        <div class="cal-day-label">六</div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap;" class="text-muted">
+        <span><span style="color:#4ade80">●</span> 全完成</span>
+        <span><span style="color:#fb923c">●</span> 部分完成</span>
+        <span><span style="color:#f87171">●</span> 漏打卡</span>
+        <span><span style="color:rgba(255,255,255,0.2)">●</span> 未來</span>
+      </div>
+    </div>
+    <div id="calDayDetail" style="padding:0 16px;"></div>
+  </div>
+
+  <!-- PAGE: ADMIN -->
+  <div id="pageAdmin" class="page hidden" style="display:none">
+    <!-- Admin header: gradient bar with welcome + logout -->
+    <div class="admin-page-header">
+      <div class="admin-welcome-row">
+        <span class="admin-welcome-title">🛠️ 管理員模式</span>
+        <button class="admin-logout-btn" onclick="adminLogout()">
+          <span>🚪</span> 登出
+        </button>
+      </div>
+      <div class="admin-sub-row" id="adminSubRow">正在載入照護摘要…</div>
+    </div>
+    <div class="admin-panel">
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchAdminTab('overview')">📊 今日概覽</button>
+        <button class="admin-tab" onclick="switchAdminTab('records')">📋 歷史紀錄</button>
+        <button class="admin-tab" onclick="switchAdminTab('weights')">⚖️ 體重</button>
+        <button class="admin-tab" onclick="switchAdminTab('tasks')">✏️ 任務排程</button>
+        <button class="admin-tab" onclick="switchAdminTab('periodic')">🔄 不定期</button>
+        <button class="admin-tab" onclick="switchAdminTab('cat')">🐾 貓咪</button>
+        <button class="admin-tab" onclick="switchAdminTab('settings')">⚙️ 設定</button>
+      </div>
+
+      <!-- Overview Tab (default) -->
+      <div id="adminTabOverview" class="admin-tab-content active">
+        <div id="adminOverviewContent"><div class="loading-spin"></div></div>
+      </div>
+
+      <!-- Records Tab -->
+      <div id="adminTabRecords" class="admin-tab-content">
+        <div class="form-field">
+          <label>選擇日期</label>
+          <input type="date" id="recordsDatePicker" onchange="loadAdminRecords()">
+        </div>
+        <div id="adminRecordsContent"><div class="loading-spin"></div></div>
+      </div>
+
+      <!-- Weights Tab -->
+      <div id="adminTabWeights" class="admin-tab-content">
+        <div id="adminWeightsContent"><div class="loading-spin"></div></div>
+      </div>
+
+      <!-- Tasks Tab -->
+      <div id="adminTabTasks" class="admin-tab-content">
+        <div id="adminTasksList"></div>
+        <button class="btn btn-primary mt-16" onclick="openTaskModal(null)">＋ 新增任務</button>
+      </div>
+
+      <!-- Periodic Tab -->
+      <div id="adminTabPeriodic" class="admin-tab-content">
+        <div id="adminPeriodicContent"><div class="loading-spin"></div></div>
+      </div>
+
+      <!-- Cat Profile Tab -->
+      <div id="adminTabCat" class="admin-tab-content">
+        <div class="cat-admin-form">
+          <div class="cat-admin-avatar">🐾</div>
+          <div class="form-field">
+            <label>貓咪名字</label>
+            <input type="text" id="catFormName" placeholder="例：屋咪" class="cat-input">
+          </div>
+          <div class="form-field">
+            <label>品種</label>
+            <input type="text" id="catFormBreed" placeholder="例：英短、波斯貓、混種" class="cat-input">
+          </div>
+          <div class="form-field">
+            <label>生日</label>
+            <input type="date" id="catFormBday" class="cat-input">
+          </div>
+          <div class="form-field">
+            <label>備注</label>
+            <textarea id="catFormNotes" placeholder="例：已絕育、過敏食物..." rows="3" class="cat-input"></textarea>
+          </div>
+          <button class="btn btn-primary cat-save-btn" onclick="saveCatProfile()">💾 儲存貓咪資料</button>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div id="adminTabSettings" class="admin-tab-content">
+        <div class="card">
+          <div class="form-field"><label>貓咪名字</label><input type="text" id="settingCatName" placeholder="喔咪"></div>
+          <div class="form-field"><label>預設人重 (kg)</label><input type="number" id="settingPersonWeight" step="0.1" placeholder="66.5"></div>
+          <button class="btn btn-primary" onclick="saveSettings()">儲存設定</button>
+        </div>
+        <div class="card mt-16">
+          <div style="font-weight:600;margin-bottom:10px">🔐 更改 PIN</div>
+          <div class="form-field"><label>現有 PIN</label><input type="password" id="oldPin" placeholder="輸入現有 PIN" inputmode="numeric"></div>
+          <div class="form-field"><label>新 PIN</label><input type="password" id="newPin" placeholder="輸入新 PIN" inputmode="numeric"></div>
+          <button class="btn btn-primary" onclick="changePin()">更改 PIN</button>
+        </div>
+        
+        <div class="card mt-16">
+          <div style="font-weight:600;margin-bottom:10px">📥 匯出資料</div>
+          <button class="btn btn-secondary" onclick="exportData()">下載 JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="navTasks" onclick="switchPage('tasks')">
+      <span class="icon">📋</span>今日
+    </button>
+    <button class="nav-btn" id="navCalendar" onclick="switchPage('calendar')">
+      <span class="icon">📅</span>日曆
+    </button>
+  </nav>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';
+
+// ─── STATE ─────────────────────────────────────────────────────
+let state = {
+  tasks: [],
+  checkins: [],
+  settings: { lastPersonWeight: 66.5 },
+  cat: { name: '屋咪', breed: '', birthdate: '', weight: '', notes: '' },
+  catName: '喔咪',
+  weightsList: [],
+  adminMode: false,
+  currentDate: todayStr(),
+  calYear: new Date().getFullYear(),
+  calMonth: new Date().getMonth(),
+  expandedTask: null,
+  setupStep: 'enter', // 'enter' or 'confirm'
+  setupFirstPin: '',
+  pinBuffer: [],
+};
+
+function todayStr() {
+  // Use UTC date – KV keys are always UTC-based (e.g. checkins:2026-03-06)
+  return new Date().toISOString().split('T')[0];
+}
+
+// ─── API HELPERS ───────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (!res.ok) throw new Error(`API ${path} error ${res.status}`);
+  return res.json();
+}
+
+// ─── INIT ──────────────────────────────────────────────────────
+async function init() {
+  // ① Always guarantee caregiver (tasks) page on load — no admin state
+  //    This handles: fresh load, hard refresh, Safari bfcache restore
+  _applyPage('tasks');
+  state.adminMode = false;
+
+  updateDateDisplay();
+  try {
+    const pinCheck = await api('/api/pin/check');
+    if (!pinCheck.hasPin) {
+      showPinSetup();
+    } else {
+      await loadApp();
+      checkPushStatus();
+    }
+  } catch(e) {
+    showToast('⚠️ 無法連接伺服器，請檢查網絡');
+    document.getElementById('pinSetupOverlay').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    renderTaskList();
+  }
+}
+
+// ② Handle iOS Safari bfcache (page restored from back-forward cache)
+//    persisted=true means the DOM was restored from cache, not a fresh load.
+// ── iOS PWA session reset ─────────────────────────────────────
+// When user reopens the app (bfcache restore, iOS PWA resume), 
+// always reset to caregiver mode for security.
+// Admin must log in fresh each time the app is opened.
+window.addEventListener('pageshow', () => {
+  if (state.adminMode) {
+    state.adminMode = false;
+    _applyPage('tasks');   // instant reset, no animation
+  }
+});
+
+// Also handle iOS PWA coming back from background (visibilitychange)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.adminMode) {
+    // Auto-logout after background: use session timestamp from sessionStorage
+    const sessionStart = sessionStorage.getItem('adminSessionStart');
+    if (!sessionStart) {
+      // No valid session → reset
+      state.adminMode = false;
+      _applyPage('tasks');
+    } else {
+      const elapsed = Date.now() - parseInt(sessionStart, 10);
+      if (elapsed > 10 * 60 * 1000) {  // 10 minutes inactivity → auto-logout
+        state.adminMode = false;
+        sessionStorage.removeItem('adminSessionStart');
+        _applyPage('tasks');
+        showToast('⏰ 管理員模式已逾時登出');
+      }
+    }
+  }
+});
+
+async function loadCat() {
+  try {
+    const cat = await api('/api/cat');
+    if (cat && cat.name) {
+      state.cat = cat;
+      // Cat name from cat profile takes priority
+      const displayName = cat.name || state.catName;
+      state.catName = displayName;
+      document.getElementById('catNameDisplay').textContent = displayName;
+    }
+    updateCatProfileCard();
+  } catch(e) {}
+}
+
+function updateCatProfileCard() {
+  const cat = state.cat || {};
+  const nameEl = document.getElementById('catCardName');
+  const breedEl = document.getElementById('catCardBreed');
+  const bdayEl = document.getElementById('catCardBday');
+  const wtEl = document.getElementById('catCardWeight');
+  if (nameEl) nameEl.textContent = cat.name || state.catName || '屋咪';
+  // Update weight table header if visible
+  const wth = document.getElementById('weightTableCatHeader');
+  if (wth) wth.textContent = (cat.name || state.catName || '貓咪') + '體重';
+  if (breedEl) breedEl.textContent = cat.breed || '未設定';
+  if (bdayEl) {
+    if (cat.birthdate) {
+      const bd = new Date(cat.birthdate);
+      const now = getCalgaryDate();
+      const ageMs = now - bd;
+      const ageYears = Math.floor(ageMs / (365.25 * 24 * 3600000));
+      const ageMonths = Math.floor((ageMs % (365.25 * 24 * 3600000)) / (30.44 * 24 * 3600000));
+      bdayEl.textContent = `${cat.birthdate} (${ageYears > 0 ? ageYears + '歲' : ''}${ageMonths}個月)`;
+    } else {
+      bdayEl.textContent = '未設定';
+    }
+  }
+  if (wtEl) {
+    // Try to get latest weight from weights history
+    if (state.latestCatWeight) {
+      wtEl.textContent = state.latestCatWeight + ' kg';
+    } else {
+      wtEl.textContent = '未記錄';
+    }
+  }
+}
+
+async function loadApp() {
+  document.getElementById('pinSetupOverlay').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  try {
+    const [tasks, checkins, settings, cat, weights] = await Promise.all([
+      api('/api/tasks'),
+      api('/api/checkins?date=' + state.currentDate),
+      api('/api/settings'),
+      api('/api/cat').catch(() => null),
+      api('/api/weights').catch(() => []),
+    ]);
+    state.tasks = tasks;
+    state.checkins = checkins;
+    state.settings = settings;
+    state.weightsList = weights || [];
+    // Cat name: cat profile takes priority over settings
+    if (cat && cat.name) {
+      state.cat = cat;
+      state.catName = cat.name;
+    } else {
+      state.catName = settings.catName || '喔咪';
+    }
+    document.getElementById('catNameDisplay').textContent = state.catName;
+    updateCatProfileCard();
+    // Also load latest weight
+    loadLatestWeight();
+  } catch(e) {
+    showToast('⚠️ 載入資料失敗');
+  }
+  renderTaskList();
+  renderProgress();
+  checkAlerts();
+}
+
+async function loadLatestWeight() {
+  try {
+    const weights = await api('/api/weights');
+    if (weights && weights.length > 0) {
+      // Most recent weight – find latest catWeight entry
+      const sorted = weights.slice().sort((a, b) => new Date(b.date || b.time) - new Date(a.date || a.time));
+      const latest = sorted[0];
+      if (latest.catWeight || latest.result) {
+        state.latestCatWeight = latest.catWeight || parseFloat(latest.result);
+        updateCatProfileCard();
+      }
+    }
+  } catch(e) {}
+}
+
+function toggleCatCard() {
+  const body = document.getElementById('catCardBody');
+  const icon = document.getElementById('catCardToggleIcon');
+  if (!body) return;
+  const isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !isHidden);
+  if (icon) icon.textContent = isHidden ? '▼' : '▶';
+}
+
+function getCalgaryDate() {
+  // Calgary: MST = UTC-7, MDT = UTC-6 (second Sun March – first Sun Nov)
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  // DST starts: 2nd Sunday of March 02:00
+  const dstStart = (() => {
+    const d = new Date(Date.UTC(year, 2, 1)); // March 1
+    let sundays = 0;
+    while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
+    d.setUTCHours(9, 0, 0, 0); // 02:00 MST = 09:00 UTC
+    return d;
+  })();
+  // DST ends: 1st Sunday of November 02:00
+  const dstEnd = (() => {
+    const d = new Date(Date.UTC(year, 10, 1)); // Nov 1
+    while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
+    d.setUTCHours(8, 0, 0, 0); // 02:00 MDT = 08:00 UTC
+    return d;
+  })();
+  const isDST = now >= dstStart && now < dstEnd;
+  const offset = isDST ? -6 : -7;
+  return new Date(now.getTime() + offset * 3600000);
+}
+
+function updateDateDisplay() {
+  const d = getCalgaryDate();
+  const days = ['日','一','二','三','四','五','六'];
+  document.getElementById('todayDate').textContent =
+    `${d.getUTCFullYear()}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')} 星期${days[d.getUTCDay()]}`;
+}
+
+// ─── PIN SETUP ─────────────────────────────────────────────────
+function showPinSetup() {
+  document.getElementById('pinSetupOverlay').classList.remove('hidden');
+  buildPinPad('setupPad', handleSetupPin);
+}
+
+function buildPinPad(padId, handler) {
+  const pad = document.getElementById(padId);
+  pad.innerHTML = '';
+  [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'pin-btn' + (k==='' ? ' empty' : '') + (k==='⌫' ? ' del' : '');
+    btn.textContent = k;
+    if (k !== '') btn.onclick = () => handler(String(k));
+    pad.appendChild(btn);
+  });
+}
+
+function updatePinDots(dotsId, len) {
+  const dots = document.querySelectorAll(`#${dotsId} .pin-dot`);
+  dots.forEach((d,i) => d.classList.toggle('filled', i < len));
+}
+
+function handleSetupPin(key) {
+  if (key === '⌫') {
+    state.pinBuffer = state.pinBuffer.slice(0,-1);
+  } else if (state.pinBuffer.length < 6) {
+    state.pinBuffer.push(key);
+  }
+  updatePinDots('setupDots', state.pinBuffer.length);
+
+  if (state.pinBuffer.length >= 4) {
+    const pin = state.pinBuffer.join('');
+    if (state.setupStep === 'enter') {
+      state.setupFirstPin = pin;
+      state.setupStep = 'confirm';
+      state.pinBuffer = [];
+      document.getElementById('setupConfirmMsg').textContent = '請再次輸入確認 PIN';
+      updatePinDots('setupDots', 0);
+    } else {
+      if (pin === state.setupFirstPin) {
+        document.getElementById('setupConfirmMsg').textContent = '✅ 設定中...';
+        api('/api/pin/setup', { method: 'POST', body: JSON.stringify({ pin }) })
+          .then(() => { showToast('✅ PIN 設定成功！'); loadApp(); })
+          .catch(() => showToast('❌ 設定失敗，請重試'));
+      } else {
+        document.getElementById('setupConfirmMsg').textContent = '❌ PIN 不一致，請重新輸入';
+        state.setupStep = 'enter';
+        state.setupFirstPin = '';
+        state.pinBuffer = [];
+        updatePinDots('setupDots', 0);
+      }
+    }
+  }
+}
+
+// ─── ADMIN LOGIN ───────────────────────────────────────────────
+function openAdminLogin() {
+  state.pinBuffer = [];
+  updatePinDots('loginDots', 0);
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('adminLoginOverlay').classList.remove('hidden');
+  buildPinPad('loginPad', handleLoginPin);
+}
+
+function closeAdminLogin() {
+  document.getElementById('adminLoginOverlay').classList.add('hidden');
+}
+
+function handleLoginPin(key) {
+  if (key === '⌫') {
+    state.pinBuffer = state.pinBuffer.slice(0,-1);
+  } else if (state.pinBuffer.length < 6) {
+    state.pinBuffer.push(key);
+  }
+  updatePinDots('loginDots', state.pinBuffer.length);
+
+  if (state.pinBuffer.length >= 4) {
+    const pin = state.pinBuffer.join('');
+    state.pinBuffer = [];
+    api('/api/pin/verify', { method: 'POST', body: JSON.stringify({ pin }) })
+      .then(r => {
+        if (r.valid) {
+          closeAdminLogin();
+          state.adminMode = true;
+          sessionStorage.setItem('adminSessionStart', Date.now().toString());
+          switchPage('admin', true);  // true = use wipe animation
+          loadAdminData();
+          setTimeout(() => showToast('✅ 管理員模式'), 300);
+        } else {
+          document.getElementById('loginError').textContent = '❌ PIN 不正確';
+          updatePinDots('loginDots', 0);
+        }
+      })
+      .catch(() => {
+        document.getElementById('loginError').textContent = '❌ 驗證失敗';
+      });
+  }
+}
+
+function adminLogout() {
+  state.adminMode = false;
+  sessionStorage.removeItem('adminSessionStart');
+  switchPage('tasks', true);   // true = use reverse wipe animation
+  setTimeout(() => showToast('👋 已登出管理員模式'), 200);
+}
+
+// ─── NAVIGATION ────────────────────────────────────────────────
+let _currentPage = 'tasks';
+
+// Core: instantly show/hide pages with no animation.
+// Always call this as the source of truth for what's visible.
+function _applyPage(page) {
+  // Use BOTH CSS class AND inline style for maximum cache-safety.
+  // Old cached HTML may not have .page.hidden CSS, so inline style is the fallback.
+  const pageMap = { tasks: 'pageTasks', calendar: 'pageCalendar', admin: 'pageAdmin' };
+  Object.entries(pageMap).forEach(([p, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const shouldHide = p !== page;
+    el.classList.toggle('hidden', shouldHide);
+    el.style.display = shouldHide ? 'none' : '';  // inline override for cache-safe hiding
+  });
+  // Show/hide bottom nav
+  document.body.classList.toggle('admin-mode-active', page === 'admin');
+  // Nav active state
+  ['navTasks','navCalendar'].forEach(id => {
+    document.getElementById(id)?.classList.remove('active');
+  });
+  if (page === 'tasks')    document.getElementById('navTasks')?.classList.add('active');
+  if (page === 'calendar') document.getElementById('navCalendar')?.classList.add('active');
+  _currentPage = page;
+}
+
+function switchPage(page, useWipe) {
+  if (!useWipe || page === _currentPage) {
+    // Instant switch (init, logout shortcut, or same page)
+    _applyPage(page);
+    if (page === 'calendar') renderCalendar();
+    return;
+  }
+
+  // ── Overlay-wipe transition ──────────────────────────────────
+  // A gradient panel wipes across the screen.
+  // Pages are NEVER simultaneously visible — the swap happens
+  // behind the opaque overlay at the midpoint.
+  const toAdmin = page === 'admin';
+  const ENTER_DUR   = 260;   // ms for overlay to fully cover screen
+  const HOLD        = 30;    // ms pause at full cover (swap happens here)
+  const EXIT_DUR    = 280;   // ms for overlay to exit
+  const TOTAL       = ENTER_DUR + HOLD + EXIT_DUR;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'page-wipe-overlay';
+  overlay.style.animation = `${toAdmin ? 'wipeEnter' : 'wipeEnterReverse'} ${ENTER_DUR}ms cubic-bezier(0.4,0,0.6,1) forwards`;
+  document.body.appendChild(overlay);
+
+  // Swap page behind the opaque overlay
+  setTimeout(() => {
+    _applyPage(page);
+    if (page === 'calendar') renderCalendar();
+    // Now slide the overlay away
+    overlay.style.animation = `${toAdmin ? 'wipeExit' : 'wipeExitReverse'} ${EXIT_DUR}ms cubic-bezier(0.4,0,0.6,1) forwards`;
+  }, ENTER_DUR + HOLD);
+
+  // Remove overlay element after full transition
+  setTimeout(() => overlay.remove(), TOTAL + 40);
+}
+
+// ─── TASK RENDERING ────────────────────────────────────────────
+function utcToCalgaryClock(isoStr) {
+  // Convert UTC ISO timestamp to Calgary local HH:MM (DST-aware)
+  if (!isoStr) return null;
+  try {
+    const d = new Date(isoStr);
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const dstStart = (() => {
+      const s = new Date(Date.UTC(year, 2, 1));
+      let n = 0; while (n < 2) { if (s.getUTCDay()===0) n++; if (n<2) s.setUTCDate(s.getUTCDate()+1); }
+      s.setUTCHours(9,0,0,0); return s;
+    })();
+    const dstEnd = (() => {
+      const e = new Date(Date.UTC(year, 10, 1));
+      while (e.getUTCDay()!==0) e.setUTCDate(e.getUTCDate()+1);
+      e.setUTCHours(8,0,0,0); return e;
+    })();
+    const offset = (d >= dstStart && d < dstEnd) ? -6 : -7;
+    const local = new Date(d.getTime() + offset * 3600000);
+    return `${String(local.getUTCHours()).padStart(2,'0')}:${String(local.getUTCMinutes()).padStart(2,'0')}`;
+  } catch(e) { return null; }
+}
+
+function renderTaskCard(task, checkin) {
+  const status = checkin ? (checkin.isDone ? 'done' : 'skip') : getOverdueStatus(task);
+  const statusLabel = { done: '✅ 完成', skip: '⏭️ 跳過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
+  const statusClass = 'status-' + status;
+
+  // Show completion time for done/skip tasks
+  let timeDisplay = task.scheduledTimes?.[0] || '';
+  if (checkin && checkin.time) {
+    const doneTime = utcToCalgaryClock(checkin.time);
+    if (doneTime) {
+      const emoji = checkin.isDone ? '✔' : '⏭';
+      timeDisplay = `${task.scheduledTimes?.[0] || ''}<span class="checkin-time">${emoji} ${doneTime}</span>`;
+    }
+  }
+
+  return `<div class="task-card ${status === 'done' ? 'done' : status === 'skip' ? 'skip' : ''}" id="card-${task.id}">
+      <div class="task-header" onclick="toggleTask('${task.id}')">
+        <div class="task-icon">${task.icon || '📌'}</div>
+        <div class="task-info">
+          <div class="task-name">${task.name}</div>
+          <div class="task-time">${timeDisplay}</div>
+        </div>
+        <div class="task-status ${statusClass}">${statusLabel}</div>
+      </div>
+      <div class="task-panel" id="panel-${task.id}">
+        ${renderTaskPanel(task, checkin)}
+      </div>
+    </div>`;
+}
+
+function renderTaskList() {
+  const container = document.getElementById('taskList');
+  if (!state.tasks.length) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">暫無任務</div>';
+    return;
+  }
+
+  const pending = [];
+  const done    = [];
+
+  state.tasks.forEach(task => {
+    const checkin = state.checkins.find(c => c.taskId === task.id);
+    const isDone  = checkin?.isDone;
+    const isSkip  = checkin && !checkin.isDone;
+    if (isDone || isSkip) done.push({ task, checkin });
+    else pending.push({ task, checkin });
+  });
+
+  let html = '<div class="tasks-pending-section">';
+  if (pending.length === 0) {
+    html += '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.9rem">🎉 所有任務已完成！</div>';
+  } else {
+    html += pending.map(({ task, checkin }) => renderTaskCard(task, checkin)).join('');
+  }
+  html += '</div>';
+
+  if (done.length > 0) {
+    html += `<div class="tasks-done-divider"><span>✅ 已完成 (${done.length})</span></div>`;
+    html += '<div class="tasks-done-section">';
+    html += done.map(({ task, checkin }) => renderTaskCard(task, checkin)).join('');
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function getOverdueStatus(task) {
+  // Always compare in Calgary local time so status is correct regardless
+  // of where the browser/phone is physically located.
+  const calgaryNow = getCalgaryDate();        // shifted Date: UTC methods give Calgary values
+  const nowMins = calgaryNow.getUTCHours() * 60 + calgaryNow.getUTCMinutes();
+
+  const scheduledTimes = task.scheduledTimes || [];
+  if (!scheduledTimes.length) return 'pending';
+
+  // A task is overdue when the LATEST scheduled time for today has passed.
+  // (If a task has multiple times, it's still "active" until the last one passes.)
+  const allMins = scheduledTimes.map(t => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  });
+  const latestMins = Math.max(...allMins);
+
+  // Grace period: 0 minutes — show overdue the moment the scheduled time passes.
+  if (nowMins > latestMins) return 'overdue';
+  return 'pending';
+}
+
+function renderTaskPanel(task, checkin) {
+  const isWeight = task.type === 'weight';
+  const isDone = checkin?.isDone;
+  const isSkip = checkin && !checkin.isDone;
+  const selectedResult = checkin?.result || '';
+  const note = checkin?.note || '';
+
+  if (isWeight) {
+    // If already recorded today, find matching weight entry to show recorded values
+    const catDisplayName = state.cat?.name || state.catName || '貓咪';
+    if (isDone && checkin) {
+      // Find the weight record that was saved for this checkin
+      // The checkin.result is like "4.60kg" — also try to find in weights list
+      const catKg = parseFloat(checkin.result) || null;
+      // Look for weight record close to checkin time (within 5 min)
+      let matchedWeight = null;
+      if (state.weightsList && checkin.time) {
+        const checkinMs = new Date(checkin.time).getTime();
+        matchedWeight = state.weightsList.find(w => {
+          const wMs = new Date(w.measuredAt || w.time || 0).getTime();
+          return Math.abs(wMs - checkinMs) < 5 * 60 * 1000;
+        });
+      }
+      const personW = matchedWeight?.personWeight || state.settings.lastPersonWeight || '';
+      const carryW = matchedWeight?.carryWeight || (catKg && personW ? (catKg + parseFloat(personW)).toFixed(1) : '');
+      const displayCatKg = matchedWeight?.catWeight || catKg || '';
+      const doneTimeStr = utcToCalgaryClock(checkin.time) || '';
+
+      return `
+        <div class="weight-recorded-view mt-8">
+          <div class="weight-recorded-title">📊 今日記錄 ${doneTimeStr ? '<span class="weight-recorded-time">(' + doneTimeStr + ')</span>' : ''}</div>
+          <div class="weight-recorded-row">
+            <div class="weight-rec-item"><div class="weight-rec-label">人重</div><div class="weight-rec-val">${personW} kg</div></div>
+            <div class="weight-rec-item"><div class="weight-rec-label">抱貓重</div><div class="weight-rec-val">${carryW} kg</div></div>
+            <div class="weight-rec-item cat-weight-highlight"><div class="weight-rec-label">🐱 ${catDisplayName}</div><div class="weight-rec-val">${displayCatKg} kg</div></div>
+          </div>
+          ${checkin.note ? '<div class="weight-rec-note">備注: ' + checkin.note + '</div>' : ''}
+        </div>
+        <div class="confirm-row mt-8">
+          <button class="btn btn-secondary" style="flex:1" onclick="reRecordWeight('${task.id}')">🔄 重新記錄</button>
+          <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">關閉</button>
+        </div>`;
+    }
+
+    return `
+      <div class="weight-inputs mt-8" id="weightInputs-${task.id}">
+        <div class="weight-field">
+          <label>人重（今次）kg</label>
+          <input type="number" step="0.1" id="personW-${task.id}" 
+            placeholder="上次: ${state.settings.lastPersonWeight || 66.5} kg"
+            value="" inputmode="decimal"
+            oninput="calcCatWeight('${task.id}')">
+        </div>
+        <div class="weight-field">
+          <label>抱著${catDisplayName}量 kg</label>
+          <input type="number" step="0.1" id="carryW-${task.id}"
+            value="" inputmode="decimal"
+            oninput="calcCatWeight('${task.id}')">
+        </div>
+        <div class="weight-result" id="catWResult-${task.id}">
+          <span class="label">🐱 ${catDisplayName}體重</span>
+          <span class="value" id="catWValue-${task.id}">-- kg</span>
+        </div>
+      </div>
+      <textarea class="note-input" id="note-${task.id}" placeholder="備注（選填）" rows="2">${note}</textarea>
+      <div class="confirm-row">
+        <button class="btn btn-success" onclick="submitWeight('${task.id}')">✅ 確認記錄</button>
+        <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">取消</button>
+      </div>`;
+  }
+
+  const resultHtml = task.resultOptions?.length ? `
+    <div class="section-title mt-8">選擇結果</div>
+    <div class="result-grid">
+      ${task.resultOptions.map(r => `
+        <button class="result-btn ${selectedResult === r.value ? 'selected' : ''}"
+          id="res-${task.id}-${r.value}"
+          onclick="selectResult('${task.id}', '${r.value}')">
+          ${r.label}
+        </button>`).join('')}
+    </div>` : '';
+
+  return `
+    <div class="done-toggle mt-8">
+      <button class="toggle-btn ${isDone ? 'selected-done' : ''}" 
+        id="done-${task.id}" onclick="selectDone('${task.id}', true)">✅ 完成</button>
+      <button class="toggle-btn ${isSkip ? 'selected-skip' : ''}"
+        id="skip-${task.id}" onclick="selectDone('${task.id}', false)">⏭️ 跳過</button>
+    </div>
+    ${resultHtml}
+    <textarea class="note-input" id="note-${task.id}" placeholder="備注（選填）" rows="2">${note}</textarea>
+    <div class="confirm-row">
+      <button class="btn btn-success" onclick="submitCheckin('${task.id}')">✅ 確認提交</button>
+      <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">取消</button>
+    </div>`;
+}
+
+let taskDoneState = {}; // taskId -> true/false/null
+let taskResultState = {}; // taskId -> value
+
+function toggleTask(taskId) {
+  const panel = document.getElementById('panel-' + taskId);
+  const card = document.getElementById('card-' + taskId);
+  const isOpen = panel.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.task-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.task-card.expanded').forEach(c => c.classList.remove('expanded'));
+  if (!isOpen) {
+    panel.classList.add('open');
+    card.classList.add('expanded');
+    state.expandedTask = taskId;
+    // Pre-fill person weight hint
+    const personInput = document.getElementById('personW-' + taskId);
+    if (personInput) personInput.placeholder = `上次: ${state.settings.lastPersonWeight || 66.5} kg`;
+  } else {
+    state.expandedTask = null;
+  }
+}
+
+function selectDone(taskId, done) {
+  taskDoneState[taskId] = done;
+  document.getElementById('done-' + taskId).classList.toggle('selected-done', done);
+  document.getElementById('skip-' + taskId).classList.toggle('selected-skip', !done);
+}
+
+function selectResult(taskId, value) {
+  taskResultState[taskId] = value;
+  const task = state.tasks.find(t => t.id === taskId);
+  task?.resultOptions?.forEach(r => {
+    const btn = document.getElementById(`res-${taskId}-${r.value}`);
+    if (btn) btn.classList.toggle('selected', r.value === value);
+  });
+}
+
+function calcCatWeight(taskId) {
+  const personInput = document.getElementById('personW-' + taskId);
+  const carryInput  = document.getElementById('carryW-' + taskId);
+  const resultEl    = document.getElementById('catWValue-' + taskId);
+  // Use typed value, fallback to last known person weight
+  const personW = parseFloat(personInput.value) || parseFloat(state.settings?.lastPersonWeight) || 66.5;
+  const carryW  = parseFloat(carryInput.value);
+  if (!isNaN(carryW) && carryW > 0 && carryW > personW) {
+    const cat = (carryW - personW).toFixed(2);
+    resultEl.textContent = cat + ' kg';
+    resultEl.style.color = '#4ade80';
+  } else if (!isNaN(carryW) && carryW > 0) {
+    resultEl.textContent = '⚠️ 應大於人重';
+    resultEl.style.color = '#f87171';
+  } else {
+    resultEl.textContent = '-- kg';
+    resultEl.style.color = '';
+  }
+}
+
+function reRecordWeight(taskId) {
+  // Allow re-recording: clear the checkin state and re-render panel in edit mode
+  const checkinIdx = state.checkins.findIndex(c => c.taskId === taskId);
+  if (checkinIdx !== -1) {
+    // Temporarily remove the checkin from state to show the input form
+    const savedCheckin = state.checkins[checkinIdx];
+    state.checkins.splice(checkinIdx, 1);
+    // Re-render just this panel
+    const panel = document.getElementById('panel-' + taskId);
+    const task = state.tasks.find(t => t.id === taskId);
+    if (panel && task) {
+      panel.innerHTML = renderTaskPanel(task, null);
+      const personInput = document.getElementById('personW-' + taskId);
+      if (personInput) personInput.placeholder = `上次: ${state.settings.lastPersonWeight || 66.5} kg`;
+    }
+    // Restore checkin after a tick (so panel shows entry form)
+    // User can cancel to restore
+    const card = document.getElementById('card-' + taskId);
+    if (card) card.classList.remove('done');
+  }
+}
+
+async function submitWeight(taskId) {
+  const personInput = document.getElementById('personW-' + taskId);
+  const carryInput = document.getElementById('carryW-' + taskId);
+  const note = document.getElementById('note-' + taskId).value;
+  
+  const personW = parseFloat(personInput.value) || parseFloat(state.settings.lastPersonWeight) || 66.5;
+  const carryW = parseFloat(carryInput.value);
+  
+  if (isNaN(carryW) || carryW <= 0) {
+    showToast('⚠️ 請輸入抱貓重量');
+    return;
+  }
+  if (carryW <= personW) {
+    showToast('⚠️ 抱貓重應大於人重');
+    return;
+  }
+
+  try {
+    await api('/api/weights', {
+      method: 'POST',
+      body: JSON.stringify({ personWeight: personW, carryWeight: carryW, note }),
+    });
+    await api('/api/checkins', {
+      method: 'POST',
+      body: JSON.stringify({ taskId, isDone: true, result: `${(carryW-personW).toFixed(2)}kg`, note, date: state.currentDate, time: new Date().toISOString() }),
+    });
+    state.settings.lastPersonWeight = personW;
+    const catW = (carryW - personW).toFixed(2);
+    const catDisplayN = state.cat?.name || state.catName || '貓咪';
+    showToast(`🐱 ${catDisplayN}體重：${catW} kg ✅`);
+    confetti();
+    // Refresh weights list so panel shows recorded data
+    try { state.weightsList = await api('/api/weights'); } catch(e) {}
+    state.latestCatWeight = parseFloat(catW);
+    updateCatProfileCard();
+    await reloadCheckins(taskId);
+  } catch(e) {
+    showToast('❌ 記錄失敗，請重試');
+  }
+}
+
+async function submitCheckin(taskId) {
+  const isDone = taskDoneState[taskId];
+  if (isDone === undefined || isDone === null) {
+    showToast('⚠️ 請先選擇完成 / 跳過');
+    return;
+  }
+  const result = taskResultState[taskId] || null;
+  const note = document.getElementById('note-' + taskId)?.value || '';
+
+  try {
+    await api('/api/checkins', {
+      method: 'POST',
+      body: JSON.stringify({ taskId, isDone, result, note, date: state.currentDate, time: new Date().toISOString() }),
+    });
+    if (isDone) { showToast('✅ 打卡成功！'); confetti(); }
+    else showToast('📝 已記錄');
+    delete taskDoneState[taskId];
+    delete taskResultState[taskId];
+    await reloadCheckins(isDone ? taskId : null);
+    if (!isDone) toggleTask(taskId);
+  } catch(e) {
+    showToast('❌ 提交失敗，請重試');
+  }
+}
+
+async function reloadCheckins(justCompletedId) {
+  try {
+    state.checkins = await api('/api/checkins?date=' + state.currentDate);
+  } catch(e) {}
+  if (justCompletedId) {
+    // Animate the card sliding down before re-render
+    const card = document.getElementById('card-' + justCompletedId);
+    if (card) {
+      card.classList.add('animating-done');
+      await new Promise(r => setTimeout(r, 450));
+    }
+  }
+  renderTaskList();
+  renderProgress();
+  checkAlerts();
+  // Fade in newly-rendered done card
+  if (justCompletedId) {
+    const newCard = document.getElementById('card-' + justCompletedId);
+    if (newCard) {
+      newCard.classList.add('slide-in');
+      setTimeout(() => newCard.classList.remove('slide-in'), 350);
+    }
+  }
+}
+
+// ─── PROGRESS ──────────────────────────────────────────────────
+function renderProgress() {
+  const total = state.tasks.length;
+  const done = state.checkins.filter(c => c.isDone).length;
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  const circumference = 2 * Math.PI * 33;
+  const offset = circumference - (pct / 100) * circumference;
+  document.getElementById('progressRing').style.strokeDashoffset = offset;
+  document.getElementById('progressPct').textContent = pct + '%';
+  document.getElementById('progressCount').textContent = `${done} / ${total} 完成`;
+  const msgs = ['今日任務','加油！繼續努力 💪','快到了！','差不多啦 🎉','全部完成！🎊'];
+  const idx = pct === 100 ? 4 : pct >= 75 ? 3 : pct >= 50 ? 2 : pct > 0 ? 1 : 0;
+  document.getElementById('progressSub').textContent = msgs[idx];
+}
+
+// ─── ALERTS ────────────────────────────────────────────────────
+async function checkAlerts() {
+  const container = document.getElementById('alertsContainer');
+  container.innerHTML = '';
+  const now = new Date();
+  const hour = now.getHours();
+  if (state.checkins.length === 0 && hour >= 14) {
+    container.innerHTML += `<div class="alert alert-blue">💡 今天還沒有打卡記錄</div>`;
+  }
+  // Check no meal eaten
+  const mealTasks = state.tasks.filter(t => t.type === 'meal');
+  const noneEaten = state.checkins.filter(c => c.result === 'none' && mealTasks.find(t => t.id === c.taskId));
+  if (noneEaten.length >= 2) {
+    container.innerHTML += `<div class="alert alert-red">⚠️ 喔咪今天多次未進食，請留意健康狀況</div>`;
+  }
+}
+
+// ─── CALENDAR ──────────────────────────────────────────────────
+function renderCalendar() {
+  const y = state.calYear, m = state.calMonth;
+  document.getElementById('calMonthLabel').textContent = `${y} 年 ${m+1} 月`;
+  const grid = document.getElementById('calGrid');
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const today = new Date();
+  let html = '';
+  for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = y===today.getFullYear() && m===today.getMonth() && d===today.getDate();
+    const isFuture = new Date(y,m,d) > today;
+    const cls = isFuture ? 'future' : 'no-data';
+    html += `<div class="cal-day ${cls} ${isToday?'today':''}" id="cal-${dateStr}" 
+      onclick="showDayDetail('${dateStr}')">${d}</div>`;
+  }
+  grid.innerHTML = html;
+  // Load last 30 days
+  loadCalendarData(y, m);
+}
+
+async function loadCalendarData(y, m) {
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const today = new Date();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(y, m, d);
+    if (dt > today) break;
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    try {
+      const checkins = await api('/api/checkins?date=' + dateStr);
+      const total = state.tasks.length;
+      const done = checkins.filter(c => c.isDone).length;
+      const el = document.getElementById('cal-' + dateStr);
+      if (!el) continue;
+      el.classList.remove('no-data','full','partial','missed');
+      if (checkins.length === 0) el.classList.add('missed');
+      else if (done === total) el.classList.add('full');
+      else if (done > 0) el.classList.add('partial');
+      else el.classList.add('missed');
+    } catch(e) {}
+  }
+}
+
+async function showDayDetail(dateStr) {
+  const detail = document.getElementById('calDayDetail');
+  detail.innerHTML = '<div style="padding:10px"><div class="loading-spin"></div></div>';
+  try {
+    const checkins = await api('/api/checkins?date=' + dateStr);
+    if (!checkins.length) {
+      detail.innerHTML = `<div class="card"><div class="text-muted">${dateStr} 無打卡記錄</div></div>`;
+      return;
+    }
+    const rows = checkins.map(c => {
+      const task = state.tasks.find(t => t.id === c.taskId);
+      return `<tr>
+        <td>${task?.icon || '📌'} ${task?.name || c.taskId}</td>
+        <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅' : '⏭️'}</td>
+        <td>${c.result || '-'}</td>
+        <td class="text-muted">${c.note || '-'}</td>
+        <td class="text-muted" style="font-family:var(--mono);font-size:0.75rem">${c.time ? new Date(c.time).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}) : '-'}</td>
+      </tr>`;
+    }).join('');
+    detail.innerHTML = `<div class="card">
+      <div style="font-weight:600;margin-bottom:12px">${dateStr} 打卡記錄</div>
+      <div style="overflow-x:auto">
+      <table class="records-table">
+        <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備注</th><th>時間</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div></div>`;
+  } catch(e) {
+    detail.innerHTML = '<div class="card text-muted">載入失敗</div>';
+  }
+}
+
+function calPrevMonth() {
+  if (state.calMonth === 0) { state.calMonth = 11; state.calYear--; }
+  else state.calMonth--;
+  renderCalendar();
+}
+function calNextMonth() {
+  if (state.calMonth === 11) { state.calMonth = 0; state.calYear++; }
+  else state.calMonth++;
+  renderCalendar();
+}
+
+// ─── ADMIN ─────────────────────────────────────────────────────
+function switchAdminTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach((t,i) => {
+    const tabs = ['overview','records','weights','tasks','periodic','cat','settings'];
+    t.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('adminTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  if (tab === 'cat') loadAdminCat();
+  if (tab === 'records') loadAdminRecords();
+  if (tab === 'weights') loadAdminWeights();
+  if (tab === 'overview') loadAdminOverview();
+}
+
+async function loadAdminData() {
+  document.getElementById('recordsDatePicker').value = state.currentDate;
+  loadAdminOverview();   // default tab
+  loadAdminTasks();
+  loadAdminPeriodic();
+  loadAdminCat();
+  loadAdminSettings();
+}
+
+async function loadAdminOverview() {
+  const container = document.getElementById('adminOverviewContent');
+  container.innerHTML = '<div class="loading-spin"></div>';
+  try {
+    const date = state.currentDate;
+    const checkins = await api('/api/checkins?date=' + date).catch(() => []);
+    const catName = state.cat?.name || state.catName || '屋咪';
+    const now = getCalgaryDate();
+    const nowMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+    const total = state.tasks.length;
+    const done  = checkins.filter(c => c.isDone).length;
+    const skipped = checkins.filter(c => !c.isDone && c.taskId).length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+
+    // Build timeline items (sorted by scheduled time)
+    const sorted = [...state.tasks].sort((a,b) => {
+      const ta = (a.scheduledTimes?.[0] || '99:99');
+      const tb = (b.scheduledTimes?.[0] || '99:99');
+      return ta.localeCompare(tb);
+    });
+
+    const doneItems = [], pendItems = [];
+    sorted.forEach(task => {
+      const ci = checkins.find(c => c.taskId === task.id);
+      const schedTime = task.scheduledTimes?.[0] || '';
+      const schedMins = schedTime ? parseInt(schedTime.split(':')[0])*60+parseInt(schedTime.split(':')[1]) : 0;
+      let status = 'pending';
+      if (ci?.isDone) status = 'done';
+      else if (ci && !ci.isDone) status = 'skip';
+      else if (schedTime && schedMins < nowMins) status = 'overdue';
+
+      const doneTime = ci?.time ? utcToCalgaryClock(ci.time) : null;
+      const badgeMap = { done:'badge-tl-done', skip:'badge-tl-skip', overdue:'badge-tl-over', pending:'badge-tl-pend' };
+      const labelMap = { done:'✅ 完成', skip:'⏭️ 跳過', overdue:'⚠️ 逾時', pending:'待完成' };
+      const card = `<div class="tl-item tl-${status}" onclick="openTaskDetailModal('${task.id}',${ci?JSON.stringify(ci).replace(/"/g,"'"):null})">
+        <div class="tl-card">
+          <div style="display:flex;align-items:center;flex:1;min-width:0">
+            <span class="tl-icon">${task.icon}</span>
+            <div style="min-width:0">
+              <div class="tl-name">${task.name}</div>
+              <div class="tl-sched">${schedTime || '—'}</div>
+            </div>
+          </div>
+          <div class="tl-right">
+            <span class="tl-status-badge ${badgeMap[status]}">${labelMap[status]}</span>
+            ${doneTime ? `<div class="tl-time">✔ ${doneTime}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+      if (status === 'done' || status === 'skip') doneItems.push(card);
+      else pendItems.push(card);
+    });
+
+    // Update admin header sub-row
+    const subRow = document.getElementById('adminSubRow');
+    if (subRow) {
+      const now2 = getCalgaryDate();
+      const hStr = String(now2.getUTCHours()).padStart(2,'0');
+      const mStr = String(now2.getUTCMinutes()).padStart(2,'0');
+      subRow.textContent = `${date} · ${hStr}:${mStr} Calgary · ${catName}: ${done}/${total} 完成 (${pct}%)`;
+    }
+    container.innerHTML = `
+      <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">📅 ${date} · ${catName} 的照護紀錄</div>
+      <div class="overview-summary">
+        <div class="ov-stat"><div class="ov-stat-num">${done}</div><div class="ov-stat-label">已完成</div></div>
+        <div class="ov-stat"><div class="ov-stat-num" style="color:${pct>=80?'#4ade80':pct>=50?'#fb923c':'#f87171'}">${pct}%</div><div class="ov-stat-label">完成率</div></div>
+        <div class="ov-stat"><div class="ov-stat-num" style="color:#6b7280">${total - done - skipped}</div><div class="ov-stat-label">待完成</div></div>
+      </div>
+      ${pendItems.length ? `<div class="ov-section-title">⏳ 待完成 / 逾時</div><div class="timeline">${pendItems.join('')}</div>` : ''}
+      ${doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 跳過</div><div class="timeline">${doneItems.join('')}</div>` : ''}
+      ${(!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : ''}
+    `;
+  } catch(e) {
+    container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
+  }
+}
+
+async function loadAdminRecords() {
+  const date = document.getElementById('recordsDatePicker').value || state.currentDate;
+  const container = document.getElementById('adminRecordsContent');
+  container.innerHTML = '<div class="loading-spin"></div>';
+  try {
+    const checkins = await api('/api/checkins?date=' + date);
+    if (!checkins.length) {
+      container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日無打卡記錄</div>';
+      return;
+    }
+    const rows = checkins.map(c => {
+      const task = state.tasks.find(t => t.id === c.taskId);
+      const timeStr = c.time ? utcToCalgaryClock(c.time) : '-';
+      return `<tr>
+        <td>${task?.icon || ''} ${task?.name || c.taskId}</td>
+        <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅ 完成' : '⏭️ 跳過'}</td>
+        <td>${c.result || '-'}</td>
+        <td>${c.note || '-'}</td>
+        <td style="font-family:var(--mono);font-size:0.75rem">${timeStr}</td>
+      </tr>`;
+    }).join('');
+    container.innerHTML = `<div style="overflow-x:auto">
+      <table class="records-table">
+        <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備注</th><th>時間</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+  } catch(e) {
+    container.innerHTML = '<div class="text-muted">載入失敗</div>';
+  }
+}
+
+async function loadAdminWeights() {
+  const container = document.getElementById('adminWeightsContent');
+  container.innerHTML = '<div class="loading-spin"></div>';
+  try {
+    const weights = await api('/api/weights');
+    if (!weights.length) {
+      container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">暫無體重記錄</div>';
+      return;
+    }
+    const rows = weights.slice().reverse().map(w => {
+      const d = new Date(w.measuredAt);
+      return `<tr>
+        <td style="font-family:var(--mono);font-size:0.8rem">${d.toLocaleDateString('zh-HK')}</td>
+        <td>${w.personWeight} kg</td>
+        <td>${w.carryWeight} kg</td>
+        <td style="color:var(--cat-accent);font-weight:600">${w.catWeight} kg</td>
+        <td class="text-muted">${w.note || '-'}</td>
+      </tr>`;
+    }).join('');
+    container.innerHTML = `<div style="overflow-x:auto">
+      <table class="records-table">
+        <thead><tr><th>日期</th><th>人重</th><th>抱貓重</th><th id="weightTableCatHeader">貓咪體重</th><th>備注</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+  } catch(e) {
+    container.innerHTML = '<div class="text-muted">載入失敗</div>';
+  }
+}
+
+async function loadAdminTasks() {
+  const container = document.getElementById('adminTasksList');
+  container.innerHTML = '';
+  const schedLabel = {daily:'每天',weekly:'每週指定日',weekdays:'平日',weekends:'週末'};
+  state.tasks.forEach((task) => {
+    const times = (task.scheduledTimes || []).map(t => `<span class="sched-time-chip">${t}</span>`).join(' ');
+    const stype = schedLabel[task.scheduleType || 'daily'] || '每天';
+    container.innerHTML += `<div class="task-sched-card" onclick="openTaskModal('${task.id}')">
+      <div class="task-sched-left">
+        <span class="task-sched-icon">${task.icon}</span>
+        <div>
+          <div class="task-sched-name">${task.name}</div>
+          <div class="task-sched-meta">${stype}${task.weekDays ? ' · ' + task.weekDays.map(d=>['日','一','二','三','四','五','六'][d]).join('、') : ''}</div>
+        </div>
+      </div>
+      <div class="task-sched-right">${times}<span class="sched-edit-btn">✏️ 編輯</span></div>
+    </div>`;
+  });
+}
+
+function showAddTaskForm() { openTaskModal(null); } // backward compat
+
+// ── Task Edit Modal Logic ──────────────────────────────────────────────
+let _temTimes = [];   // working copy of scheduled times
+
+function openTaskModal(taskId) {
+  const modal = document.getElementById('taskEditModal');
+  const isNew = !taskId;
+  document.getElementById('temTitle').textContent = isNew ? '＋ 新增任務' : '✏️ 編輯任務';
+  document.getElementById('temTaskId').value = taskId || '';
+  document.getElementById('temDeleteRow').style.display = isNew ? 'none' : 'block';
+
+  if (isNew) {
+    document.getElementById('temIcon').value = '📌';
+    document.getElementById('temName').value = '';
+    document.getElementById('temType').value = 'other';
+    document.getElementById('temScheduleType').value = 'daily';
+    document.getElementById('temRequireNote').value = 'false';
+    _temTimes = [];
+  } else {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+    document.getElementById('temIcon').value = task.icon || '📌';
+    document.getElementById('temName').value = task.name || '';
+    document.getElementById('temType').value = task.type || 'other';
+    document.getElementById('temScheduleType').value = task.scheduleType || 'daily';
+    document.getElementById('temRequireNote').value = task.requireNote ? 'optional' : 'false';
+    _temTimes = [...(task.scheduledTimes || [])];
+    // restore weekdays
+    if (task.weekDays) {
+      document.querySelectorAll('#temWeekdaysRow input[type=checkbox]').forEach(cb => {
+        cb.checked = task.weekDays.includes(Number(cb.value));
+        updateWdChip(cb);
+      });
+    }
+    // show result preview
+    const opts = (task.resultOptions || []).map(o=>o.label).join(' / ');
+    document.getElementById('temResultPreview').textContent = opts || '(無結果選項)';
+  }
+
+  updateTemWeekdays();
+  renderTemTimes();
+  modal.classList.remove('hidden');
+}
+
+function updateWdChip(cb) {
+  // style the parent label
+  const lbl = cb.closest('.wd-btn');
+  if (!lbl) return;
+  const chip = lbl.querySelector('.wd-chip');
+  if (chip) {
+    if (cb.checked) { chip.style.background='var(--cat-accent)'; chip.style.color='#fff'; chip.style.borderColor='var(--cat-accent)'; }
+    else { chip.style.background=''; chip.style.color=''; chip.style.borderColor=''; }
+  }
+}
+
+function closeTaskModal() {
+  document.getElementById('taskEditModal').classList.add('hidden');
+}
+
+function updateTemWeekdays() {
+  const type = document.getElementById('temScheduleType').value;
+  const row = document.getElementById('temWeekdaysRow');
+  row.classList.toggle('hidden', type !== 'weekly');
+}
+
+function renderTemTimes() {
+  const container = document.getElementById('temTimesList');
+  container.innerHTML = _temTimes.map((t,i) =>
+    `<span class="time-chip-item">${t}<button class="time-chip-remove" onclick="_temTimes.splice(${i},1);renderTemTimes()">×</button></span>`
+  ).join('');
+}
+
+function addTemTime() {
+  const v = document.getElementById('temNewTime').value;
+  if (!v) { showToast('⚠️ 請選擇時間'); return; }
+  if (_temTimes.includes(v)) { showToast('⚠️ 該時間已存在'); return; }
+  _temTimes.push(v);
+  _temTimes.sort();
+  renderTemTimes();
+  document.getElementById('temNewTime').value = '';
+}
+
+function updateTemResultOptions() {
+  const type = document.getElementById('temType').value;
+  const presets = {
+    meal: '🍽️ 餐食: 正常 / 少量 / 完全不吃',
+    litter: '🪣 貓砂: 💩有屎 / 💦有尿 / 都有 / 都沒有',
+    water: '💧 飲水: 完成 / 加水',
+  };
+  document.getElementById('temResultPreview').textContent = presets[type] || '(無預設 — 可從下方選擇)';
+}
+
+function applyResultPreset() {
+  const p = document.getElementById('temResultPreset').value;
+  const presets = {
+    meal: '🍽️ 餐食: 正常進食 / 少量進食 / 完全不吃',
+    litter: '🪣 貓砂: 💩有屎 / 💦有尿 / 都有 / 都沒有',
+    water: '💧 飲水: 完成 / 加水',
+    none: '(清空)',
+  };
+  if (p) document.getElementById('temResultPreview').textContent = presets[p] || '';
+}
+
+function getResultOptionsForPreset(preset) {
+  const map = {
+    meal: [{label:'正常進食 ✅',value:'normal'},{label:'少量進食',value:'little'},{label:'完全不吃',value:'none'}],
+    litter: [{label:'💩 有屎',value:'poop'},{label:'💦 有尿',value:'urine'},{label:'💩💦 都有',value:'both'},{label:'✨ 都沒有',value:'none'}],
+    water: [{label:'✅ 完成',value:'done'},{label:'💧 加水',value:'topped'}],
+    none: [],
+  };
+  return map[preset] || null;
+}
+
+async function saveTaskModal() {
+  const taskId = document.getElementById('temTaskId').value;
+  const name = document.getElementById('temName').value.trim();
+  const icon = document.getElementById('temIcon').value.trim() || '📌';
+  const type = document.getElementById('temType').value;
+  const scheduleType = document.getElementById('temScheduleType').value;
+  const requireNote = document.getElementById('temRequireNote').value !== 'false';
+
+  if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
+  if (_temTimes.length === 0) { showToast('⚠️ 請至少新增一個時間'); return; }
+
+  // weekdays
+  let weekDays = null;
+  if (scheduleType === 'weekly') {
+    weekDays = [];
+    document.querySelectorAll('#temWeekdaysRow input[type=checkbox]').forEach(cb => {
+      if (cb.checked) weekDays.push(Number(cb.value));
+    });
+    if (!weekDays.length) { showToast('⚠️ 請選擇重複日'); return; }
+  } else if (scheduleType === 'weekdays') {
+    weekDays = [1,2,3,4,5];
+  } else if (scheduleType === 'weekends') {
+    weekDays = [0,6];
+  }
+
+  // result options
+  const preset = document.getElementById('temResultPreset').value;
+  let resultOptions = null;
+  if (preset) {
+    resultOptions = getResultOptionsForPreset(preset);
+  }
+
+  const isNew = !taskId;
+  if (isNew) {
+    // auto result options by type if not set
+    if (resultOptions === null) {
+      resultOptions = getResultOptionsForPreset(type) || [];
+    }
+    const newTask = { id:'t'+Date.now(), name, icon, type, scheduleType, scheduledTimes: _temTimes, weekDays, resultOptions, requireNote };
+    state.tasks.push(newTask);
+  } else {
+    const idx = state.tasks.findIndex(t => t.id === taskId);
+    if (idx < 0) return;
+    const existing = state.tasks[idx];
+    state.tasks[idx] = {
+      ...existing,
+      name, icon, type, scheduleType,
+      scheduledTimes: _temTimes,
+      weekDays,
+      requireNote,
+      resultOptions: resultOptions !== null ? resultOptions : existing.resultOptions,
+    };
+  }
+
+  await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
+  showToast(isNew ? '✅ 任務已新增' : '✅ 任務已更新');
+  closeTaskModal();
+  loadAdminTasks();
+  renderTaskList();
+}
+
+async function deleteCurrentTask() {
+  const taskId = document.getElementById('temTaskId').value;
+  if (!taskId) return;
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!confirm(`確定刪除「${task?.name || taskId}」？`)) return;
+  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
+  showToast('🗑️ 任務已刪除');
+  closeTaskModal();
+  loadAdminTasks();
+  renderTaskList();
+}
+
+async function deleteTask(taskId) {
+  // legacy wrapper
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!confirm(`確定刪除「${task?.name || taskId}」？`)) return;
+  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
+  showToast('🗑️ 任務已刪除');
+  loadAdminTasks();
+  renderTaskList();
+}
+
+// ── Task Detail Modal ─────────────────────────────────────────────────────
+function openTaskDetailModal(taskId, checkin) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const modal = document.getElementById('taskDetailModal');
+  document.getElementById('tdmTitle').textContent = task.icon + ' ' + task.name;
+  let rows = [];
+  rows.push(['狀態', checkin?.isDone === false ? '⏭️ 跳過' : checkin?.isDone ? '✅ 完成' : '⏳ 待完成']);
+  if (checkin?.time) rows.push(['完成時間', utcToCalgaryClock(checkin.time) + ' (Calgary)']);
+  if (checkin?.result) rows.push(['結果', checkin.result]);
+  if (checkin?.note) rows.push(['備注', checkin.note]);
+  rows.push(['排程時間', (task.scheduledTimes||[]).join(', ') || '-']);
+  rows.push(['重複規則', ({daily:'每天',weekly:'每週指定日',weekdays:'平日',weekends:'週末'})[task.scheduleType||'daily']]);
+  if (task.weekDays) rows.push(['重複日', task.weekDays.map(d=>['日','一','二','三','四','五','六'][d]).join('、')]);
+  rows.push(['類型', task.type || '-']);
+  document.getElementById('tdmBody').innerHTML = rows.map(([l,v]) =>
+    `<div class="detail-row"><span class="detail-label">${l}</span><span class="detail-value">${v}</span></div>`
+  ).join('');
+  modal.classList.remove('hidden');
+}
+function closeTaskDetailModal() {
+  document.getElementById('taskDetailModal').classList.add('hidden');
+}
+
+async function loadAdminPeriodic() {
+  const container = document.getElementById('adminPeriodicContent');
+  container.innerHTML = '<div class="loading-spin"></div>';
+  try {
+    const periodic = await api('/api/periodic');
+    const now = new Date();
+    container.innerHTML = periodic.map(p => {
+      let dueInfo = '', badgeClass = 'badge-ok', dueText = '正常 ✅';
+      if (p.intervalDays && p.lastDoneAt) {
+        const due = new Date(p.lastDoneAt);
+        due.setDate(due.getDate() + p.intervalDays);
+        const diffDays = Math.ceil((due - now) / 86400000);
+        if (diffDays < 0) { badgeClass = 'badge-overdue'; dueText = `逾期 ${-diffDays} 天`; }
+        else if (diffDays <= 3) { badgeClass = 'badge-due-soon'; dueText = `${diffDays} 天後到期`; }
+        dueInfo = `<div class="text-muted mt-8">上次: ${new Date(p.lastDoneAt).toLocaleDateString('zh-HK')} · 每 ${p.intervalDays} 天</div>`;
+      } else if (!p.lastDoneAt) {
+        badgeClass = 'badge-overdue'; dueText = '未記錄';
+      }
+      return `<div class="card">
+        <div class="flex-between">
+          <div><div class="card-title">${p.name}</div>${dueInfo}${p.note ? `<div class="text-muted">${p.note}</div>` : ''}</div>
+          <span class="card-badge ${badgeClass}">${dueText}</span>
+        </div>
+        <button class="btn btn-success mt-8" style="max-width:120px;padding:8px" onclick="markPeriodic('${p.id}')">✅ 完成</button>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    container.innerHTML = '<div class="text-muted">載入失敗</div>';
+  }
+}
+
+async function markPeriodic(id) {
+  const periodic = await api('/api/periodic');
+  const item = periodic.find(p => p.id === id);
+  if (!item) return;
+  item.lastDoneAt = new Date().toISOString();
+  if (item.weeklyCount !== undefined) item.weeklyCount = (item.weeklyCount || 0) + 1;
+  await api('/api/periodic', { method: 'POST', body: JSON.stringify(periodic) });
+  showToast('✅ 已記錄完成');
+  loadAdminPeriodic();
+}
+
+async function loadAdminCat() {
+  try {
+    const cat = await api('/api/cat');
+    if (cat) {
+      document.getElementById('catFormName').value = cat.name || '';
+      document.getElementById('catFormBreed').value = cat.breed || '';
+      document.getElementById('catFormBday').value = cat.birthdate || '';
+      document.getElementById('catFormNotes').value = cat.notes || '';
+    }
+  } catch(e) { showToast('⚠️ 載入貓咪資料失敗'); }
+}
+
+async function saveCatProfile() {
+  const name = document.getElementById('catFormName').value.trim();
+  const breed = document.getElementById('catFormBreed').value.trim();
+  const birthdate = document.getElementById('catFormBday').value;
+  const notes = document.getElementById('catFormNotes').value.trim();
+  if (!name) { showToast('⚠️ 請輸入貓咪名字'); return; }
+  try {
+    await api('/api/cat', {
+      method: 'POST',
+      body: JSON.stringify({ name, breed, birthdate, notes }),
+    });
+    state.cat = { name, breed, birthdate, notes };
+    state.catName = name;
+    document.getElementById('catNameDisplay').textContent = name;
+    updateCatProfileCard();
+    showToast('✅ 貓咪資料已儲存');
+  } catch(e) { showToast('❌ 儲存失敗'); }
+}
+
+async function loadAdminSettings() {
+  const settings = await api('/api/settings').catch(() => ({}));
+  document.getElementById('settingCatName').value = settings.catName || '喔咪';
+  document.getElementById('settingPersonWeight').value = settings.lastPersonWeight || 66.5;
+}
+
+async function saveSettings() {
+  const catName = document.getElementById('settingCatName').value.trim() || '喔咪';
+  const lastPersonWeight = parseFloat(document.getElementById('settingPersonWeight').value) || 66.5;
+  const settings = { ...state.settings, catName, lastPersonWeight };
+  await api('/api/settings', { method: 'POST', body: JSON.stringify(settings) });
+  state.settings = settings;
+  state.catName = catName;
+  document.getElementById('catNameDisplay').textContent = catName;
+  showToast('✅ 設定已儲存');
+}
+
+async function changePin() {
+  const oldPin = document.getElementById('oldPin').value;
+  const newPin = document.getElementById('newPin').value;
+  if (!oldPin || !newPin) { showToast('⚠️ 請填寫所有欄位'); return; }
+  try {
+    const r = await api('/api/pin/change', { method: 'POST', body: JSON.stringify({ oldPin, newPin }) });
+    if (r.ok) { showToast('✅ PIN 已更改'); document.getElementById('oldPin').value = ''; document.getElementById('newPin').value = ''; }
+    else showToast('❌ ' + (r.error || '更改失敗'));
+  } catch(e) { showToast('❌ 更改失敗'); }
+}
+
+async function exportData() {
+  try {
+    const [tasks, weights, settings, periodic] = await Promise.all([
+      api('/api/tasks'), api('/api/weights'), api('/api/settings'), api('/api/periodic'),
+    ]);
+    const data = { exportedAt: new Date().toISOString(), tasks, weights, settings, periodic };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `umicare-export-${todayStr()}.json`;
+    a.click();
+  } catch(e) { showToast('❌ 匯出失敗'); }
+}
+
+// ─── TOAST & CONFETTI ──────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function confetti() {
+  const colors = ['#667eea','#f4a261','#f093fb','#4ade80','#fb923c'];
+  for (let i = 0; i < 20; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.cssText = `
+        left: ${Math.random()*100}vw;
+        top: -10px;
+        background: ${colors[Math.floor(Math.random()*colors.length)]};
+        animation-duration: ${1 + Math.random()}s;
+        animation-delay: ${Math.random()*0.3}s;
+      `;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2000);
+    }, i * 40);
+  }
+}
+
+// ─── START ─────────────────────────────────────────────────────
+init();
+
+// ── Auto-refresh task status every 60 seconds ──────────────────────────────
+// This ensures overdue badges update while the app is open, without reloading
+// check-in data from KV (uses cached state.checkins only).
+setInterval(() => {
+  updateDateDisplay();
+  if (!document.getElementById('pageTasks').classList.contains('hidden')) {
+    // Re-render task list using current state (no network call)
+    renderTaskList();
+  }
+  if (!document.getElementById('pageAdmin').classList.contains('hidden')) {
+    // Refresh admin overview live stats
+    const overviewTab = document.getElementById('adminTabOverview');
+    if (overviewTab && overviewTab.classList.contains('active')) {
+      loadAdminOverview();
+    }
+    // Update the header sub-row Calgary clock
+    const subRow = document.getElementById('adminSubRow');
+    if (subRow && state.currentDate) {
+      const now2 = getCalgaryDate();
+      const hStr = String(now2.getUTCHours()).padStart(2,'0');
+      const mStr = String(now2.getUTCMinutes()).padStart(2,'0');
+      const catName = state.cat?.name || state.catName || '屋咪';
+      subRow.textContent = `${state.currentDate} · ${hStr}:${mStr} Calgary · ${catName} 照護狀態`;
+    }
+  }
+}, 60 * 1000);
+
+// ===== PUSH NOTIFICATION =====
+// Web Audio API notification sound
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const times = [[0, 880, 0.12], [0.15, 1100, 0.12], [0.3, 1320, 0.18]];
+    times.forEach(([start, freq, dur]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    });
+  } catch(e) {}
+}
+// Listen for push messages from service worker (postMessage path)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'push-received') {
+      playNotifSound();
+    }
+  });
+}
+// Listen for push messages via BroadcastChannel (background path)
+if ('BroadcastChannel' in window) {
+  const pushChannel = new BroadcastChannel('push-notify');
+  pushChannel.onmessage = (e) => {
+    if (e.data && e.data.type === 'push-received') {
+      playNotifSound();
+    }
+  };
+}
+
+const VAPID_PUBLIC_KEY = 'BHgJpAFFHPBdA1QxgX4Wx5Bqa3j-Wcj1IWryX7MRxNf7Y-0sPlyDsymCwsiwwYjo7iS4TKpMG77Qv_CxbTXQofI';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function togglePushNotification() {
+  const btn = document.getElementById('push-btn');
+
+  // Check if already subscribed → unsubscribe
+  if (btn && btn.dataset.subscribed === 'true') {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+      if (reg) {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      }
+      await fetch('/api/push/subscribe', { method: 'DELETE' });
+      btn.textContent = '🔔';
+      btn.style.color = '';
+      btn.title = '啟用通知';
+      btn.dataset.subscribed = 'false';
+      showToast('🔕 推播通知已關閉');
+    } catch(e) { showToast('❌ 取消失敗：' + e.message); }
+    return;
+  }
+
+  if (!('serviceWorker' in navigator)) {
+    showToast('❌ 此裝置不支援 ServiceWorker（請使用 Chrome 或已加入主畫面的 Safari）');
+    return;
+  }
+  if (!('PushManager' in window)) {
+    showToast('❌ 此裝置不支援 Web Push（iOS 請先加入主畫面）');
+    return;
+  }
+  const perm = Notification.permission;
+  if (perm === 'denied') {
+    showToast('❌ 通知已被封鎖，請在瀏覽器設定 → 此網站 → 通知 → 允許');
+    btn.style.color = '#ccc';
+    btn.title = '通知已封鎖';
+    return;
+  }
+  try {
+    btn.textContent = '⏳';
+    // Register SW
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    // Request permission explicitly first (for iOS)
+    if (Notification.permission === 'default') {
+      const result = await Notification.requestPermission();
+      if (result !== 'granted') {
+        btn.textContent = '🔔';
+        showToast('❌ 通知權限被拒絕');
+        return;
+      }
+    }
+    // Subscribe
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    // Send subscription to server
+    const subJson = sub.toJSON();
+    console.log('[Push] Subscription:', JSON.stringify(subJson).substring(0,100));
+    const resp = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(subJson)
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      btn.textContent = '🔔';
+      btn.style.color = '#4caf50';
+      btn.title = '通知已啟用 ✅（點擊關閉）';
+      btn.dataset.subscribed = 'true';
+      showToast('✅ 推播通知已啟用！');
+      // Send immediate test push to confirm
+      setTimeout(async () => {
+        try {
+          const r = await fetch('/api/push/test', { method: 'POST' });
+          const d = await r.json();
+          if (!d.ok) console.warn('[Push] Test failed:', d);
+        } catch(e) {}
+      }, 1500);
+    } else {
+      throw new Error(data.error || 'subscribe failed');
+    }
+  } catch (err) {
+    btn.textContent = '🔔';
+    console.error('[Push] Subscribe error:', err);
+    showToast('❌ 通知啟用失敗：' + err.message);
+  }
+}
+
+async function checkPushStatus() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  const btn = document.getElementById('push-btn');
+  if (!btn) return;
+  if (Notification.permission === 'denied') {
+    btn.textContent = '🔕';
+    btn.style.color = '#ccc';
+    btn.title = '通知已封鎖';
+    btn.dataset.subscribed = 'false';
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.getRegistration('/sw.js');
+    if (reg) {
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        btn.textContent = '🔔';
+        btn.style.color = '#4caf50';
+        btn.title = '通知已啟用 ✅（點擊關閉）';
+        btn.dataset.subscribed = 'true';
+        return;
+      }
+    }
+  } catch(e) { /* ignore */ }
+  btn.dataset.subscribed = 'false';
+}
+// ===== END PUSH =====
+
+</script>
+
+<!-- ========== TASK DETAIL MODAL ========== -->
+<div id="taskDetailModal" class="modal-overlay hidden" onclick="if(event.target===this)closeTaskDetailModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="tdmTitle" style="font-size:1.15rem;font-weight:700"></span>
+      <button class="modal-close" onclick="closeTaskDetailModal()">✕</button>
+    </div>
+    <div id="tdmBody" style="padding:16px 20px"></div>
+  </div>
+</div>
+
+<!-- ========== TASK EDIT MODAL ========== -->
+<div id="taskEditModal" class="modal-overlay hidden" onclick="if(event.target===this)closeTaskModal()">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <span id="temTitle" style="font-size:1.1rem;font-weight:700">✏️ 編輯任務</span>
+      <button class="modal-close" onclick="closeTaskModal()">✕</button>
+    </div>
+    <div style="padding:16px 20px;overflow-y:auto;max-height:70vh">
+      <input type="hidden" id="temTaskId">
+
+      <div class="form-row-2">
+        <div class="form-field">
+          <label>圖示 (emoji)</label>
+          <input type="text" id="temIcon" placeholder="🍽️" maxlength="2" class="emoji-input">
+        </div>
+        <div class="form-field" style="flex:3">
+          <label>任務名稱</label>
+          <input type="text" id="temName" placeholder="例：早餐">
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label>類型</label>
+        <select id="temType" onchange="updateTemResultOptions()">
+          <option value="meal">🍽️ 餐食</option>
+          <option value="litter">🪣 貓砂</option>
+          <option value="water">💧 飲水</option>
+          <option value="weight">⚖️ 體重</option>
+          <option value="groom">✂️ 美容</option>
+          <option value="other">📌 其他</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label>重複規則</label>
+        <select id="temScheduleType" onchange="updateTemWeekdays()">
+          <option value="daily">📅 每天</option>
+          <option value="weekly">🗓️ 每週指定日</option>
+          <option value="weekdays">💼 平日 (週一至五)</option>
+          <option value="weekends">🌴 週末 (週六日)</option>
+        </select>
+      </div>
+
+      <div id="temWeekdaysRow" class="form-field hidden">
+        <label>重複日</label>
+        <div class="weekday-picker">
+          <label class="wd-btn"><input type="checkbox" value="0" onchange="updateWdChip(this)"><span class="wd-chip">日</span></label>
+          <label class="wd-btn"><input type="checkbox" value="1" onchange="updateWdChip(this)"><span class="wd-chip">一</span></label>
+          <label class="wd-btn"><input type="checkbox" value="2" onchange="updateWdChip(this)"><span class="wd-chip">二</span></label>
+          <label class="wd-btn"><input type="checkbox" value="3" onchange="updateWdChip(this)"><span class="wd-chip">三</span></label>
+          <label class="wd-btn"><input type="checkbox" value="4" onchange="updateWdChip(this)"><span class="wd-chip">四</span></label>
+          <label class="wd-btn"><input type="checkbox" value="5" onchange="updateWdChip(this)"><span class="wd-chip">五</span></label>
+          <label class="wd-btn"><input type="checkbox" value="6" onchange="updateWdChip(this)"><span class="wd-chip">六</span></label>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label>執行時間</label>
+        <div id="temTimesList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="time" id="temNewTime" style="flex:1">
+          <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem" onclick="addTemTime()">＋ 新增時間</button>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label>結果選項 <span style="font-size:0.75rem;color:var(--text-muted)">(空白 = 不需選)</span></label>
+        <div id="temResultPreview" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:4px"></div>
+        <select id="temResultPreset" onchange="applyResultPreset()">
+          <option value="">— 自訂 / 保留現有 —</option>
+          <option value="meal">🍽️ 餐食: 正常/少量/完全不吃</option>
+          <option value="litter">🪣 貓砂: 屎/尿/都有/都沒有</option>
+          <option value="water">💧 飲水: 完成/加水</option>
+          <option value="none">✕ 清空 (不需選結果)</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label>備注欄位</label>
+        <select id="temRequireNote">
+          <option value="false">不需要</option>
+          <option value="optional">可選填</option>
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">
+        <button class="btn btn-success" onclick="saveTaskModal()">💾 儲存任務</button>
+        <button class="btn btn-secondary" onclick="closeTaskModal()">取消</button>
+      </div>
+      <div id="temDeleteRow" style="margin-top:12px;text-align:center;display:none">
+        <button class="btn" style="background:#fee2e2;color:#dc2626;width:100%" onclick="deleteCurrentTask()">🗑️ 刪除此任務</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ── Modal base ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9000; padding: 16px;
+}
+.modal-overlay.hidden { display: none !important; }
+.modal-box {
+  background: var(--card-bg, #fff); border-radius: 16px;
+  width: 100%; max-width: 480px; box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+  animation: modalIn 0.2s ease;
+}
+@keyframes modalIn {
+  from { transform: scale(0.92) translateY(12px); opacity:0; }
+  to   { transform: scale(1) translateY(0);     opacity:1; }
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+.modal-close {
+  background: none; border: none; font-size: 1.1rem; cursor: pointer;
+  color: var(--text-muted, #9ca3af); padding: 4px 8px; border-radius: 6px;
+}
+.modal-close:hover { background: var(--border-color, #f3f4f6); }
+
+/* ── Overview tab ── */
+.overview-summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 16px;
+}
+.ov-stat {
+  background: var(--card-bg); border-radius: 12px;
+  padding: 12px; text-align: center; border: 1px solid var(--border-color);
+}
+.ov-stat-num { font-size: 1.6rem; font-weight: 700; color: var(--cat-accent); }
+.ov-stat-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+.timeline { position: relative; padding-left: 28px; }
+.timeline::before {
+  content: ''; position: absolute; left: 10px; top: 0; bottom: 0;
+  width: 2px; background: var(--border-color);
+}
+.tl-item {
+  position: relative; margin-bottom: 8px; cursor: pointer;
+}
+.tl-item::before {
+  content: ''; position: absolute; left: -22px; top: 14px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--border-color); border: 2px solid var(--card-bg);
+  transition: background 0.2s;
+}
+.tl-item.tl-done::before { background: #4ade80; }
+.tl-item.tl-skip::before { background: #fb923c; }
+.tl-item.tl-overdue::before { background: #f87171; }
+.tl-item.tl-pending::before { background: #d1d5db; }
+
+.tl-card {
+  background: var(--card-bg); border: 1px solid var(--border-color);
+  border-radius: 10px; padding: 10px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: box-shadow 0.15s;
+}
+.tl-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+.tl-item.tl-done .tl-card { border-left: 3px solid #4ade80; }
+.tl-item.tl-skip .tl-card { border-left: 3px solid #fb923c; }
+.tl-item.tl-overdue .tl-card { border-left: 3px solid #f87171; }
+
+.tl-icon { font-size: 1.2rem; margin-right: 10px; }
+.tl-name { font-weight: 600; font-size: 0.9rem; }
+.tl-sched { font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono); }
+.tl-right { text-align: right; flex-shrink: 0; margin-left: 10px; }
+.tl-status-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 12px;
+  font-size: 0.72rem; font-weight: 600;
+}
+.badge-tl-done  { background: #dcfce7; color: #16a34a; }
+.badge-tl-skip  { background: #fff7ed; color: #c2410c; }
+.badge-tl-over  { background: #fef2f2; color: #dc2626; }
+.badge-tl-pend  { background: #f3f4f6; color: #6b7280; }
+.tl-time { font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono); margin-top: 3px; }
+
+.ov-section-title {
+  font-size: 0.8rem; font-weight: 700; color: var(--text-muted);
+  letter-spacing: 0.05em; text-transform: uppercase; margin: 16px 0 8px;
+}
+
+/* ── Task schedule tab ── */
+.task-sched-card {
+  background: var(--card-bg); border: 1px solid var(--border-color);
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: box-shadow 0.15s;
+}
+.task-sched-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+.task-sched-left { display: flex; align-items: center; gap: 10px; }
+.task-sched-icon { font-size: 1.3rem; }
+.task-sched-name { font-weight: 600; font-size: 0.9rem; }
+.task-sched-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.task-sched-right { display: flex; align-items: center; gap: 8px; }
+.sched-time-chip {
+  background: var(--bg-secondary, #f3f4f6); border-radius: 6px;
+  padding: 2px 8px; font-size: 0.78rem; font-family: var(--mono); color: var(--text-main);
+}
+.sched-edit-btn {
+  background: none; border: 1px solid var(--border-color); border-radius: 8px;
+  padding: 5px 10px; cursor: pointer; font-size: 0.8rem; color: var(--text-muted);
+}
+.sched-edit-btn:hover { background: var(--border-color); }
+
+/* ── Weekday picker ── */
+.weekday-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+.wd-btn { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.wd-btn input[type=checkbox] { display: none; }
+.wd-btn span, .wd-btn { 
+  padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
+  border: 1.5px solid var(--border-color); background: var(--card-bg);
+  transition: all 0.15s; user-select: none;
+}
+.wd-btn input:checked + span, .wd-btn:has(input:checked) {
+  background: var(--cat-accent); color: #fff; border-color: var(--cat-accent);
+}
+
+/* make wd-btn label look right */
+.wd-btn {
+  padding: 0;
+  border: none;
+  background: none;
+}
+.wd-chip {
+  padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
+  border: 1.5px solid var(--border-color); background: var(--card-bg);
+  display: inline-block; transition: all 0.15s; cursor: pointer;
+}
+
+/* ── Time chips in modal ── */
+.time-chip-item {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--bg-secondary, #f3f4f6); border-radius: 8px;
+  padding: 4px 10px; font-size: 0.85rem; font-family: var(--mono);
+}
+.time-chip-remove {
+  background: none; border: none; color: #f87171; cursor: pointer; font-size: 0.9rem; padding: 0 2px;
+}
+
+/* ── Form helpers ── */
+.form-row-2 { display: flex; gap: 10px; }
+.emoji-input { text-align: center; font-size: 1.3rem; }
+
+/* ── Detail modal body ── */
+.detail-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border-color);
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-label { font-size: 0.8rem; color: var(--text-muted); }
+.detail-value { font-weight: 600; font-size: 0.9rem; }
+
+/* ══════════════════════════════════════════════════════
+   PAGE WIPE TRANSITION (admin enter / exit)
+   Uses a full-screen overlay that wipes across so only
+   ONE page is ever visible at a time.
+   ══════════════════════════════════════════════════════ */
+
+/* Overlay enters from right, pauses, exits to left */
+@keyframes wipeEnter {
+  0%   { transform: translateX(100%); }
+  35%  { transform: translateX(0%);   }
+  100% { transform: translateX(0%);   }
+}
+@keyframes wipeExit {
+  0%   { transform: translateX(0%);    }
+  100% { transform: translateX(-100%); }
+}
+/* Reverse: overlay enters from left, exits right */
+@keyframes wipeEnterReverse {
+  0%   { transform: translateX(-100%); }
+  35%  { transform: translateX(0%);    }
+  100% { transform: translateX(0%);    }
+}
+@keyframes wipeExitReverse {
+  0%   { transform: translateX(0%);   }
+  100% { transform: translateX(100%); }
+}
+
+/* The wipe panel itself */
+.page-wipe-overlay {
+  position: fixed; inset: 0; z-index: 9990;
+  pointer-events: none;
+  /* gradient matching app accent colours */
+  background: linear-gradient(135deg, var(--primary, #ff85a1) 0%, #c084fc 100%);
+  will-change: transform;
+}
+
+/* ══════════════════════════════════════════════════════
+   ADMIN HEADER REDESIGN
+   ══════════════════════════════════════════════════════ */
+.admin-page-header {
+  background: linear-gradient(135deg, var(--primary) 0%, #c084fc 100%);
+  padding: 20px 20px 16px;
+  color: #fff;
+  position: sticky; top: 0; z-index: 40;
+}
+.admin-welcome-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.admin-welcome-title {
+  font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em;
+}
+.admin-logout-btn {
+  background: rgba(255,255,255,0.22); border: none; color: #fff;
+  border-radius: 20px; padding: 7px 16px; font-size: 0.82rem;
+  font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  transition: background 0.18s;
+}
+.admin-logout-btn:hover { background: rgba(255,255,255,0.35); }
+.admin-sub-row {
+  font-size: 0.78rem; opacity: 0.88; margin-top: 2px;
+}
+
+/* Admin tab bar — sticky below header */
+.admin-tabs {
+  position: sticky;
+  top: 78px; /* header height */
+  z-index: 35;
+  background: var(--bg-main, #fff5f7);
+  border-bottom: 1px solid rgba(255,133,161,0.18);
+}
+
+/* Hide bottom nav in admin mode */
+.admin-mode-active .bottom-nav { display: none !important; }
+
+</style>
+
+</body>
+</html>
