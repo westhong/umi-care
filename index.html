@@ -769,7 +769,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.4</span>
+        <span id="version-badge">v3.4.1</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1372,13 +1372,24 @@ function renderTaskList() {
 }
 
 function getOverdueStatus(task) {
-  const now = new Date();
-  const time = task.scheduledTimes?.[0];
-  if (!time) return 'pending';
-  const [h, m] = time.split(':').map(Number);
-  const scheduled = new Date();
-  scheduled.setHours(h, m, 0, 0);
-  if (now > scheduled && (now - scheduled) > 30 * 60 * 1000) return 'overdue';
+  // Always compare in Calgary local time so status is correct regardless
+  // of where the browser/phone is physically located.
+  const calgaryNow = getCalgaryDate();        // shifted Date: UTC methods give Calgary values
+  const nowMins = calgaryNow.getUTCHours() * 60 + calgaryNow.getUTCMinutes();
+
+  const scheduledTimes = task.scheduledTimes || [];
+  if (!scheduledTimes.length) return 'pending';
+
+  // A task is overdue when the LATEST scheduled time for today has passed.
+  // (If a task has multiple times, it's still "active" until the last one passes.)
+  const allMins = scheduledTimes.map(t => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  });
+  const latestMins = Math.max(...allMins);
+
+  // Grace period: 0 minutes — show overdue the moment the scheduled time passes.
+  if (nowMins > latestMins) return 'overdue';
   return 'pending';
 }
 
@@ -2308,6 +2319,18 @@ function confetti() {
 
 // ─── START ─────────────────────────────────────────────────────
 init();
+
+// ── Auto-refresh task status every 60 seconds ──────────────────────────────
+// This ensures overdue badges update while the app is open, without reloading
+// check-in data from KV (uses cached state.checkins only).
+setInterval(() => {
+  if (document.getElementById('pageMain') &&
+      !document.getElementById('pageMain').classList.contains('hidden')) {
+    // Re-render task list using current state (no network call)
+    renderTaskList();
+    updateDateDisplay();
+  }
+}, 60 * 1000);
 
 // ===== PUSH NOTIFICATION =====
 // Web Audio API notification sound
