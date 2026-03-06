@@ -589,6 +589,20 @@ body::before {
   .push-btn.denied { background: #ccc; cursor: not-allowed; }
   #push-status { font-size: 12px; color: #999; text-align: center; margin-top: 4px; }
 
+
+/* ─── VERSION BADGE ─── */
+#version-badge {
+  font-size: 0.6rem;
+  font-family: var(--mono);
+  background: rgba(255,133,161,0.15);
+  color: var(--text-muted);
+  border: 1px solid rgba(255,133,161,0.25);
+  border-radius: 10px;
+  padding: 2px 7px;
+  letter-spacing: 0.05em;
+  user-select: none;
+  white-space: nowrap;
+}
 </style>
 </head>
 <body>
@@ -635,6 +649,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
+        <span id="version-badge">v3.1</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -819,7 +834,7 @@ let state = {
 
 function todayStr() {
   // Use HKT (UTC+8) date so frontend matches the server-side cron
-  const d = new Date(Date.now() - 7 * 3600 * 1000); // Calgary MST UTC-7
+  const d = new Date(Date.now() + 8 * 3600 * 1000);
   return d.toISOString().split('T')[0];
 }
 
