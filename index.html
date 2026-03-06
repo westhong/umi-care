@@ -804,7 +804,7 @@ body::before {
     <div class="cat-profile-wrap" id="catProfileWrap">
       <button class="cat-card-toggle" onclick="toggleCatCard()">
         <span id="catCardToggleIcon">▶</span>
-        <span id="catCardName">哈哈</span>
+        <span id="catCardName">屋咪</span>
         <span class="cat-card-subtitle">的資料</span>
       </button>
       <div class="cat-card-body hidden" id="catCardBody">
@@ -928,7 +928,7 @@ body::before {
           <div class="cat-admin-avatar">🐾</div>
           <div class="form-field">
             <label>貓咪名字</label>
-            <input type="text" id="catFormName" placeholder="例：哈哈" class="cat-input">
+            <input type="text" id="catFormName" placeholder="例：屋咪" class="cat-input">
           </div>
           <div class="form-field">
             <label>品種</label>
@@ -991,7 +991,7 @@ let state = {
   tasks: [],
   checkins: [],
   settings: { lastPersonWeight: 66.5 },
-  cat: { name: '哈哈', breed: '', birthdate: '', weight: '', notes: '' },
+  cat: { name: '屋咪', breed: '', birthdate: '', weight: '', notes: '' },
   catName: '喔咪',
   weightsList: [],
   adminMode: false,
@@ -1059,7 +1059,7 @@ function updateCatProfileCard() {
   const breedEl = document.getElementById('catCardBreed');
   const bdayEl = document.getElementById('catCardBday');
   const wtEl = document.getElementById('catCardWeight');
-  if (nameEl) nameEl.textContent = cat.name || state.catName || '哈哈';
+  if (nameEl) nameEl.textContent = cat.name || state.catName || '屋咪';
   // Update weight table header if visible
   const wth = document.getElementById('weightTableCatHeader');
   if (wth) wth.textContent = (cat.name || state.catName || '貓咪') + '體重';
