@@ -119,7 +119,12 @@ async function handleApi(request, env, url) {
     if (path === '/tasks') {
       if (method === 'GET') {
         const raw = await KV.get('tasks:list');
-        return json(raw ? JSON.parse(raw) : DEFAULT_TASKS);
+        if (!raw) {
+          // First time: initialize KV with default tasks so cron can find them
+          await KV.put('tasks:list', JSON.stringify(DEFAULT_TASKS));
+          return json(DEFAULT_TASKS);
+        }
+        return json(JSON.parse(raw));
       }
       if (method === 'POST') {
         await KV.put('tasks:list', JSON.stringify(await request.json()));
@@ -267,7 +272,7 @@ export default {
 
     // Load tasks + today's checkins
     const tasksRaw = await KV.get('tasks:list');
-    const tasks = tasksRaw ? JSON.parse(tasksRaw) : [];
+    const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;  // fallback to defaults if never customized
     const checkinsRaw = await KV.get('checkins:' + today);
     const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
     const doneIds = new Set(checkins.map(c => c.taskId));
@@ -505,7 +510,7 @@ async function handlePushApi(path, method, request, env) {
     const today = hktNow.toISOString().split('T')[0];
 
     const tasksRaw = await KV.get('tasks:list');
-    const tasks = tasksRaw ? JSON.parse(tasksRaw) : [];
+    const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;  // fallback
     const checkinsRaw = await KV.get('checkins:' + today);
     const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
     const doneIds = new Set(checkins.map(c => c.taskId));
