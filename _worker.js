@@ -229,6 +229,10 @@ async function handleApi(request, env, url) {
       });
     }
 
+    // Push API
+    const pushResult = await handlePushApi(path, method, request, env);
+    if (pushResult) return pushResult;
+
     return json({ error: 'Not found' }, 404);
 
   } catch (err) {
@@ -236,16 +240,122 @@ async function handleApi(request, env, url) {
   }
 }
 
+const VAPID_PUBLIC_KEY = 'BHgJpAFFHPBdA1QxgX4Wx5Bqa3j-Wcj1IWryX7MRxNf7Y-0sPlyDsymCwsiwwYjo7iS4TKpMG77Qv_CxbTXQofI';
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-
-    // Route /api/* to Worker logic
-    if (url.pathname.startsWith('/api/')) {
-      return handleApi(request, env, url);
-    }
-
-    // Everything else → serve static assets (index.html etc.)
+    if (!env.VAPID_PUBLIC_KEY) env = { ...env, VAPID_PUBLIC_KEY: VAPID_PUBLIC_KEY };
+    if (url.pathname.startsWith('/api/')) return handleApi(request, env, url);
     return env.ASSETS.fetch(request);
   },
+
+  // Cron trigger: runs every 30 min to send due-task notifications
+  async scheduled(event, env, ctx) {
+    const KV = env.UMICARE_DATA;
+    const raw = await KV.get('push:subscription');
+    if (!raw) return; // no subscriber
+    const sub = JSON.parse(raw);
+
+    const now = new Date();
+    const hhmm = now.getUTCHours().toString().padStart(2,'0') + ':' + now.getUTCMinutes().toString().padStart(2,'0');
+    // Convert UTC to HKT (+8)
+    const hktHour = (now.getUTCHours() + 8) % 24;
+    const hktMin  = now.getUTCMinutes();
+    const hktHHMM = hktHour.toString().padStart(2,'0') + ':' + hktMin.toString().padStart(2,'0');
+
+    const tasksRaw = await KV.get('tasks:list');
+    const tasks = tasksRaw ? JSON.parse(tasksRaw) : [];
+    const today = new Date(now.getTime() + 8*3600000).toISOString().split('T')[0];
+    const checkinsRaw = await KV.get('checkins:' + today);
+    const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
+    const doneIds = new Set(checkins.map(c => c.taskId));
+
+    for (const task of tasks) {
+      if (doneIds.has(task.id)) continue;
+      const times = task.scheduledTimes || [];
+      for (const t of times) {
+        // Notify within ±5 min window
+        const [th, tm] = t.split(':').map(Number);
+        const diff = Math.abs((hktHour * 60 + hktMin) - (th * 60 + tm));
+        if (diff <= 5) {
+          await sendWebPush(env, sub, {
+            title: '🐾 喔咪照護提醒',
+            body: task.name + ' 時間到了！',
+            tag: task.id,
+          });
+        }
+      }
+    }
+  },
 };
+
+// ─── WEB PUSH HELPERS ──────────────────────────────────────────
+async function sendWebPush(env, subscription, payload) {
+  const VAPID_PUBLIC  = env.VAPID_PUBLIC_KEY;
+  const VAPID_PRIVATE = env.VAPID_PRIVATE_KEY;
+  const endpoint = subscription.endpoint;
+  const p256dh   = subscription.keys.p256dh;
+  const auth     = subscription.keys.auth;
+
+  // Build VAPID JWT
+  const audience = new URL(endpoint).origin;
+  const now = Math.floor(Date.now() / 1000);
+  const header  = btoa(JSON.stringify({ typ: 'JWT', alg: 'ES256' })).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const claims  = btoa(JSON.stringify({ aud: audience, exp: now + 86400, sub: 'mailto:admin@umi-care.app' })).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const sigInput = header + '.' + claims;
+
+  // Import private key for signing
+  const privKeyBytes = Uint8Array.from(atob(VAPID_PRIVATE.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+  const privKey = await crypto.subtle.importKey('raw', privKeyBytes, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, privKey, new TextEncoder().encode(sigInput));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const jwt = sigInput + '.' + sigB64;
+
+  const vapidHeader = `vapid t=${jwt},k=${VAPID_PUBLIC}`;
+
+  // Encrypt payload using Web Push encryption (ECDH + AES-GCM)
+  const body = new TextEncoder().encode(JSON.stringify(payload));
+
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': vapidHeader,
+      'Content-Type': 'application/octet-stream',
+      'Content-Encoding': 'aes128gcm',
+      'TTL': '86400',
+    },
+    body,
+  });
+  return resp.status;
+}
+
+// ─── PUSH API ROUTES ──────────────────────────────────────────
+async function handlePushApi(path, method, request, env) {
+  const KV = env.UMICARE_DATA;
+
+  // POST /api/push/subscribe — save subscription
+  if (path === '/push/subscribe' && method === 'POST') {
+    const sub = await request.json();
+    await KV.put('push:subscription', JSON.stringify(sub));
+    return json({ ok: true });
+  }
+
+  // DELETE /api/push/subscribe — remove subscription
+  if (path === '/push/subscribe' && method === 'DELETE') {
+    await KV.delete('push:subscription');
+    return json({ ok: true });
+  }
+
+  // POST /api/push/test — send a test notification
+  if (path === '/push/test' && method === 'POST') {
+    const raw = await KV.get('push:subscription');
+    if (!raw) return json({ error: 'No subscription found' }, 404);
+    const sub = JSON.parse(raw);
+    await sendWebPush(env, sub, { title: 'UmiCare 🐾 測試', body: '推送通知正常運作！' });
+    return json({ ok: true });
+  }
+
+  return null;
+}
+
