@@ -375,7 +375,7 @@ async function sendWebPush(env, subscription, payload) {
   // Import recipient (UA) public key
   const uaPubRaw = fromB64url(p256dh);
   const uaPubKey = await crypto.subtle.importKey('raw', uaPubRaw,
-    { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);
+    { name: 'ECDH', namedCurve: 'P-256' }, false, []);
 
   // ECDH shared secret
   const sharedBits = await crypto.subtle.deriveBits(
