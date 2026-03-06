@@ -255,20 +255,20 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  // Cron trigger: runs every 30 min to send due-task notifications
+  // Cron trigger: runs every 5 min to send due-task notifications (Calgary MST UTC-7)
   async scheduled(event, env, ctx) {
     const KV = env.UMICARE_DATA;
     const raw = await KV.get('push:subscription');
     if (!raw) return; // no subscriber
     const sub = JSON.parse(raw);
 
-    // HKT = UTC+8
+    // Calgary MST = UTC-7
     const now = new Date();
-    const hktNow = new Date(now.getTime() + 8 * 3600000);
-    const hktHour = hktNow.getUTCHours();
-    const hktMin  = hktNow.getUTCMinutes();
+    const localNow = new Date(now.getTime() - 7 * 3600000);
+    const hktHour = localNow.getUTCHours();
+    const hktMin  = localNow.getUTCMinutes();
     const hktTotalMin = hktHour * 60 + hktMin;
-    const today = hktNow.toISOString().split('T')[0];
+    const today = localNow.toISOString().split('T')[0];
 
     // Load tasks + today's checkins
     const tasksRaw = await KV.get('tasks:list');
@@ -294,10 +294,7 @@ export default {
 
     if (overdue.length === 0) return; // nothing to remind
 
-    // Only push during active hours: 05:00 - 23:59 HKT
-    if (hktHour < 5) return; // it's the middle of the night, don't disturb
-
-    // Send ONE batched notification
+    // Send ONE batched notification (24/7 - user in Calgary wants round-the-clock alerts)
     const firstName = overdue[0].name;
     const body = overdue.length === 1
       ? `${firstName} 未完成，快去記錄！`
@@ -512,11 +509,11 @@ async function handlePushApi(path, method, request, env) {
     const sub = JSON.parse(raw);
 
     const now = new Date();
-    const hktNow = new Date(now.getTime() + 8 * 3600000);
-    const hktHour = hktNow.getUTCHours();
-    const hktMin  = hktNow.getUTCMinutes();
+    const localNow = new Date(now.getTime() - 7 * 3600000);
+    const hktHour = localNow.getUTCHours();
+    const hktMin  = localNow.getUTCMinutes();
     const hktTotalMin = hktHour * 60 + hktMin;
-    const today = hktNow.toISOString().split('T')[0];
+    const today = localNow.toISOString().split('T')[0];
 
     const tasksRaw = await KV.get('tasks:list');
     const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;  // fallback
