@@ -329,6 +329,39 @@ body::before {
 .cat-stat-label { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; }
 .cat-stat-value { font-size: 0.88rem; font-weight: 600; color: var(--text); }
 
+
+/* Weight recorded view */
+.weight-recorded-view {
+  background: rgba(74,222,128,0.08);
+  border: 1px solid rgba(74,222,128,0.25);
+  border-radius: 12px;
+  padding: 14px;
+}
+.weight-recorded-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.weight-recorded-time { color: var(--text-muted); font-weight: 400; }
+.weight-recorded-row {
+  display: flex;
+  gap: 8px;
+}
+.weight-rec-item {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.cat-weight-highlight {
+  background: rgba(255,133,161,0.12);
+  border: 1px solid rgba(255,133,161,0.25);
+}
+.weight-rec-label { font-size: 0.68rem; color: var(--text-muted); margin-bottom: 3px; }
+.weight-rec-val { font-size: 0.92rem; font-weight: 700; color: var(--text); }
+.weight-rec-note { margin-top: 8px; font-size: 0.8rem; color: var(--text-muted); }
 .task-card {
   background: var(--bg-card);
   border: 1px solid var(--glass-border);
@@ -355,7 +388,9 @@ body::before {
 }
 .task-info { flex: 1; }
 .task-name { font-size: 0.95rem; font-weight: 600; }
-.task-time { font-size: 0.75rem; color: var(--text-muted); font-family: var(--mono); }
+.task-time { font-size: 0.75rem; color: var(--text-muted); font-family: var(--mono); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.checkin-time { font-size: 0.72rem; color: #4ade80; font-weight: 600; letter-spacing: 0.01em; }
+.task-card.skip .checkin-time { color: #fb923c; }
 .task-status {
   padding: 4px 10px; border-radius: 20px;
   font-size: 0.75rem; font-weight: 600;
@@ -734,7 +769,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.2</span>
+        <span id="version-badge">v3.3</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -958,6 +993,7 @@ let state = {
   settings: { lastPersonWeight: 66.5 },
   cat: { name: '哈哈', breed: '', birthdate: '', weight: '', notes: '' },
   catName: '喔咪',
+  weightsList: [],
   adminMode: false,
   currentDate: todayStr(),
   calYear: new Date().getFullYear(),
@@ -1024,6 +1060,9 @@ function updateCatProfileCard() {
   const bdayEl = document.getElementById('catCardBday');
   const wtEl = document.getElementById('catCardWeight');
   if (nameEl) nameEl.textContent = cat.name || state.catName || '哈哈';
+  // Update weight table header if visible
+  const wth = document.getElementById('weightTableCatHeader');
+  if (wth) wth.textContent = (cat.name || state.catName || '貓咪') + '體重';
   if (breedEl) breedEl.textContent = cat.breed || '未設定';
   if (bdayEl) {
     if (cat.birthdate) {
@@ -1051,15 +1090,17 @@ async function loadApp() {
   document.getElementById('pinSetupOverlay').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   try {
-    const [tasks, checkins, settings, cat] = await Promise.all([
+    const [tasks, checkins, settings, cat, weights] = await Promise.all([
       api('/api/tasks'),
       api('/api/checkins?date=' + state.currentDate),
       api('/api/settings'),
       api('/api/cat').catch(() => null),
+      api('/api/weights').catch(() => []),
     ]);
     state.tasks = tasks;
     state.checkins = checkins;
     state.settings = settings;
+    state.weightsList = weights || [];
     // Cat name: cat profile takes priority over settings
     if (cat && cat.name) {
       state.cat = cat;
@@ -1255,16 +1296,50 @@ function switchPage(page) {
 }
 
 // ─── TASK RENDERING ────────────────────────────────────────────
+function utcToCalgaryClock(isoStr) {
+  // Convert UTC ISO timestamp to Calgary local HH:MM (DST-aware)
+  if (!isoStr) return null;
+  try {
+    const d = new Date(isoStr);
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const dstStart = (() => {
+      const s = new Date(Date.UTC(year, 2, 1));
+      let n = 0; while (n < 2) { if (s.getUTCDay()===0) n++; if (n<2) s.setUTCDate(s.getUTCDate()+1); }
+      s.setUTCHours(9,0,0,0); return s;
+    })();
+    const dstEnd = (() => {
+      const e = new Date(Date.UTC(year, 10, 1));
+      while (e.getUTCDay()!==0) e.setUTCDate(e.getUTCDate()+1);
+      e.setUTCHours(8,0,0,0); return e;
+    })();
+    const offset = (d >= dstStart && d < dstEnd) ? -6 : -7;
+    const local = new Date(d.getTime() + offset * 3600000);
+    return `${String(local.getUTCHours()).padStart(2,'0')}:${String(local.getUTCMinutes()).padStart(2,'0')}`;
+  } catch(e) { return null; }
+}
+
 function renderTaskCard(task, checkin) {
   const status = checkin ? (checkin.isDone ? 'done' : 'skip') : getOverdueStatus(task);
   const statusLabel = { done: '✅ 完成', skip: '⏭️ 跳過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
   const statusClass = 'status-' + status;
-  return `<div class="task-card ${status === 'done' ? 'done' : ''}" id="card-${task.id}">
+
+  // Show completion time for done/skip tasks
+  let timeDisplay = task.scheduledTimes?.[0] || '';
+  if (checkin && checkin.time) {
+    const doneTime = utcToCalgaryClock(checkin.time);
+    if (doneTime) {
+      const emoji = checkin.isDone ? '✔' : '⏭';
+      timeDisplay = `${task.scheduledTimes?.[0] || ''}<span class="checkin-time">${emoji} ${doneTime}</span>`;
+    }
+  }
+
+  return `<div class="task-card ${status === 'done' ? 'done' : status === 'skip' ? 'skip' : ''}" id="card-${task.id}">
       <div class="task-header" onclick="toggleTask('${task.id}')">
         <div class="task-icon">${task.icon || '📌'}</div>
         <div class="task-info">
           <div class="task-name">${task.name}</div>
-          <div class="task-time">${task.scheduledTimes?.[0] || ''}</div>
+          <div class="task-time">${timeDisplay}</div>
         </div>
         <div class="task-status ${statusClass}">${statusLabel}</div>
       </div>
@@ -1329,6 +1404,42 @@ function renderTaskPanel(task, checkin) {
   const note = checkin?.note || '';
 
   if (isWeight) {
+    // If already recorded today, find matching weight entry to show recorded values
+    const catDisplayName = state.cat?.name || state.catName || '貓咪';
+    if (isDone && checkin) {
+      // Find the weight record that was saved for this checkin
+      // The checkin.result is like "4.60kg" — also try to find in weights list
+      const catKg = parseFloat(checkin.result) || null;
+      // Look for weight record close to checkin time (within 5 min)
+      let matchedWeight = null;
+      if (state.weightsList && checkin.time) {
+        const checkinMs = new Date(checkin.time).getTime();
+        matchedWeight = state.weightsList.find(w => {
+          const wMs = new Date(w.measuredAt || w.time || 0).getTime();
+          return Math.abs(wMs - checkinMs) < 5 * 60 * 1000;
+        });
+      }
+      const personW = matchedWeight?.personWeight || state.settings.lastPersonWeight || '';
+      const carryW = matchedWeight?.carryWeight || (catKg && personW ? (catKg + parseFloat(personW)).toFixed(1) : '');
+      const displayCatKg = matchedWeight?.catWeight || catKg || '';
+      const doneTimeStr = utcToCalgaryClock(checkin.time) || '';
+
+      return `
+        <div class="weight-recorded-view mt-8">
+          <div class="weight-recorded-title">📊 今日記錄 ${doneTimeStr ? '<span class="weight-recorded-time">(' + doneTimeStr + ')</span>' : ''}</div>
+          <div class="weight-recorded-row">
+            <div class="weight-rec-item"><div class="weight-rec-label">人重</div><div class="weight-rec-val">${personW} kg</div></div>
+            <div class="weight-rec-item"><div class="weight-rec-label">抱貓重</div><div class="weight-rec-val">${carryW} kg</div></div>
+            <div class="weight-rec-item cat-weight-highlight"><div class="weight-rec-label">🐱 ${catDisplayName}</div><div class="weight-rec-val">${displayCatKg} kg</div></div>
+          </div>
+          ${checkin.note ? '<div class="weight-rec-note">備注: ' + checkin.note + '</div>' : ''}
+        </div>
+        <div class="confirm-row mt-8">
+          <button class="btn btn-secondary" style="flex:1" onclick="reRecordWeight('${task.id}')">🔄 重新記錄</button>
+          <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">關閉</button>
+        </div>`;
+    }
+
     return `
       <div class="weight-inputs mt-8" id="weightInputs-${task.id}">
         <div class="weight-field">
@@ -1339,13 +1450,13 @@ function renderTaskPanel(task, checkin) {
             oninput="calcCatWeight('${task.id}')">
         </div>
         <div class="weight-field">
-          <label>抱著貓咪量 kg</label>
+          <label>抱著${catDisplayName}量 kg</label>
           <input type="number" step="0.1" id="carryW-${task.id}"
             value="" inputmode="decimal"
             oninput="calcCatWeight('${task.id}')">
         </div>
         <div class="weight-result" id="catWResult-${task.id}">
-          <span class="label">🐱 <span id="weightCatLabel">貓咪</span>體重</span>
+          <span class="label">🐱 ${catDisplayName}體重</span>
           <span class="value" id="catWValue-${task.id}">-- kg</span>
         </div>
       </div>
@@ -1439,6 +1550,28 @@ function calcCatWeight(taskId) {
   }
 }
 
+function reRecordWeight(taskId) {
+  // Allow re-recording: clear the checkin state and re-render panel in edit mode
+  const checkinIdx = state.checkins.findIndex(c => c.taskId === taskId);
+  if (checkinIdx !== -1) {
+    // Temporarily remove the checkin from state to show the input form
+    const savedCheckin = state.checkins[checkinIdx];
+    state.checkins.splice(checkinIdx, 1);
+    // Re-render just this panel
+    const panel = document.getElementById('panel-' + taskId);
+    const task = state.tasks.find(t => t.id === taskId);
+    if (panel && task) {
+      panel.innerHTML = renderTaskPanel(task, null);
+      const personInput = document.getElementById('personW-' + taskId);
+      if (personInput) personInput.placeholder = `上次: ${state.settings.lastPersonWeight || 66.5} kg`;
+    }
+    // Restore checkin after a tick (so panel shows entry form)
+    // User can cancel to restore
+    const card = document.getElementById('card-' + taskId);
+    if (card) card.classList.remove('done');
+  }
+}
+
 async function submitWeight(taskId) {
   const personInput = document.getElementById('personW-' + taskId);
   const carryInput = document.getElementById('carryW-' + taskId);
@@ -1466,9 +1599,14 @@ async function submitWeight(taskId) {
       body: JSON.stringify({ taskId, isDone: true, result: `${(carryW-personW).toFixed(2)}kg`, note, date: state.currentDate, time: new Date().toISOString() }),
     });
     state.settings.lastPersonWeight = personW;
-    const cat = (carryW - personW).toFixed(2);
-    showToast(`🐱 喔咪體重：${cat} kg ✅`);
+    const catW = (carryW - personW).toFixed(2);
+    const catDisplayN = state.cat?.name || state.catName || '貓咪';
+    showToast(`🐱 ${catDisplayN}體重：${catW} kg ✅`);
     confetti();
+    // Refresh weights list so panel shows recorded data
+    try { state.weightsList = await api('/api/weights'); } catch(e) {}
+    state.latestCatWeight = parseFloat(catW);
+    updateCatProfileCard();
     await reloadCheckins(taskId);
   } catch(e) {
     showToast('❌ 記錄失敗，請重試');
@@ -1718,7 +1856,7 @@ async function loadAdminWeights() {
     }).join('');
     container.innerHTML = `<div style="overflow-x:auto">
       <table class="records-table">
-        <thead><tr><th>日期</th><th>人重</th><th>抱貓重</th><th>喔咪體重</th><th>備注</th></tr></thead>
+        <thead><tr><th>日期</th><th>人重</th><th>抱貓重</th><th id="weightTableCatHeader">貓咪體重</th><th>備注</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
   } catch(e) {
