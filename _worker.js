@@ -257,36 +257,50 @@ export default {
     if (!raw) return; // no subscriber
     const sub = JSON.parse(raw);
 
+    // HKT = UTC+8
     const now = new Date();
-    const hhmm = now.getUTCHours().toString().padStart(2,'0') + ':' + now.getUTCMinutes().toString().padStart(2,'0');
-    // Convert UTC to HKT (+8)
-    const hktHour = (now.getUTCHours() + 8) % 24;
-    const hktMin  = now.getUTCMinutes();
-    const hktHHMM = hktHour.toString().padStart(2,'0') + ':' + hktMin.toString().padStart(2,'0');
+    const hktNow = new Date(now.getTime() + 8 * 3600000);
+    const hktHour = hktNow.getUTCHours();
+    const hktMin  = hktNow.getUTCMinutes();
+    const hktTotalMin = hktHour * 60 + hktMin;
+    const today = hktNow.toISOString().split('T')[0];
 
+    // Load tasks + today's checkins
     const tasksRaw = await KV.get('tasks:list');
     const tasks = tasksRaw ? JSON.parse(tasksRaw) : [];
-    const today = new Date(now.getTime() + 8*3600000).toISOString().split('T')[0];
     const checkinsRaw = await KV.get('checkins:' + today);
     const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
     const doneIds = new Set(checkins.map(c => c.taskId));
 
+    // Find OVERDUE tasks: scheduledTime has passed AND not done
+    const overdue = [];
     for (const task of tasks) {
       if (doneIds.has(task.id)) continue;
       const times = task.scheduledTimes || [];
       for (const t of times) {
-        // Notify within ±5 min window
         const [th, tm] = t.split(':').map(Number);
-        const diff = Math.abs((hktHour * 60 + hktMin) - (th * 60 + tm));
-        if (diff <= 5) {
-          await sendWebPush(env, sub, {
-            title: '🐾 喔咪照護提醒',
-            body: task.name + ' 時間到了！',
-            tag: task.id,
-          });
+        const taskMin = th * 60 + tm;
+        if (hktTotalMin >= taskMin) { // past scheduled time
+          overdue.push(task);
+          break; // count task once even if multiple times
         }
       }
     }
+
+    if (overdue.length === 0) return; // nothing to remind
+
+    // Send ONE batched notification
+    const firstName = overdue[0].name;
+    const body = overdue.length === 1
+      ? `${firstName} 未完成，快去記錄！`
+      : `${firstName} 等 ${overdue.length} 項任務未完成`;
+
+    await sendWebPush(env, sub, {
+      title: '🐾 喔咪照護提醒',
+      body,
+      tag: 'umicare-reminder', // same tag = replace previous notification
+      icon: '/icon-192.png',
+    });
   },
 };
 
