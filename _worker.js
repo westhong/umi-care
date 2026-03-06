@@ -534,22 +534,40 @@ async function handlePushApi(path, method, request, env) {
     });
   }
 
-  // GET /api/push/simulate — run scheduled logic as HTTP endpoint for debugging
-  if (path === '/push/simulate' && method === 'GET') {
-    const KV = env.UMICARE_DATA;
+  // POST or GET /api/push/simulate — run scheduled logic as HTTP endpoint for debugging
+  if (path === '/push/simulate' && (method === 'GET' || method === 'POST')) {
     const raw = await KV.get('push:subscription');
     if (!raw) return json({ error: 'No subscription in KV' });
     const sub = JSON.parse(raw);
 
+    // DST-aware Calgary time
     const now = new Date();
-    const localNow = new Date(now.getTime() - 7 * 3600000);
-    const hktHour = localNow.getUTCHours();
-    const hktMin  = localNow.getUTCMinutes();
-    const hktTotalMin = hktHour * 60 + hktMin;
-    const today = localNow.toISOString().split('T')[0];
+    const year = now.getUTCFullYear();
+    const dstStart = (() => {
+      const d = new Date(Date.UTC(year, 2, 1));
+      let sundays = 0;
+      while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
+      d.setUTCHours(9, 0, 0, 0); return d;
+    })();
+    const dstEnd = (() => {
+      const d = new Date(Date.UTC(year, 10, 1));
+      while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
+      d.setUTCHours(8, 0, 0, 0); return d;
+    })();
+    const isDST = now >= dstStart && now < dstEnd;
+    const offset = isDST ? -6 : -7;
+    const calgaryNow = new Date(now.getTime() + offset * 3600000);
+    const calgaryHour = calgaryNow.getUTCHours();
+    const calgaryMin  = calgaryNow.getUTCMinutes();
+    const calgaryTotalMin = calgaryHour * 60 + calgaryMin;
+    // KV key always UTC
+    const today = now.toISOString().split('T')[0];
+
+    const catRaw = await KV.get('cat:profile');
+    const catName = catRaw ? (JSON.parse(catRaw).name || '喔咪') : '喔咪';
 
     const tasksRaw = await KV.get('tasks:list');
-    const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;  // fallback
+    const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;
     const checkinsRaw = await KV.get('checkins:' + today);
     const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
     const doneIds = new Set(checkins.map(c => c.taskId));
@@ -561,7 +579,7 @@ async function handlePushApi(path, method, request, env) {
       for (const t of times) {
         const [th, tm] = t.split(':').map(Number);
         const taskMin = th * 60 + tm;
-        if (hktTotalMin >= taskMin) { overdue.push({ id: task.id, name: task.name, time: t }); break; }
+        if (calgaryTotalMin >= taskMin) { overdue.push({ id: task.id, name: task.name, time: t }); break; }
       }
     }
 
@@ -570,13 +588,15 @@ async function handlePushApi(path, method, request, env) {
       const firstName = overdue[0].name;
       const body = overdue.length === 1 ? `${firstName} 未完成，快去記錄！` : `${firstName} 等 ${overdue.length} 項任務未完成`;
       try {
-        pushResult = await sendWebPush(env, sub, { title: `🐾 喔咪照護提醒 (simulate)`, body, tag: 'umicare-reminder', icon: '/icon-192.png' });
+        pushResult = await sendWebPush(env, sub, { title: `🐾 ${catName} 照護提醒 (simulate)`, body, tag: 'umicare-reminder', icon: '/icon-192.png' });
       } catch(e) { pushResult = { error: e.message }; }
     }
 
     return json({
-      hktTime: `${hktHour}:${String(hktMin).padStart(2,'0')}`,
-      today,
+      calgaryTime: `${calgaryHour}:${String(calgaryMin).padStart(2,'0')}`,
+      isDST,
+      utcDate: today,
+      catName,
       totalTasks: tasks.length,
       doneToday: checkins.length,
       overdueCount: overdue.length,
