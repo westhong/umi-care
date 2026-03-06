@@ -142,6 +142,9 @@ body::before {
 /* ─── APP SHELL ─── */
 #app { position: relative; z-index: 1; min-height: 100vh; padding-bottom: 80px; }
 #app.hidden { display: none; }
+/* pages hidden/shown by JS — must be explicit since .page has no display rule */
+.page { display: block; }
+.page.hidden { display: none !important; }
 
 /* ─── HEADER ─── */
 .header {
@@ -769,7 +772,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.5.1</span>
+        <span id="version-badge">v3.5.3</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -834,7 +837,7 @@ body::before {
   </div>
 
   <!-- PAGE: CALENDAR -->
-  <div id="pageCalendar" class="page hidden">
+  <div id="pageCalendar" class="page hidden" style="display:none">
     <div class="header">
       <div class="header-left"><h1>📅 日曆</h1></div>
     </div>
@@ -862,7 +865,7 @@ body::before {
   </div>
 
   <!-- PAGE: ADMIN -->
-  <div id="pageAdmin" class="page hidden">
+  <div id="pageAdmin" class="page hidden" style="display:none">
     <!-- Admin header: gradient bar with welcome + logout -->
     <div class="admin-page-header">
       <div class="admin-welcome-row">
@@ -1037,10 +1040,35 @@ async function init() {
 
 // ② Handle iOS Safari bfcache (page restored from back-forward cache)
 //    persisted=true means the DOM was restored from cache, not a fresh load.
-window.addEventListener('pageshow', (e) => {
-  if (e.persisted && state.adminMode) {
+// ── iOS PWA session reset ─────────────────────────────────────
+// When user reopens the app (bfcache restore, iOS PWA resume), 
+// always reset to caregiver mode for security.
+// Admin must log in fresh each time the app is opened.
+window.addEventListener('pageshow', () => {
+  if (state.adminMode) {
     state.adminMode = false;
-    _applyPage('tasks');   // no wipe — instant reset
+    _applyPage('tasks');   // instant reset, no animation
+  }
+});
+
+// Also handle iOS PWA coming back from background (visibilitychange)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.adminMode) {
+    // Auto-logout after background: use session timestamp from sessionStorage
+    const sessionStart = sessionStorage.getItem('adminSessionStart');
+    if (!sessionStart) {
+      // No valid session → reset
+      state.adminMode = false;
+      _applyPage('tasks');
+    } else {
+      const elapsed = Date.now() - parseInt(sessionStart, 10);
+      if (elapsed > 10 * 60 * 1000) {  // 10 minutes inactivity → auto-logout
+        state.adminMode = false;
+        sessionStorage.removeItem('adminSessionStart');
+        _applyPage('tasks');
+        showToast('⏰ 管理員模式已逾時登出');
+      }
+    }
   }
 });
 
@@ -1265,6 +1293,7 @@ function handleLoginPin(key) {
         if (r.valid) {
           closeAdminLogin();
           state.adminMode = true;
+          sessionStorage.setItem('adminSessionStart', Date.now().toString());
           switchPage('admin', true);  // true = use wipe animation
           loadAdminData();
           setTimeout(() => showToast('✅ 管理員模式'), 300);
@@ -1281,6 +1310,7 @@ function handleLoginPin(key) {
 
 function adminLogout() {
   state.adminMode = false;
+  sessionStorage.removeItem('adminSessionStart');
   switchPage('tasks', true);   // true = use reverse wipe animation
   setTimeout(() => showToast('👋 已登出管理員模式'), 200);
 }
@@ -1291,9 +1321,15 @@ let _currentPage = 'tasks';
 // Core: instantly show/hide pages with no animation.
 // Always call this as the source of truth for what's visible.
 function _applyPage(page) {
-  ['tasks','calendar','admin'].forEach(p => {
-    const el = document.getElementById('page' + p.charAt(0).toUpperCase() + p.slice(1));
-    if (el) el.classList.toggle('hidden', p !== page);
+  // Use BOTH CSS class AND inline style for maximum cache-safety.
+  // Old cached HTML may not have .page.hidden CSS, so inline style is the fallback.
+  const pageMap = { tasks: 'pageTasks', calendar: 'pageCalendar', admin: 'pageAdmin' };
+  Object.entries(pageMap).forEach(([p, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const shouldHide = p !== page;
+    el.classList.toggle('hidden', shouldHide);
+    el.style.display = shouldHide ? 'none' : '';  // inline override for cache-safe hiding
   });
   // Show/hide bottom nav
   document.body.classList.toggle('admin-mode-active', page === 'admin');
