@@ -295,12 +295,14 @@ export default {
       ? `${firstName} 未完成，快去記錄！`
       : `${firstName} 等 ${overdue.length} 項任務未完成`;
 
-    await sendWebPush(env, sub, {
+    const result = await sendWebPush(env, sub, {
       title: '🐾 喔咪照護提醒',
       body,
-      tag: 'umicare-reminder', // same tag = replace previous notification
+      tag: 'umicare-reminder',
       icon: '/icon-192.png',
     });
+    // Store last push result in KV for debugging
+    await KV.put('debug:last_push', JSON.stringify({ time: new Date().toISOString(), result, overdue: overdue.length }), { expirationTtl: 86400 });
   },
 };
 
@@ -446,7 +448,8 @@ async function sendWebPush(env, subscription, payload) {
     },
     body,
   });
-  return resp.status;
+  const respBody = await resp.text().catch(() => '');
+  return { status: resp.status, body: respBody };
 }
 
 // ─── PUSH API ROUTES ──────────────────────────────────────────
@@ -471,8 +474,71 @@ async function handlePushApi(path, method, request, env) {
     const raw = await KV.get('push:subscription');
     if (!raw) return json({ error: 'No subscription found' }, 404);
     const sub = JSON.parse(raw);
-    await sendWebPush(env, sub, { title: 'UmiCare 🐾 測試', body: '推送通知正常運作！' });
-    return json({ ok: true });
+    const { status, body: pushBody } = await sendWebPush(env, sub, { title: 'UmiCare 🐾 測試', body: '推送通知正常運作！' });
+    if (status >= 200 && status < 300) return json({ ok: true, status });
+    return json({ ok: false, status, error: pushBody }, 500);
+  }
+
+  // GET /api/push/debug — check last push result and subscription info
+  if (path === '/push/debug' && method === 'GET') {
+    const sub = await KV.get('push:subscription');
+    const lastPush = await KV.get('debug:last_push');
+    return json({
+      hasSubscription: !!sub,
+      endpoint: sub ? JSON.parse(sub).endpoint.substring(0,60) + '...' : null,
+      lastPush: lastPush ? JSON.parse(lastPush) : null,
+    });
+  }
+
+  // GET /api/push/simulate — run scheduled logic as HTTP endpoint for debugging
+  if (path === '/push/simulate' && method === 'GET') {
+    const KV = env.UMICARE_DATA;
+    const raw = await KV.get('push:subscription');
+    if (!raw) return json({ error: 'No subscription in KV' });
+    const sub = JSON.parse(raw);
+
+    const now = new Date();
+    const hktNow = new Date(now.getTime() + 8 * 3600000);
+    const hktHour = hktNow.getUTCHours();
+    const hktMin  = hktNow.getUTCMinutes();
+    const hktTotalMin = hktHour * 60 + hktMin;
+    const today = hktNow.toISOString().split('T')[0];
+
+    const tasksRaw = await KV.get('tasks:list');
+    const tasks = tasksRaw ? JSON.parse(tasksRaw) : [];
+    const checkinsRaw = await KV.get('checkins:' + today);
+    const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
+    const doneIds = new Set(checkins.map(c => c.taskId));
+
+    const overdue = [];
+    for (const task of tasks) {
+      if (doneIds.has(task.id)) continue;
+      const times = task.scheduledTimes || [];
+      for (const t of times) {
+        const [th, tm] = t.split(':').map(Number);
+        const taskMin = th * 60 + tm;
+        if (hktTotalMin >= taskMin) { overdue.push({ id: task.id, name: task.name, time: t }); break; }
+      }
+    }
+
+    let pushResult = null;
+    if (overdue.length > 0) {
+      const firstName = overdue[0].name;
+      const body = overdue.length === 1 ? `${firstName} 未完成，快去記錄！` : `${firstName} 等 ${overdue.length} 項任務未完成`;
+      try {
+        pushResult = await sendWebPush(env, sub, { title: '🐾 喔咪照護提醒 (simulate)', body, tag: 'umicare-reminder', icon: '/icon-192.png' });
+      } catch(e) { pushResult = { error: e.message }; }
+    }
+
+    return json({
+      hktTime: `${hktHour}:${String(hktMin).padStart(2,'0')}`,
+      today,
+      totalTasks: tasks.length,
+      doneToday: checkins.length,
+      overdueCount: overdue.length,
+      overdueTasks: overdue,
+      pushResult,
+    });
   }
 
   return null;
