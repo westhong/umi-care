@@ -294,6 +294,9 @@ export default {
 
     if (overdue.length === 0) return; // nothing to remind
 
+    // Only push during active hours: 05:00 - 23:59 HKT
+    if (hktHour < 5) return; // it's the middle of the night, don't disturb
+
     // Send ONE batched notification
     const firstName = overdue[0].name;
     const body = overdue.length === 1
@@ -307,7 +310,13 @@ export default {
       icon: '/icon-192.png',
     });
     // Store last push result in KV for debugging
-    await KV.put('debug:last_push', JSON.stringify({ time: new Date().toISOString(), result, overdue: overdue.length }), { expirationTtl: 86400 });
+    await KV.put('debug:last_push', JSON.stringify({
+      time: new Date().toISOString(),
+      hktTime: `${hktHour}:${String(hktMin).padStart(2,'0')}`,
+      result,
+      overdue: overdue.length,
+      firstTask: firstName,
+    }), { expirationTtl: 86400 });
   },
 };
 
