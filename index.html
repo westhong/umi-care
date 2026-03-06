@@ -1556,7 +1556,6 @@ function urlBase64ToUint8Array(base64String) {
 
 async function togglePushNotification() {
   const btn = document.getElementById('push-btn');
-  const status = document.getElementById('push-status');
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     showToast('❌ 此裝置不支援推播通知');
     return;
@@ -1586,9 +1585,10 @@ async function togglePushNotification() {
     });
     const data = await resp.json();
     if (data.ok) {
-      btn.textContent = '✅ 通知已啟用';
-      btn.className = 'push-btn enabled';
-      status.textContent = '每30分鐘自動檢查待辦任務並發送提醒';
+      btn.textContent = '🔔';
+      btn.style.color = '#4caf50';
+      btn.title = '通知已啟用 ✅';
+      showToast('✅ 推播通知已啟用！');
     } else {
       throw new Error(data.error || 'subscribe failed');
     }
@@ -1601,7 +1601,6 @@ async function togglePushNotification() {
 async function checkPushStatus() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   const btn = document.getElementById('push-btn');
-  const status = document.getElementById('push-status');
   if (!btn) return;
   if (Notification.permission === 'denied') {
     btn.textContent = '🔕';
