@@ -244,6 +244,91 @@ body::before {
   animation: taskSlideIn 0.3s ease forwards;
 }
 
+/* Cat Admin Form */
+.cat-admin-form {
+  padding: 16px 4px;
+}
+.cat-admin-avatar {
+  text-align: center;
+  font-size: 3.5rem;
+  margin-bottom: 16px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(255,133,161,0.4));
+}
+.cat-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.95rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.cat-input:focus {
+  outline: none;
+  border-color: rgba(255,133,161,0.6);
+  box-shadow: 0 0 0 3px rgba(255,133,161,0.12);
+}
+.cat-save-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  font-size: 1rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ff85a1, #ffb347);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 14px rgba(255,133,161,0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.cat-save-btn:active { transform: scale(0.98); }
+
+/* Cat Profile Card */
+.cat-profile-wrap {
+  margin: 0 0 12px 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,133,161,0.25);
+  background: rgba(255,133,161,0.06);
+}
+.cat-card-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text);
+  font-weight: 600;
+  text-align: left;
+}
+.cat-card-subtitle { color: var(--text-muted); font-weight: 400; font-size: 0.85rem; }
+.cat-card-body { padding: 0 14px 12px; }
+.cat-card-body.hidden { display: none; }
+.cat-stats-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cat-stat {
+  flex: 1;
+  min-width: 80px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.cat-stat-label { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; }
+.cat-stat-value { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+
 .task-card {
   background: var(--bg-card);
   border: 1px solid var(--glass-border);
@@ -649,7 +734,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.1</span>
+        <span id="version-badge">v3.2</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -677,6 +762,31 @@ body::before {
         <h2 id="catNameDisplay">喔咪</h2>
         <div class="sub" id="progressSub">今日任務</div>
         <div class="count" id="progressCount">0 / 0 完成</div>
+      </div>
+    </div>
+
+    <!-- Collapsible Cat Profile Card -->
+    <div class="cat-profile-wrap" id="catProfileWrap">
+      <button class="cat-card-toggle" onclick="toggleCatCard()">
+        <span id="catCardToggleIcon">▶</span>
+        <span id="catCardName">哈哈</span>
+        <span class="cat-card-subtitle">的資料</span>
+      </button>
+      <div class="cat-card-body hidden" id="catCardBody">
+        <div class="cat-stats-row">
+          <div class="cat-stat">
+            <div class="cat-stat-label">品種</div>
+            <div class="cat-stat-value" id="catCardBreed">未設定</div>
+          </div>
+          <div class="cat-stat">
+            <div class="cat-stat-label">生日</div>
+            <div class="cat-stat-value" id="catCardBday">未設定</div>
+          </div>
+          <div class="cat-stat">
+            <div class="cat-stat-label">體重</div>
+            <div class="cat-stat-value" id="catCardWeight">未記錄</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -728,6 +838,7 @@ body::before {
         <button class="admin-tab" onclick="switchAdminTab('weights')">⚖️ 體重</button>
         <button class="admin-tab" onclick="switchAdminTab('tasks')">✏️ 任務管理</button>
         <button class="admin-tab" onclick="switchAdminTab('periodic')">🔄 不定期</button>
+        <button class="admin-tab" onclick="switchAdminTab('cat')">🐾 貓咪</button>
         <button class="admin-tab" onclick="switchAdminTab('settings')">⚙️ 設定</button>
       </div>
 
@@ -776,6 +887,30 @@ body::before {
         <div id="adminPeriodicContent"><div class="loading-spin"></div></div>
       </div>
 
+      <!-- Cat Profile Tab -->
+      <div id="adminTabCat" class="admin-tab-content">
+        <div class="cat-admin-form">
+          <div class="cat-admin-avatar">🐾</div>
+          <div class="form-field">
+            <label>貓咪名字</label>
+            <input type="text" id="catFormName" placeholder="例：哈哈" class="cat-input">
+          </div>
+          <div class="form-field">
+            <label>品種</label>
+            <input type="text" id="catFormBreed" placeholder="例：英短、波斯貓、混種" class="cat-input">
+          </div>
+          <div class="form-field">
+            <label>生日</label>
+            <input type="date" id="catFormBday" class="cat-input">
+          </div>
+          <div class="form-field">
+            <label>備注</label>
+            <textarea id="catFormNotes" placeholder="例：已絕育、過敏食物..." rows="3" class="cat-input"></textarea>
+          </div>
+          <button class="btn btn-primary cat-save-btn" onclick="saveCatProfile()">💾 儲存貓咪資料</button>
+        </div>
+      </div>
+
       <!-- Settings Tab -->
       <div id="adminTabSettings" class="admin-tab-content">
         <div class="card">
@@ -821,6 +956,7 @@ let state = {
   tasks: [],
   checkins: [],
   settings: { lastPersonWeight: 66.5 },
+  cat: { name: '哈哈', breed: '', birthdate: '', weight: '', notes: '' },
   catName: '喔咪',
   adminMode: false,
   currentDate: todayStr(),
@@ -833,9 +969,8 @@ let state = {
 };
 
 function todayStr() {
-  // Use HKT (UTC+8) date so frontend matches the server-side cron
-  const d = new Date(Date.now() + 8 * 3600 * 1000);
-  return d.toISOString().split('T')[0];
+  // Use UTC date – KV keys are always UTC-based (e.g. checkins:2026-03-06)
+  return new Date().toISOString().split('T')[0];
 }
 
 // ─── API HELPERS ───────────────────────────────────────────────
@@ -868,20 +1003,74 @@ async function init() {
   }
 }
 
+async function loadCat() {
+  try {
+    const cat = await api('/api/cat');
+    if (cat && cat.name) {
+      state.cat = cat;
+      // Cat name from cat profile takes priority
+      const displayName = cat.name || state.catName;
+      state.catName = displayName;
+      document.getElementById('catNameDisplay').textContent = displayName;
+    }
+    updateCatProfileCard();
+  } catch(e) {}
+}
+
+function updateCatProfileCard() {
+  const cat = state.cat || {};
+  const nameEl = document.getElementById('catCardName');
+  const breedEl = document.getElementById('catCardBreed');
+  const bdayEl = document.getElementById('catCardBday');
+  const wtEl = document.getElementById('catCardWeight');
+  if (nameEl) nameEl.textContent = cat.name || state.catName || '哈哈';
+  if (breedEl) breedEl.textContent = cat.breed || '未設定';
+  if (bdayEl) {
+    if (cat.birthdate) {
+      const bd = new Date(cat.birthdate);
+      const now = getCalgaryDate();
+      const ageMs = now - bd;
+      const ageYears = Math.floor(ageMs / (365.25 * 24 * 3600000));
+      const ageMonths = Math.floor((ageMs % (365.25 * 24 * 3600000)) / (30.44 * 24 * 3600000));
+      bdayEl.textContent = `${cat.birthdate} (${ageYears > 0 ? ageYears + '歲' : ''}${ageMonths}個月)`;
+    } else {
+      bdayEl.textContent = '未設定';
+    }
+  }
+  if (wtEl) {
+    // Try to get latest weight from weights history
+    if (state.latestCatWeight) {
+      wtEl.textContent = state.latestCatWeight + ' kg';
+    } else {
+      wtEl.textContent = '未記錄';
+    }
+  }
+}
+
 async function loadApp() {
   document.getElementById('pinSetupOverlay').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   try {
-    const [tasks, checkins, settings] = await Promise.all([
+    const [tasks, checkins, settings, cat] = await Promise.all([
       api('/api/tasks'),
       api('/api/checkins?date=' + state.currentDate),
       api('/api/settings'),
+      api('/api/cat').catch(() => null),
     ]);
     state.tasks = tasks;
     state.checkins = checkins;
     state.settings = settings;
-    state.catName = settings.catName || '喔咪';
+    // Cat name: cat profile takes priority over settings
+    if (cat && cat.name) {
+      state.cat = cat;
+      state.catName = cat.name;
+    } else {
+      state.catName = settings.catName || '喔咪';
+    }
     document.getElementById('catNameDisplay').textContent = state.catName;
+    updateCatProfileCard();
+    // Also load latest weight
+    loadLatestWeight();
   } catch(e) {
     showToast('⚠️ 載入資料失敗');
   }
@@ -890,11 +1079,59 @@ async function loadApp() {
   checkAlerts();
 }
 
+async function loadLatestWeight() {
+  try {
+    const weights = await api('/api/weights');
+    if (weights && weights.length > 0) {
+      // Most recent weight – find latest catWeight entry
+      const sorted = weights.slice().sort((a, b) => new Date(b.date || b.time) - new Date(a.date || a.time));
+      const latest = sorted[0];
+      if (latest.catWeight || latest.result) {
+        state.latestCatWeight = latest.catWeight || parseFloat(latest.result);
+        updateCatProfileCard();
+      }
+    }
+  } catch(e) {}
+}
+
+function toggleCatCard() {
+  const body = document.getElementById('catCardBody');
+  const icon = document.getElementById('catCardToggleIcon');
+  if (!body) return;
+  const isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !isHidden);
+  if (icon) icon.textContent = isHidden ? '▼' : '▶';
+}
+
+function getCalgaryDate() {
+  // Calgary: MST = UTC-7, MDT = UTC-6 (second Sun March – first Sun Nov)
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  // DST starts: 2nd Sunday of March 02:00
+  const dstStart = (() => {
+    const d = new Date(Date.UTC(year, 2, 1)); // March 1
+    let sundays = 0;
+    while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
+    d.setUTCHours(9, 0, 0, 0); // 02:00 MST = 09:00 UTC
+    return d;
+  })();
+  // DST ends: 1st Sunday of November 02:00
+  const dstEnd = (() => {
+    const d = new Date(Date.UTC(year, 10, 1)); // Nov 1
+    while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
+    d.setUTCHours(8, 0, 0, 0); // 02:00 MDT = 08:00 UTC
+    return d;
+  })();
+  const isDST = now >= dstStart && now < dstEnd;
+  const offset = isDST ? -6 : -7;
+  return new Date(now.getTime() + offset * 3600000);
+}
+
 function updateDateDisplay() {
-  const d = new Date();
+  const d = getCalgaryDate();
   const days = ['日','一','二','三','四','五','六'];
   document.getElementById('todayDate').textContent =
-    `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} 星期${days[d.getDay()]}`;
+    `${d.getUTCFullYear()}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')} 星期${days[d.getUTCDay()]}`;
 }
 
 // ─── PIN SETUP ─────────────────────────────────────────────────
@@ -1020,7 +1257,7 @@ function switchPage(page) {
 // ─── TASK RENDERING ────────────────────────────────────────────
 function renderTaskCard(task, checkin) {
   const status = checkin ? (checkin.isDone ? 'done' : 'skip') : getOverdueStatus(task);
-  const statusLabel = { done: '✅ 完成', skip: '跳過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
+  const statusLabel = { done: '✅ 完成', skip: '⏭️ 跳過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
   const statusClass = 'status-' + status;
   return `<div class="task-card ${status === 'done' ? 'done' : ''}" id="card-${task.id}">
       <div class="task-header" onclick="toggleTask('${task.id}')">
@@ -1102,13 +1339,13 @@ function renderTaskPanel(task, checkin) {
             oninput="calcCatWeight('${task.id}')">
         </div>
         <div class="weight-field">
-          <label>抱著喔咪量 kg</label>
+          <label>抱著貓咪量 kg</label>
           <input type="number" step="0.1" id="carryW-${task.id}"
             value="" inputmode="decimal"
             oninput="calcCatWeight('${task.id}')">
         </div>
         <div class="weight-result" id="catWResult-${task.id}">
-          <span class="label">🐱 喔咪體重</span>
+          <span class="label">🐱 <span id="weightCatLabel">貓咪</span>體重</span>
           <span class="value" id="catWValue-${task.id}">-- kg</span>
         </div>
       </div>
@@ -1135,7 +1372,7 @@ function renderTaskPanel(task, checkin) {
       <button class="toggle-btn ${isDone ? 'selected-done' : ''}" 
         id="done-${task.id}" onclick="selectDone('${task.id}', true)">✅ 完成</button>
       <button class="toggle-btn ${isSkip ? 'selected-skip' : ''}"
-        id="skip-${task.id}" onclick="selectDone('${task.id}', false)">❌ 沒做</button>
+        id="skip-${task.id}" onclick="selectDone('${task.id}', false)">⏭️ 跳過</button>
     </div>
     ${resultHtml}
     <textarea class="note-input" id="note-${task.id}" placeholder="備注（選填）" rows="2">${note}</textarea>
@@ -1241,7 +1478,7 @@ async function submitWeight(taskId) {
 async function submitCheckin(taskId) {
   const isDone = taskDoneState[taskId];
   if (isDone === undefined || isDone === null) {
-    showToast('⚠️ 請先選擇完成 / 沒做');
+    showToast('⚠️ 請先選擇完成 / 跳過');
     return;
   }
   const result = taskResultState[taskId] || null;
@@ -1378,7 +1615,7 @@ async function showDayDetail(dateStr) {
       const task = state.tasks.find(t => t.id === c.taskId);
       return `<tr>
         <td>${task?.icon || '📌'} ${task?.name || c.taskId}</td>
-        <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅' : '❌'}</td>
+        <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅' : '⏭️'}</td>
         <td>${c.result || '-'}</td>
         <td class="text-muted">${c.note || '-'}</td>
         <td class="text-muted" style="font-family:var(--mono);font-size:0.75rem">${c.time ? new Date(c.time).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}) : '-'}</td>
@@ -1410,11 +1647,12 @@ function calNextMonth() {
 // ─── ADMIN ─────────────────────────────────────────────────────
 function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab').forEach((t,i) => {
-    const tabs = ['records','weights','tasks','periodic','settings'];
+    const tabs = ['records','weights','tasks','periodic','cat','settings'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('adminTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  if (tab === 'cat') loadAdminCat();
 }
 
 async function loadAdminData() {
@@ -1424,6 +1662,7 @@ async function loadAdminData() {
   loadAdminWeights();
   loadAdminTasks();
   loadAdminPeriodic();
+  loadAdminCat();
   loadAdminSettings();
 }
 
@@ -1442,7 +1681,7 @@ async function loadAdminRecords() {
       const timeStr = c.time ? new Date(c.time).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}) : '-';
       return `<tr>
         <td>${task?.icon || ''} ${task?.name || c.taskId}</td>
-        <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅ 完成' : '❌ 沒做'}</td>
+        <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅ 完成' : '⏭️ 跳過'}</td>
         <td>${c.result || '-'}</td>
         <td>${c.note || '-'}</td>
         <td style="font-family:var(--mono);font-size:0.75rem">${timeStr}</td>
@@ -1582,6 +1821,37 @@ async function markPeriodic(id) {
   loadAdminPeriodic();
 }
 
+async function loadAdminCat() {
+  try {
+    const cat = await api('/api/cat');
+    if (cat) {
+      document.getElementById('catFormName').value = cat.name || '';
+      document.getElementById('catFormBreed').value = cat.breed || '';
+      document.getElementById('catFormBday').value = cat.birthdate || '';
+      document.getElementById('catFormNotes').value = cat.notes || '';
+    }
+  } catch(e) { showToast('⚠️ 載入貓咪資料失敗'); }
+}
+
+async function saveCatProfile() {
+  const name = document.getElementById('catFormName').value.trim();
+  const breed = document.getElementById('catFormBreed').value.trim();
+  const birthdate = document.getElementById('catFormBday').value;
+  const notes = document.getElementById('catFormNotes').value.trim();
+  if (!name) { showToast('⚠️ 請輸入貓咪名字'); return; }
+  try {
+    await api('/api/cat', {
+      method: 'POST',
+      body: JSON.stringify({ name, breed, birthdate, notes }),
+    });
+    state.cat = { name, breed, birthdate, notes };
+    state.catName = name;
+    document.getElementById('catNameDisplay').textContent = name;
+    updateCatProfileCard();
+    showToast('✅ 貓咪資料已儲存');
+  } catch(e) { showToast('❌ 儲存失敗'); }
+}
+
 async function loadAdminSettings() {
   const settings = await api('/api/settings').catch(() => ({}));
   document.getElementById('settingCatName').value = settings.catName || '喔咪';
@@ -1655,6 +1925,43 @@ function confetti() {
 init();
 
 // ===== PUSH NOTIFICATION =====
+// Web Audio API notification sound
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const times = [[0, 880, 0.12], [0.15, 1100, 0.12], [0.3, 1320, 0.18]];
+    times.forEach(([start, freq, dur]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    });
+  } catch(e) {}
+}
+// Listen for push messages from service worker (postMessage path)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'push-received') {
+      playNotifSound();
+    }
+  });
+}
+// Listen for push messages via BroadcastChannel (background path)
+if ('BroadcastChannel' in window) {
+  const pushChannel = new BroadcastChannel('push-notify');
+  pushChannel.onmessage = (e) => {
+    if (e.data && e.data.type === 'push-received') {
+      playNotifSound();
+    }
+  };
+}
+
 const VAPID_PUBLIC_KEY = 'BHgJpAFFHPBdA1QxgX4Wx5Bqa3j-Wcj1IWryX7MRxNf7Y-0sPlyDsymCwsiwwYjo7iS4TKpMG77Qv_CxbTXQofI';
 
 function urlBase64ToUint8Array(base64String) {
