@@ -726,6 +726,117 @@ body::before {
   user-select: none;
   white-space: nowrap;
 }
+
+/* ── Ad-hoc Request Cards ── */
+.adhoc-task-card {
+  /* Subtle left accent to distinguish from normal tasks */
+  border-left: 3px solid var(--primary) !important;
+}
+.adhoc-time-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  background: rgba(255,133,161,0.15);
+  color: var(--primary);
+  padding: 1px 7px; border-radius: 20px;
+  margin-left: 4px; vertical-align: middle;
+  font-weight: 600;
+}
+.adhoc-note-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.status-adhoc {
+  background: rgba(255,133,161,0.12);
+  color: var(--primary);
+}
+.adhoc-confirm-panel {
+  /* inherits .task-panel styles; just override background */
+  background: #fff9fb;
+}
+/* Legacy – kept for backwards compat but visually reset */
+.adhoc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  position: relative;
+}
+.adhoc-select-row { display: flex; gap: 8px; align-items: center; }
+@keyframes adhocPulse {
+  /* retired – adhoc cards now use standard task-card style */
+  0%, 100% { }
+}
+.adhoc-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+}
+.adhoc-badge {
+  background: linear-gradient(135deg, #ff85a1, #a855f7);
+  color: #fff; font-size: 0.65rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px; letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.adhoc-icon { font-size: 1.4rem; }
+.adhoc-name { font-size: 1rem; font-weight: 700; color: var(--text); }
+.adhoc-note { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; }
+.adhoc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.adhoc-btn-done {
+  background: linear-gradient(135deg, #34d399, #059669);
+  color: #fff; border: none; border-radius: 12px;
+  padding: 8px 18px; font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+}
+.adhoc-btn-done:active { transform: scale(0.96); }
+.adhoc-time-badge {
+  font-size: 0.7rem; color: var(--text-muted);
+  background: var(--card-bg); border-radius: 8px;
+  padding: 4px 8px; align-self: center;
+}
+
+/* Admin adhoc section */
+.adhoc-admin-form {
+  background: var(--card-bg);
+  border: 1.5px dashed rgba(255,133,161,0.4);
+  border-radius: 16px; padding: 16px; margin-bottom: 16px;
+}
+.adhoc-admin-form h4 {
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--primary); margin: 0 0 12px 0;
+}
+.adhoc-input-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.adhoc-input-row input, .adhoc-input-row textarea {
+  flex: 1; min-width: 120px;
+  background: var(--bg); border: 1px solid var(--border-color);
+  border-radius: 10px; padding: 8px 12px;
+  font-size: 0.85rem; color: var(--text);
+}
+.adhoc-send-btn {
+  background: linear-gradient(135deg, #ff85a1, #a855f7);
+  color: #fff; border: none; border-radius: 12px;
+  padding: 9px 18px; font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.adhoc-pending-list { margin-top: 4px; }
+.adhoc-pending-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 8px;
+  border: 1px solid var(--border-color);
+}
+.adhoc-pending-item .item-left { display: flex; align-items: center; gap: 8px; }
+.adhoc-pending-item .item-name { font-weight: 600; font-size: 0.9rem; }
+.adhoc-pending-item .item-note { font-size: 0.75rem; color: var(--text-muted); }
+.adhoc-pending-item .item-done-badge {
+  font-size: 0.72rem; color: #34d399; font-weight: 700; margin-right: 8px;
+}
+.adhoc-delete-btn {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 1.1rem; cursor: pointer; padding: 2px 6px; border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.adhoc-delete-btn:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
 </style>
 </head>
 <body>
@@ -766,13 +877,20 @@ body::before {
 
   <!-- PAGE: TODAY -->
   <div id="pageTasks" class="page">
+    <!-- Pull-to-refresh indicator -->
+    <div id="pullRefreshIndicator" style="
+      position:fixed; top:0; left:50%; transform:translate(-50%, -40px);
+      background:var(--primary); color:#fff; padding:6px 18px;
+      border-radius:0 0 20px 20px; font-size:0.82rem; font-weight:600;
+      z-index:200; opacity:0; transition:all 0.3s ease; white-space:nowrap;
+      box-shadow:0 4px 12px rgba(255,133,161,0.4);">🔄 更新中…</div>
     <div class="header">
       <div class="header-left">
         <h1>UmiCare 🐾</h1>
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.5.3</span>
+        <span id="version-badge">v3.6.7</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -883,6 +1001,7 @@ body::before {
         <button class="admin-tab" onclick="switchAdminTab('weights')">⚖️ 體重</button>
         <button class="admin-tab" onclick="switchAdminTab('tasks')">✏️ 任務排程</button>
         <button class="admin-tab" onclick="switchAdminTab('periodic')">🔄 不定期</button>
+        <button class="admin-tab" onclick="switchAdminTab('schedule')">📅 定期</button>
         <button class="admin-tab" onclick="switchAdminTab('cat')">🐾 貓咪</button>
         <button class="admin-tab" onclick="switchAdminTab('settings')">⚙️ 設定</button>
       </div>
@@ -914,6 +1033,51 @@ body::before {
 
       <!-- Periodic Tab -->
       <div id="adminTabPeriodic" class="admin-tab-content">
+
+        <!-- Ad-hoc Request Form -->
+        <div class="adhoc-admin-form">
+          <h4>📌 新增照顧者請求</h4>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 10px">
+            選擇任務後發送，照顧者頁面會立即顯示，直到完成為止。
+          </p>
+          <div class="adhoc-select-row">
+            <select id="adhocPreset" onchange="onAdhocPresetChange()" style="flex:1;padding:10px 12px;border-radius:12px;border:1px solid var(--glass-border);background:var(--glass);color:var(--text-primary);font-family:var(--font);font-size:0.92rem;">
+              <option value="">── 選擇任務 ──</option>
+              <option value="換貓砂|🪣">🪣 換貓砂</option>
+              <option value="剪指甲|✂️">✂️ 剪指甲</option>
+              <option value="罐頭加水|💧">💧 罐頭加水</option>
+              <option value="貓泥|🍯">🍯 貓泥</option>
+              <option value="梳毛|🪮">🪮 梳毛</option>
+              <option value="清耳朵|👂">👂 清耳朵</option>
+              <option value="洗澡|🛁">🛁 洗澡</option>
+              <option value="custom|📝">📝 自定義任務…</option>
+            </select>
+          </div>
+          <!-- Custom name row (hidden unless "自定義" selected) -->
+          <div id="adhocCustomRow" style="display:none;margin-top:8px;">
+            <div class="adhoc-input-row">
+              <input type="text" id="adhocIcon" placeholder="🐱" maxlength="2"
+                style="max-width:54px;text-align:center;font-size:1.2rem;">
+              <input type="text" id="adhocName" placeholder="自定義任務名稱" maxlength="30">
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <input type="text" id="adhocNote" placeholder="備注（選填）" maxlength="60"
+              style="width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--glass-border);background:var(--glass);color:var(--text-primary);font-family:var(--font);font-size:0.88rem;box-sizing:border-box;">
+          </div>
+          <button class="adhoc-send-btn" style="width:100%;margin-top:10px;" onclick="createAdhocRequest()">📌 發送請求給照顧者</button>
+        </div>
+
+        <!-- Active Ad-hoc List -->
+        <div id="adminAdhocList"></div>
+
+      </div>
+
+      <!-- Schedule (Periodic Maintenance) Tab -->
+      <div id="adminTabSchedule" class="admin-tab-content">
+        <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 12px">
+          管理員記錄定期保養項目，完成後點「完成」更新上次記錄時間。
+        </p>
         <div id="adminPeriodicContent"><div class="loading-spin"></div></div>
       </div>
 
@@ -984,6 +1148,7 @@ const API = '';
 // ─── STATE ─────────────────────────────────────────────────────
 let state = {
   tasks: [],
+  adhocRequests: [],
   checkins: [],
   settings: { lastPersonWeight: 66.5 },
   cat: { name: '屋咪', breed: '', birthdate: '', weight: '', notes: '' },
@@ -991,8 +1156,8 @@ let state = {
   weightsList: [],
   adminMode: false,
   currentDate: todayStr(),
-  calYear: new Date().getFullYear(),
-  calMonth: new Date().getMonth(),
+  calYear: getCalgaryDate().getUTCFullYear(),   // Calgary
+  calMonth: getCalgaryDate().getUTCMonth(),     // Calgary
   expandedTask: null,
   setupStep: 'enter', // 'enter' or 'confirm'
   setupFirstPin: '',
@@ -1000,8 +1165,15 @@ let state = {
 };
 
 function todayStr() {
-  // Use UTC date – KV keys are always UTC-based (e.g. checkins:2026-03-06)
-  return new Date().toISOString().split('T')[0];
+  // Use CALGARY local date for KV keys.
+  // Rationale: tasks are scheduled in Calgary time; "today" must match Calgary.
+  // At 17:00 MST (= UTC 00:00) the UTC date flips to tomorrow, but Calgary
+  // is still the same day → all completed checkins would vanish without this fix.
+  const d = getCalgaryDate(); // shifted Date: getUTC*() returns Calgary values
+  const yyyy = d.getUTCFullYear();
+  const mm   = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd   = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 // ─── API HELPERS ───────────────────────────────────────────────
@@ -1053,6 +1225,10 @@ window.addEventListener('pageshow', () => {
 
 // Also handle iOS PWA coming back from background (visibilitychange)
 document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !state.adminMode) {
+    // Caregiver coming back to app: immediately refresh adhoc requests
+    refreshAdhocForCaregiver(false);
+  }
   if (document.visibilityState === 'visible' && state.adminMode) {
     // Auto-logout after background: use session timestamp from sessionStorage
     const sessionStart = sessionStorage.getItem('adminSessionStart');
@@ -1123,17 +1299,19 @@ async function loadApp() {
   document.getElementById('pinSetupOverlay').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   try {
-    const [tasks, checkins, settings, cat, weights] = await Promise.all([
+    const [tasks, checkins, settings, cat, weights, adhoc] = await Promise.all([
       api('/api/tasks'),
       api('/api/checkins?date=' + state.currentDate),
       api('/api/settings'),
       api('/api/cat').catch(() => null),
       api('/api/weights').catch(() => []),
+      api('/api/adhoc').catch(() => []),
     ]);
     state.tasks = tasks;
     state.checkins = checkins;
     state.settings = settings;
     state.weightsList = weights || [];
+    state.adhocRequests = (adhoc || []).filter(a => !a.done);  // only pending ones
     // Cat name: cat profile takes priority over settings
     if (cat && cat.name) {
       state.cat = cat;
@@ -1401,6 +1579,31 @@ function utcToCalgaryClock(isoStr) {
   } catch(e) { return null; }
 }
 
+// Calgary local date string from UTC ISO — "YYYY/MM/DD" (DST-aware, Calgary Canada)
+function utcToCalgaryDate(isoStr) {
+  if (!isoStr) return '–';
+  try {
+    const d = new Date(isoStr);
+    const year = d.getUTCFullYear();
+    const dstStart = (() => {
+      const s = new Date(Date.UTC(year, 2, 1));
+      let n = 0;
+      while (n < 2) { if (s.getUTCDay() === 0) n++; if (n < 2) s.setUTCDate(s.getUTCDate() + 1); }
+      s.setUTCHours(9, 0, 0, 0); return s;
+    })();
+    const dstEnd = (() => {
+      const e = new Date(Date.UTC(year, 10, 1));
+      while (e.getUTCDay() !== 0) e.setUTCDate(e.getUTCDate() + 1);
+      e.setUTCHours(8, 0, 0, 0); return e;
+    })();
+    const offset = (d >= dstStart && d < dstEnd) ? -6 : -7;
+    const cal = new Date(d.getTime() + offset * 3600000);
+    return cal.getUTCFullYear() + '/' +
+      String(cal.getUTCMonth() + 1).padStart(2, '0') + '/' +
+      String(cal.getUTCDate()).padStart(2, '0');
+  } catch(e) { return '–'; }
+}
+
 function renderTaskCard(task, checkin) {
   const status = checkin ? (checkin.isDone ? 'done' : 'skip') : getOverdueStatus(task);
   const statusLabel = { done: '✅ 完成', skip: '⏭️ 跳過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
@@ -1449,9 +1652,15 @@ function renderTaskList() {
     else pending.push({ task, checkin });
   });
 
+  // ── Render ad-hoc request cards (always at top) ──
+  const adhocCards = (state.adhocRequests || []).map(a => renderAdhocCard(a)).join('');
+
   let html = '<div class="tasks-pending-section">';
-  if (pending.length === 0) {
+  html += adhocCards;
+  if (pending.length === 0 && !adhocCards) {
     html += '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.9rem">🎉 所有任務已完成！</div>';
+  } else if (pending.length === 0 && adhocCards) {
+    html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem">✅ 一般任務已完成</div>';
   } else {
     html += pending.map(({ task, checkin }) => renderTaskCard(task, checkin)).join('');
   }
@@ -1465,6 +1674,62 @@ function renderTaskList() {
   }
 
   container.innerHTML = html;
+}
+
+
+// ── Ad-hoc Request Card (caregiver view) ─────────────────────────────────
+function renderAdhocCard(a) {
+  const calTime = utcToCalgaryClock(a.createdAt);
+  const timeStr = calTime || '';
+  const panelId = 'adhoc-panel-' + a.id;
+  const timeDisplay = timeStr
+    ? `${timeStr} <span class="adhoc-time-tag">管理員新增</span>`
+    : `<span class="adhoc-time-tag">管理員新增</span>`;
+  return `
+  <div class="task-card adhoc-task-card" id="adhoc-card-${a.id}">
+    <div class="task-header" onclick="toggleAdhocPanel('${a.id}')">
+      <div class="task-icon">${a.icon || '📌'}</div>
+      <div class="task-info">
+        <div class="task-name">${a.name}</div>
+        <div class="task-time">${timeDisplay}</div>
+      </div>
+      <div class="task-status status-adhoc">待完成</div>
+    </div>
+    <div class="task-panel adhoc-confirm-panel" id="${panelId}">
+      ${a.note ? `<div class="adhoc-note-text">📝 ${a.note}</div>` : ''}
+      <div class="done-toggle">
+        <button class="toggle-btn selected-done" onclick="completeAdhoc('${a.id}')">✅ 已完成</button>
+        <button class="toggle-btn" onclick="toggleAdhocPanel('${a.id}')">取消</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleAdhocPanel(id) {
+  const panel = document.getElementById('adhoc-panel-' + id);
+  const card = document.getElementById('adhoc-card-' + id);
+  if (!panel) return;
+  // Close all open adhoc panels first
+  document.querySelectorAll('.adhoc-confirm-panel.open').forEach(p => {
+    if (p !== panel) p.classList.remove('open');
+  });
+  panel.classList.toggle('open');
+}
+
+async function completeAdhoc(id) {
+  try {
+    await api('/api/adhoc/' + id + '/done', {
+      method: 'POST',
+      body: JSON.stringify({ result: 'done' }),
+    });
+    // Remove from state and re-render
+    state.adhocRequests = state.adhocRequests.filter(a => a.id !== id);
+    renderTaskList();
+    renderProgress();
+    showToast('✅ 已回報完成！');
+  } catch(e) {
+    showToast('⚠️ 更新失敗，請重試');
+  }
 }
 
 function getOverdueStatus(task) {
@@ -1775,8 +2040,9 @@ function renderProgress() {
 async function checkAlerts() {
   const container = document.getElementById('alertsContainer');
   container.innerHTML = '';
-  const now = new Date();
-  const hour = now.getHours();
+  // Use Calgary local hour (not device-local) for alert thresholds
+  const calgaryNow = getCalgaryDate();
+  const hour = calgaryNow.getUTCHours();
   if (state.checkins.length === 0 && hour >= 14) {
     container.innerHTML += `<div class="alert alert-blue">💡 今天還沒有打卡記錄</div>`;
   }
@@ -1795,13 +2061,17 @@ function renderCalendar() {
   const grid = document.getElementById('calGrid');
   const firstDay = new Date(y, m, 1).getDay();
   const daysInMonth = new Date(y, m+1, 0).getDate();
-  const today = new Date();
+  // Use Calgary local date for today comparison (not device-local)
+  const calgaryToday = getCalgaryDate();
+  const tyear = calgaryToday.getUTCFullYear();
+  const tmonth = calgaryToday.getUTCMonth();
+  const tdate = calgaryToday.getUTCDate();
   let html = '';
   for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday = y===today.getFullYear() && m===today.getMonth() && d===today.getDate();
-    const isFuture = new Date(y,m,d) > today;
+    const isToday = y===tyear && m===tmonth && d===tdate;
+    const isFuture = (y > tyear) || (y === tyear && m > tmonth) || (y === tyear && m === tmonth && d > tdate);
     const cls = isFuture ? 'future' : 'no-data';
     html += `<div class="cal-day ${cls} ${isToday?'today':''}" id="cal-${dateStr}" 
       onclick="showDayDetail('${dateStr}')">${d}</div>`;
@@ -1813,10 +2083,14 @@ function renderCalendar() {
 
 async function loadCalendarData(y, m) {
   const daysInMonth = new Date(y, m+1, 0).getDate();
-  const today = new Date();
+  // Use Calgary local date to decide which days are in the future
+  const calgaryToday = getCalgaryDate();
+  const tyear = calgaryToday.getUTCFullYear();
+  const tmonth = calgaryToday.getUTCMonth();
+  const tdate = calgaryToday.getUTCDate();
   for (let d = 1; d <= daysInMonth; d++) {
-    const dt = new Date(y, m, d);
-    if (dt > today) break;
+    const isFuture = (y > tyear) || (y === tyear && m > tmonth) || (y === tyear && m === tmonth && d > tdate);
+    if (isFuture) break;
     const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     try {
       const checkins = await api('/api/checkins?date=' + dateStr);
@@ -1849,7 +2123,7 @@ async function showDayDetail(dateStr) {
         <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅' : '⏭️'}</td>
         <td>${c.result || '-'}</td>
         <td class="text-muted">${c.note || '-'}</td>
-        <td class="text-muted" style="font-family:var(--mono);font-size:0.75rem">${c.time ? new Date(c.time).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}) : '-'}</td>
+        <td class="text-muted" style="font-family:var(--mono);font-size:0.75rem">${c.time ? utcToCalgaryClock(c.time) : '-'}</td>
       </tr>`;
     }).join('');
     detail.innerHTML = `<div class="card">
@@ -1878,7 +2152,7 @@ function calNextMonth() {
 // ─── ADMIN ─────────────────────────────────────────────────────
 function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab').forEach((t,i) => {
-    const tabs = ['overview','records','weights','tasks','periodic','cat','settings'];
+    const tabs = ['overview','records','weights','tasks','periodic','schedule','cat','settings'];
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
@@ -1887,10 +2161,13 @@ function switchAdminTab(tab) {
   if (tab === 'records') loadAdminRecords();
   if (tab === 'weights') loadAdminWeights();
   if (tab === 'overview') loadAdminOverview();
+  if (tab === 'schedule') loadAdminPeriodic();
+  if (tab === 'periodic') loadAdminAdhoc();
 }
 
 async function loadAdminData() {
   document.getElementById('recordsDatePicker').value = state.currentDate;
+  loadAdminAdhoc();
   loadAdminOverview();   // default tab
   loadAdminTasks();
   loadAdminPeriodic();
@@ -2019,7 +2296,7 @@ async function loadAdminWeights() {
     const rows = weights.slice().reverse().map(w => {
       const d = new Date(w.measuredAt);
       return `<tr>
-        <td style="font-family:var(--mono);font-size:0.8rem">${d.toLocaleDateString('zh-HK')}</td>
+        <td style="font-family:var(--mono);font-size:0.8rem">${utcToCalgaryDate(w.measuredAt)}</td>
         <td>${w.personWeight} kg</td>
         <td>${w.carryWeight} kg</td>
         <td style="color:var(--cat-accent);font-weight:600">${w.catWeight} kg</td>
@@ -2279,12 +2556,138 @@ function closeTaskDetailModal() {
   document.getElementById('taskDetailModal').classList.add('hidden');
 }
 
+
+// ── Admin Ad-hoc Request Functions ───────────────────────────────────────
+async function loadAdminAdhoc() {
+  const listEl = document.getElementById('adminAdhocList');
+  if (!listEl) return;
+  try {
+    const items = await api('/api/adhoc');
+    const pending = items.filter(a => !a.done);
+    const done    = items.filter(a => a.done).slice(-5); // show last 5 completed
+
+    let html = '';
+
+    if (pending.length > 0) {
+      html += `<div style="font-size:0.8rem;font-weight:700;color:var(--primary);
+                margin-bottom:8px">⏳ 等待照顧者完成 (${pending.length})</div>`;
+      html += '<div class="adhoc-pending-list">';
+      html += pending.map(a => `
+        <div class="adhoc-pending-item">
+          <div class="item-left">
+            <span style="font-size:1.2rem">${a.icon}</span>
+            <div>
+              <div class="item-name">${a.name}</div>
+              ${a.note ? `<div class="item-note">${a.note}</div>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center">
+            <button class="adhoc-delete-btn" title="撤銷此請求"
+              onclick="deleteAdhocRequest('${a.id}')">🗑️</button>
+          </div>
+        </div>`).join('');
+      html += '</div>';
+    } else {
+      html += `<div style="font-size:0.85rem;color:var(--text-muted);
+        text-align:center;padding:12px 0">沒有待處理的請求 ✅</div>`;
+    }
+
+    if (done.length > 0) {
+      html += `<div style="font-size:0.78rem;font-weight:700;color:#34d399;
+               margin:12px 0 6px">✅ 最近已完成</div>`;
+      html += '<div class="adhoc-pending-list">';
+      html += done.map(a => `
+        <div class="adhoc-pending-item" style="opacity:0.6">
+          <div class="item-left">
+            <span style="font-size:1.2rem">${a.icon}</span>
+            <div>
+              <div class="item-name">${a.name}</div>
+              <div class="item-note">
+                完成於 ${utcToCalgaryClock(a.doneAt) || '–'}
+              </div>
+            </div>
+          </div>
+          <span class="item-done-badge">✓</span>
+          <button class="adhoc-delete-btn" title="從列表移除"
+            onclick="deleteAdhocRequest('${a.id}')">✕</button>
+        </div>`).join('');
+      html += '</div>';
+    }
+
+    listEl.innerHTML = html;
+  } catch(e) {
+    listEl.innerHTML = '<div class="text-muted">載入失敗</div>';
+  }
+}
+
+// Called when preset dropdown changes
+function onAdhocPresetChange() {
+  const sel = document.getElementById('adhocPreset');
+  const customRow = document.getElementById('adhocCustomRow');
+  customRow.style.display = sel.value === 'custom|📝' ? 'block' : 'none';
+}
+
+async function createAdhocRequest() {
+  const sel    = document.getElementById('adhocPreset');
+  const noteEl = document.getElementById('adhocNote');
+  const preset = sel.value;
+
+  let name, icon;
+  if (!preset) { showToast('⚠️ 請先選擇任務'); return; }
+
+  if (preset === 'custom|📝') {
+    // Custom: read from text inputs
+    name = (document.getElementById('adhocName')?.value || '').trim();
+    icon = (document.getElementById('adhocIcon')?.value || '').trim() || '📌';
+    if (!name) { showToast('⚠️ 請輸入自定義任務名稱'); return; }
+  } else {
+    // Preset: parse "name|icon"
+    const parts = preset.split('|');
+    name = parts[0];
+    icon = parts[1] || '📌';
+  }
+
+  const note = noteEl.value.trim();
+  try {
+    await api('/api/adhoc', {
+      method: 'POST',
+      body: JSON.stringify({ name, icon, note }),
+    });
+    // Reset form
+    sel.value = '';
+    noteEl.value = '';
+    document.getElementById('adhocCustomRow').style.display = 'none';
+    const nameEl = document.getElementById('adhocName');
+    const iconEl = document.getElementById('adhocIcon');
+    if (nameEl) nameEl.value = '';
+    if (iconEl) iconEl.value = '';
+    showToast('📌 請求已發送！照顧者頁面將即時更新');
+    loadAdminAdhoc();
+  } catch(e) {
+    showToast('⚠️ 發送失敗');
+  }
+}
+
+async function deleteAdhocRequest(id) {
+  try {
+    await api('/api/adhoc/' + id, { method: 'DELETE' });
+    showToast('🗑️ 已撤銷請求');
+    loadAdminAdhoc();
+  } catch(e) {
+    showToast('⚠️ 操作失敗');
+  }
+}
+
 async function loadAdminPeriodic() {
   const container = document.getElementById('adminPeriodicContent');
   container.innerHTML = '<div class="loading-spin"></div>';
   try {
     const periodic = await api('/api/periodic');
     const now = new Date();
+    if (!periodic.length) {
+      container.innerHTML = '<div class="text-muted" style="text-align:center;padding:16px">尚未設定定期項目</div>';
+      return;
+    }
     container.innerHTML = periodic.map(p => {
       let dueInfo = '', badgeClass = 'badge-ok', dueText = '正常 ✅';
       if (p.intervalDays && p.lastDoneAt) {
@@ -2293,16 +2696,17 @@ async function loadAdminPeriodic() {
         const diffDays = Math.ceil((due - now) / 86400000);
         if (diffDays < 0) { badgeClass = 'badge-overdue'; dueText = `逾期 ${-diffDays} 天`; }
         else if (diffDays <= 3) { badgeClass = 'badge-due-soon'; dueText = `${diffDays} 天後到期`; }
-        dueInfo = `<div class="text-muted mt-8">上次: ${new Date(p.lastDoneAt).toLocaleDateString('zh-HK')} · 每 ${p.intervalDays} 天</div>`;
+        dueInfo = `<div class="text-muted mt-8">上次: ${utcToCalgaryDate(p.lastDoneAt)} · 每 ${p.intervalDays} 天</div>`;
       } else if (!p.lastDoneAt) {
         badgeClass = 'badge-overdue'; dueText = '未記錄';
       }
       return `<div class="card">
         <div class="flex-between">
-          <div><div class="card-title">${p.name}</div>${dueInfo}${p.note ? `<div class="text-muted">${p.note}</div>` : ''}</div>
+          <div><div class="card-title">${p.icon ? p.icon+' ' : ''}${p.name}</div>${dueInfo}${p.note ? `<div class="text-muted">${p.note}</div>` : ''}</div>
           <span class="card-badge ${badgeClass}">${dueText}</span>
         </div>
-        <button class="btn btn-success mt-8" style="max-width:120px;padding:8px" onclick="markPeriodic('${p.id}')">✅ 完成</button>
+        <button class="btn btn-success mt-8" style="max-width:120px;padding:8px"
+          onclick="markPeriodic('${p.id}')">✅ 完成</button>
       </div>`;
     }).join('');
   } catch(e) {
@@ -2427,11 +2831,69 @@ init();
 // ── Auto-refresh task status every 60 seconds ──────────────────────────────
 // This ensures overdue badges update while the app is open, without reloading
 // check-in data from KV (uses cached state.checkins only).
-setInterval(() => {
+// ── Caregiver adhoc refresh ──────────────────────────────────────────────
+// Fetches latest adhoc requests from server and re-renders task list.
+// Called by: setInterval (30s), visibilitychange, pull-to-refresh.
+let _adhocRefreshing = false;
+async function refreshAdhocForCaregiver(showIndicator) {
+  if (_adhocRefreshing) return;
+  _adhocRefreshing = true;
+  const indicator = document.getElementById('pullRefreshIndicator');
+  if (showIndicator && indicator) {
+    indicator.textContent = '🔄 更新中…';
+    indicator.style.opacity = '1';
+    indicator.style.transform = 'translateY(0)';
+  }
+  try {
+    const fresh = await api('/api/adhoc');
+    state.adhocRequests = (fresh || []).filter(a => !a.done);
+    renderTaskList();
+  } catch(e) { /* keep current state on network error */ }
+  finally {
+    _adhocRefreshing = false;
+    if (indicator) {
+      setTimeout(() => {
+        indicator.style.opacity = '0';
+        indicator.style.transform = 'translateY(-40px)';
+      }, showIndicator ? 600 : 0);
+    }
+  }
+}
+
+// ── Pull-to-refresh (mobile swipe down on tasks page) ────────────────────
+(function() {
+  let touchStartY = 0;
+  let pulling = false;
+  let pullDist = 0;
+  const page = () => document.getElementById('pageTasks');
+  document.addEventListener('touchstart', e => {
+    if (!page() || page().classList.contains('hidden')) return;
+    touchStartY = e.touches[0].clientY;
+    pulling = false; pullDist = 0;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!page() || page().classList.contains('hidden')) return;
+    const dy = e.touches[0].clientY - touchStartY;
+    if (page().scrollTop <= 0 && dy > 0) {
+      pullDist = dy;
+      if (dy > 55 && !pulling) pulling = true;
+    }
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (pulling && pullDist > 55) {
+      pulling = false; pullDist = 0;
+      refreshAdhocForCaregiver(true);
+    } else {
+      pulling = false; pullDist = 0;
+    }
+  }, { passive: true });
+})();
+
+setInterval(async () => {
   updateDateDisplay();
   if (!document.getElementById('pageTasks').classList.contains('hidden')) {
-    // Re-render task list using current state (no network call)
-    renderTaskList();
+    // Silent background poll every 30s (no indicator)
+    refreshAdhocForCaregiver(false);
   }
   if (!document.getElementById('pageAdmin').classList.contains('hidden')) {
     // Refresh admin overview live stats
@@ -2449,7 +2911,7 @@ setInterval(() => {
       subRow.textContent = `${state.currentDate} · ${hStr}:${mStr} Calgary · ${catName} 照護狀態`;
     }
   }
-}, 60 * 1000);
+}, 30 * 1000);
 
 // ===== PUSH NOTIFICATION =====
 // Web Audio API notification sound
