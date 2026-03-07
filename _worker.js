@@ -1,3 +1,4 @@
+// deploy-ts:1772862037
 // UmiCare v3.1 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
