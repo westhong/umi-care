@@ -846,7 +846,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.7.0</span>
+        <span id="version-badge">v3.7.1</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1090,8 +1090,26 @@ let state = {
 };
 
 function todayStr() {
-  // Use UTC date – KV keys are always UTC-based (e.g. checkins:2026-03-06)
-  return new Date().toISOString().split('T')[0];
+  // Use Calgary local date to match Worker's getCalgaryDateStr KV keys
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  // DST: 2nd Sunday of March at 2am → 1st Sunday of November at 2am
+  const dstStart = (() => {
+    const d = new Date(Date.UTC(year, 2, 1));
+    let sundays = 0;
+    while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
+    d.setUTCHours(9, 0, 0, 0); return d;
+  })();
+  const dstEnd = (() => {
+    const d = new Date(Date.UTC(year, 10, 1));
+    while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
+    d.setUTCHours(8, 0, 0, 0); return d;
+  })();
+  const offset = (now >= dstStart && now < dstEnd) ? -6 : -7;
+  const c = new Date(now.getTime() + offset * 3600000);
+  return c.getUTCFullYear() + '-' +
+    String(c.getUTCMonth() + 1).padStart(2, '0') + '-' +
+    String(c.getUTCDate()).padStart(2, '0');
 }
 
 // ─── API HELPERS ───────────────────────────────────────────────
