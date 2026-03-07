@@ -405,13 +405,15 @@ body::before {
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
 
 /* ─── TASK EXPAND PANEL ─── */
-.task-panel {
+.task-panel,
+.adhoc-confirm-panel {
   padding: 0 16px 16px;
   border-top: 1px solid rgba(255,133,161,0.15);
   background: #fff9fb;
   display: none;
 }
-.task-panel.open { display: block; animation: fadeIn 0.2s ease; }
+.task-panel.open,
+.adhoc-confirm-panel.open { display: block; animation: fadeIn 0.2s ease; }
 @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
 
 .done-toggle {
@@ -729,6 +731,7 @@ body::before {
 
 /* ── Ad-hoc Request Cards ── */
 .adhoc-task-card {
+  border-left: 3px solid rgba(168,85,247,0.5) !important;
   /* Subtle left accent to distinguish from normal tasks */
   border-left: 3px solid var(--primary) !important;
 }
@@ -748,13 +751,11 @@ body::before {
   line-height: 1.5;
 }
 .status-adhoc {
-  background: rgba(255,133,161,0.12);
-  color: var(--primary);
+  background: rgba(168,85,247,0.12);
+  color: #a855f7;
+  font-size: 0.72rem;
 }
-.adhoc-confirm-panel {
-  /* inherits .task-panel styles; just override background */
-  background: #fff9fb;
-}
+/* .adhoc-confirm-panel now merged into .task-panel rule above */
 /* Legacy – kept for backwards compat but visually reset */
 .adhoc-card {
   background: var(--bg-card);
@@ -1683,8 +1684,8 @@ function renderAdhocCard(a) {
   const timeStr = calTime || '';
   const panelId = 'adhoc-panel-' + a.id;
   const timeDisplay = timeStr
-    ? `${timeStr} <span class="adhoc-time-tag">管理員新增</span>`
-    : `<span class="adhoc-time-tag">管理員新增</span>`;
+    ? `${timeStr} <span class="adhoc-time-tag">📌 管理員</span>`
+    : `<span class="adhoc-time-tag">📌 管理員</span>`;
   return `
   <div class="task-card adhoc-task-card" id="adhoc-card-${a.id}">
     <div class="task-header" onclick="toggleAdhocPanel('${a.id}')">
@@ -1696,41 +1697,81 @@ function renderAdhocCard(a) {
       <div class="task-status status-adhoc">待完成</div>
     </div>
     <div class="task-panel adhoc-confirm-panel" id="${panelId}">
-      ${a.note ? `<div class="adhoc-note-text">📝 ${a.note}</div>` : ''}
-      <div class="done-toggle">
-        <button class="toggle-btn selected-done" onclick="completeAdhoc('${a.id}')">✅ 已完成</button>
-        <button class="toggle-btn" onclick="toggleAdhocPanel('${a.id}')">取消</button>
+      ${a.note ? `<div class="adhoc-note-text mt-8">📝 ${a.note}</div>` : ''}
+      <div class="done-toggle mt-8">
+        <button class="toggle-btn" id="adhoc-done-${a.id}"
+          onclick="selectAdhocDone('${a.id}', true)">✅ 完成</button>
+        <button class="toggle-btn" id="adhoc-skip-${a.id}"
+          onclick="selectAdhocDone('${a.id}', false)">⏭️ 跳過</button>
+      </div>
+      <textarea class="note-input" id="adhoc-note-${a.id}"
+        placeholder="備注（選填）" rows="2"></textarea>
+      <div class="confirm-row">
+        <button class="btn btn-success" onclick="submitAdhoc('${a.id}')">✅ 確認提交</button>
+        <button class="btn btn-secondary" onclick="toggleAdhocPanel('${a.id}')">取消</button>
       </div>
     </div>
   </div>`;
 }
 
-function toggleAdhocPanel(id) {
-  const panel = document.getElementById('adhoc-panel-' + id);
-  const card = document.getElementById('adhoc-card-' + id);
-  if (!panel) return;
-  // Close all open adhoc panels first
-  document.querySelectorAll('.adhoc-confirm-panel.open').forEach(p => {
-    if (p !== panel) p.classList.remove('open');
-  });
-  panel.classList.toggle('open');
+// Track adhoc selection state
+const adhocDoneState = {};  // id -> true/false
+
+function selectAdhocDone(id, isDone) {
+  adhocDoneState[id] = isDone;
+  const doneBtn = document.getElementById('adhoc-done-' + id);
+  const skipBtn = document.getElementById('adhoc-skip-' + id);
+  if (doneBtn) doneBtn.classList.toggle('selected-done', isDone);
+  if (skipBtn) skipBtn.classList.toggle('selected-skip', !isDone);
 }
 
-async function completeAdhoc(id) {
+function toggleAdhocPanel(id) {
+  const panel = document.getElementById('adhoc-panel-' + id);
+  const card  = document.getElementById('adhoc-card-' + id);
+  if (!panel) return;
+  const isOpen = panel.classList.contains('open');
+  // Close ALL open panels (regular tasks + adhoc) — unified behaviour
+  document.querySelectorAll('.task-panel.open, .adhoc-confirm-panel.open')
+    .forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.task-card.expanded')
+    .forEach(c => c.classList.remove('expanded'));
+  if (!isOpen) {
+    panel.classList.add('open');
+    if (card) card.classList.add('expanded');
+  }
+}
+
+async function submitAdhoc(id) {
+  const isDone = adhocDoneState[id];
+  if (isDone === undefined || isDone === null) {
+    showToast('⚠️ 請先選擇完成 / 跳過');
+    return;
+  }
+  const note = document.getElementById('adhoc-note-' + id)?.value || '';
   try {
+    // Animate card out before removing
+    const card = document.getElementById('adhoc-card-' + id);
+    if (card) {
+      card.classList.add('animating-done');
+      await new Promise(r => setTimeout(r, 420));
+    }
     await api('/api/adhoc/' + id + '/done', {
       method: 'POST',
-      body: JSON.stringify({ result: 'done' }),
+      body: JSON.stringify({ result: isDone ? 'done' : 'skip', note }),
     });
-    // Remove from state and re-render
+    delete adhocDoneState[id];
     state.adhocRequests = state.adhocRequests.filter(a => a.id !== id);
     renderTaskList();
     renderProgress();
-    showToast('✅ 已回報完成！');
+    if (isDone) { showToast('✅ 已回報完成！'); confetti(); }
+    else showToast('⏭️ 已標記跳過');
   } catch(e) {
     showToast('⚠️ 更新失敗，請重試');
   }
 }
+
+// Keep legacy name as alias for any remaining references
+async function completeAdhoc(id) { return submitAdhoc(id); }
 
 function getOverdueStatus(task) {
   // Always compare in Calgary local time so status is correct regardless
@@ -1858,8 +1899,9 @@ function toggleTask(taskId) {
   const panel = document.getElementById('panel-' + taskId);
   const card = document.getElementById('card-' + taskId);
   const isOpen = panel.classList.contains('open');
-  // Close all
-  document.querySelectorAll('.task-panel.open').forEach(p => p.classList.remove('open'));
+  // Close ALL open panels (regular tasks + adhoc) — unified behaviour
+  document.querySelectorAll('.task-panel.open, .adhoc-confirm-panel.open')
+    .forEach(p => p.classList.remove('open'));
   document.querySelectorAll('.task-card.expanded').forEach(c => c.classList.remove('expanded'));
   if (!isOpen) {
     panel.classList.add('open');
