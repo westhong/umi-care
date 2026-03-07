@@ -149,6 +149,12 @@ async function handleApi(request, env, url) {
         const raw = await KV.get(`checkins:${date}`);
         return json(raw ? JSON.parse(raw) : []);
       }
+      if (method === 'DELETE') {
+        const date = url.searchParams.get('date');
+        if (!date) return json({ error: 'date param required' }, 400);
+        await KV.delete(`checkins:${date}`);
+        return json({ ok: true, deleted: `checkins:${date}` });
+      }
       if (method === 'POST') {
         const body = await request.json();
         const date = body.date || getCalgaryDateStr(new Date()); // Calgary fallback
@@ -697,4 +703,3 @@ async function handlePushApi(path, method, request, env) {
 
   return null;
 }
-
