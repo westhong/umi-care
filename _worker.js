@@ -317,7 +317,7 @@ async function handleApi(request, env, url) {
   }
 }
 
-const VAPID_PUBLIC_KEY = 'BHgJpAFFHPBdA1QxgX4Wx5Bqa3j-Wcj1IWryX7MRxNf7Y-0sPlyDsymCwsiwwYjo7iS4TKpMG77Qv_CxbTXQofI';
+const VAPID_PUBLIC_KEY = 'BDJvsxEbiMOiPGPJTp8XCdMO1VhCz3BGhtCinJyjFUYZsJNFENtt5OOaoQxzm17LSMfW7-XvIrr2uGfyu8GRjus';
 
 // ─── Calgary date helper (shared by cron, simulate, dashboard) ─────────────
 function getCalgaryDateStr(now) {
@@ -449,8 +449,8 @@ export default {
 // ─── WEB PUSH HELPERS ──────────────────────────────────────────
 
 // VAPID key coordinates (from public key BHgJpA...)
-const VAPID_KEY_X = 'eAmkAUUc8F0DVDGBfhbHkGpreP5ZyPUhavJfsxHE1_s';
-const VAPID_KEY_Y = 'Y-0sPlyDsymCwsiwwYjo7iS4TKpMG77Qv_CxbTXQofI';
+const VAPID_KEY_X = 'Mm-zERuIw6I8Y8lOnxcJ0w7VWELPcEaG0KKcnKMVRhk';
+const VAPID_KEY_Y = 'sJNFENtt5OOaoQxzm17LSMfW7-XvIrr2uGfyu8GRjus';
 
 function b64url(buf) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)))
