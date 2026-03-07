@@ -63,7 +63,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.5.3', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.6', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -144,13 +144,13 @@ async function handleApi(request, env, url) {
     // CHECKINS
     if (path === '/checkins') {
       if (method === 'GET') {
-        const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
+        const date = url.searchParams.get('date') || getCalgaryDateStr(new Date()); // Calgary fallback
         const raw = await KV.get(`checkins:${date}`);
         return json(raw ? JSON.parse(raw) : []);
       }
       if (method === 'POST') {
         const body = await request.json();
-        const date = body.date || new Date().toISOString().split('T')[0];
+        const date = body.date || getCalgaryDateStr(new Date()); // Calgary fallback
         const key = `checkins:${date}`;
         const raw = await KV.get(key);
         const list = raw ? JSON.parse(raw) : [];
@@ -212,7 +212,7 @@ async function handleApi(request, env, url) {
 
     // DASHBOARD SUMMARY
     if (path === '/dashboard' && method === 'GET') {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getCalgaryDateStr(new Date()); // Calgary local date to match frontend
       const [tasksRaw, checkinsRaw, weightsRaw, periodicRaw, catRaw] = await Promise.all([
         KV.get('tasks:list'), KV.get(`checkins:${today}`),
         KV.get('weights:list'), KV.get('periodic:list'), KV.get('cat:profile'),
@@ -243,6 +243,62 @@ async function handleApi(request, env, url) {
       });
     }
 
+
+    // ── AD-HOC REQUESTS ──────────────────────────────────────────────────
+    if (path === '/adhoc') {
+      if (method === 'GET') {
+        const raw = await KV.get('adhoc:requests');
+        return json(raw ? JSON.parse(raw) : []);
+      }
+      if (method === 'POST') {
+        // Admin creates a new ad-hoc request
+        const body = await request.json();
+        if (!body.name) return json({ error: 'name required' }, 400);
+        const raw = await KV.get('adhoc:requests');
+        const list = raw ? JSON.parse(raw) : [];
+        const item = {
+          id: 'ah_' + Date.now(),
+          name: body.name,
+          icon: body.icon || '📌',
+          note: body.note || '',
+          createdAt: new Date().toISOString(),
+          done: false,
+          doneAt: null,
+          doneResult: null,
+        };
+        list.push(item);
+        await KV.put('adhoc:requests', JSON.stringify(list));
+        return json({ ok: true, item });
+      }
+    }
+    // Mark ad-hoc as done:  POST /api/adhoc/:id/done
+    const adhocDoneMatch = path.match(/^\/adhoc\/(ah_\d+)\/done$/);
+    if (adhocDoneMatch && method === 'POST') {
+      const id = adhocDoneMatch[1];
+      const body = await request.json().catch(() => ({}));
+      const raw = await KV.get('adhoc:requests');
+      if (!raw) return json({ error: 'not found' }, 404);
+      const list = JSON.parse(raw);
+      const item = list.find(x => x.id === id);
+      if (!item) return json({ error: 'not found' }, 404);
+      item.done = true;
+      item.doneAt = new Date().toISOString();
+      item.doneResult = body.result || null;
+      item.doneNote = body.note || '';
+      await KV.put('adhoc:requests', JSON.stringify(list));
+      return json({ ok: true, item });
+    }
+    // Delete (admin dismisses) ad-hoc:  DELETE /api/adhoc/:id
+    const adhocDelMatch = path.match(/^\/adhoc\/(ah_\d+)$/);
+    if (adhocDelMatch && method === 'DELETE') {
+      const id = adhocDelMatch[1];
+      const raw = await KV.get('adhoc:requests');
+      if (!raw) return json({ ok: true });
+      const list = JSON.parse(raw).filter(x => x.id !== id);
+      await KV.put('adhoc:requests', JSON.stringify(list));
+      return json({ ok: true });
+    }
+
     // Push API
     const pushResult = await handlePushApi(path, method, request, env);
     if (pushResult) return pushResult;
@@ -255,6 +311,30 @@ async function handleApi(request, env, url) {
 }
 
 const VAPID_PUBLIC_KEY = 'BHgJpAFFHPBdA1QxgX4Wx5Bqa3j-Wcj1IWryX7MRxNf7Y-0sPlyDsymCwsiwwYjo7iS4TKpMG77Qv_CxbTXQofI';
+
+// ─── Calgary date helper (shared by cron, simulate, dashboard) ─────────────
+function getCalgaryDateStr(now) {
+  const year = now.getUTCFullYear();
+  const dstStart = (() => {
+    const d = new Date(Date.UTC(year, 2, 1));
+    let sundays = 0;
+    while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
+    d.setUTCHours(9, 0, 0, 0); return d;
+  })();
+  const dstEnd = (() => {
+    const d = new Date(Date.UTC(year, 10, 1));
+    while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
+    d.setUTCHours(8, 0, 0, 0); return d;
+  })();
+  const isDST = now >= dstStart && now < dstEnd;
+  const offset = isDST ? -6 : -7;
+  const c = new Date(now.getTime() + offset * 3600000);
+  return [
+    c.getUTCFullYear(),
+    String(c.getUTCMonth() + 1).padStart(2, '0'),
+    String(c.getUTCDate()).padStart(2, '0')
+  ].join('-');
+}
 
 export default {
   async fetch(request, env) {
@@ -305,8 +385,8 @@ export default {
     const calgaryMin  = calgaryNow.getUTCMinutes();
     const calgaryTotalMin = calgaryHour * 60 + calgaryMin;
 
-    // KV date key uses UTC (backend always stores as UTC)
-    const today = now.toISOString().split('T')[0];
+    // KV date key uses Calgary local date (matches frontend todayStr)
+    const today = getCalgaryDateStr(now);
 
     // Load tasks + today's checkins
     const tasksRaw = await KV.get('tasks:list');
@@ -351,7 +431,7 @@ export default {
       time: new Date().toISOString(),
       calgaryTime: `${calgaryHour}:${String(calgaryMin).padStart(2,'0')}`,
       isDST,
-      utcDate: today,
+      calgaryDate: today,  // now Calgary local date
       result,
       overdue: overdue.length,
       firstTask: firstName,
@@ -569,8 +649,8 @@ async function handlePushApi(path, method, request, env) {
     const calgaryHour = calgaryNow.getUTCHours();
     const calgaryMin  = calgaryNow.getUTCMinutes();
     const calgaryTotalMin = calgaryHour * 60 + calgaryMin;
-    // KV key always UTC
-    const today = now.toISOString().split('T')[0];
+    // KV key uses Calgary local date (matches frontend todayStr)
+    const today = getCalgaryDateStr(now);
 
     const catRaw = await KV.get('cat:profile');
     const catName = catRaw ? (JSON.parse(catRaw).name || '喔咪') : '喔咪';
@@ -604,7 +684,7 @@ async function handlePushApi(path, method, request, env) {
     return json({
       calgaryTime: `${calgaryHour}:${String(calgaryMin).padStart(2,'0')}`,
       isDST,
-      utcDate: today,
+      calgaryDate: today,  // now Calgary local date
       catName,
       totalTasks: tasks.length,
       doneToday: checkins.length,
