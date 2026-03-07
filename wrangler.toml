@@ -1,0 +1,15 @@
+name = "umi-care"
+main = "_worker.js"
+compatibility_date = "2025-09-27"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+  directory = "."
+  binding = "ASSETS"
+
+[[kv_namespaces]]
+  binding = "UMICARE_DATA"
+  id = "81e5f3a8022f4cb98549f7d830b0bee2"
+
+[triggers]
+  crons = ["*/30 * * * *"]
