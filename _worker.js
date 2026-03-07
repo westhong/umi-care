@@ -306,6 +306,60 @@ async function handleApi(request, env, url) {
       return json({ ok: true });
     }
 
+    // === Incident Reports ===
+    // GET /api/incidents
+    if (path === '/incidents' && method === 'GET') {
+      const raw = await KV.get('incidents:list');
+      return json(raw ? JSON.parse(raw) : []);
+    }
+    // POST /api/incidents — caregiver reports vomit/abnormal with optional photo
+    if (path === '/incidents' && method === 'POST') {
+      const body = await request.json();
+      const raw = await KV.get('incidents:list');
+      const list = raw ? JSON.parse(raw) : [];
+      const incident = {
+        id: 'inc_' + Date.now(),
+        type: body.type || 'vomit',
+        note: body.note || '',
+        photo: body.photo || null,
+        reportedAt: new Date().toISOString(),
+        reportedBy: body.reportedBy || 'caregiver',
+        resolved: false,
+        resolvedAt: null,
+        resolvedNote: ''
+      };
+      list.unshift(incident);
+      if (list.length > 50) list.splice(50);
+      await KV.put('incidents:list', JSON.stringify(list));
+      return json({ ok: true, incident });
+    }
+    // POST /api/incidents/:id/resolve
+    const incResolveMatch = path.match(/^\/incidents\/(inc_\d+)\/resolve$/);
+    if (incResolveMatch && method === 'POST') {
+      const id = incResolveMatch[1];
+      const body = await request.json().catch(() => ({}));
+      const raw = await KV.get('incidents:list');
+      if (!raw) return json({ error: 'not found' }, 404);
+      const list = JSON.parse(raw);
+      const item = list.find(x => x.id === id);
+      if (!item) return json({ error: 'not found' }, 404);
+      item.resolved = true;
+      item.resolvedAt = new Date().toISOString();
+      item.resolvedNote = body.note || '';
+      await KV.put('incidents:list', JSON.stringify(list));
+      return json({ ok: true, item });
+    }
+    // DELETE /api/incidents/:id
+    const incDelMatch = path.match(/^\/incidents\/(inc_\d+)$/);
+    if (incDelMatch && method === 'DELETE') {
+      const id = incDelMatch[1];
+      const raw = await KV.get('incidents:list');
+      if (!raw) return json({ ok: true });
+      const list = JSON.parse(raw).filter(x => x.id !== id);
+      await KV.put('incidents:list', JSON.stringify(list));
+      return json({ ok: true });
+    }
+
     // Push API
     const pushResult = await handlePushApi(path, method, request, env);
     if (pushResult) return pushResult;

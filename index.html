@@ -800,7 +800,99 @@ body::before {
   user-select: none;
   white-space: nowrap;
 }
-</style>
+
+  /* ── Incident Report ──────────────────────────────── */
+  .incident-btn {
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(249,115,22,0.10));
+    border: 1.5px solid rgba(239,68,68,0.35);
+    border-radius: 14px; padding: 13px 16px; margin: 8px 0;
+    cursor: pointer; width: 100%; text-align: left;
+    color: #f87171; font-size: 0.95rem; font-weight: 600;
+    transition: background 0.15s;
+  }
+  .incident-btn:active { background: rgba(239,68,68,0.22); }
+  .incident-modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65); z-index: 1000;
+    align-items: flex-end; justify-content: center;
+  }
+  .incident-modal-overlay.open { display: flex; }
+  .incident-modal {
+    background: #1e1e2e; border-radius: 20px 20px 0 0;
+    padding: 20px; width: 100%; max-width: 480px;
+    max-height: 85vh; overflow-y: auto;
+    animation: slideUp 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .incident-modal h3 { color: #f87171; margin: 0 0 16px; font-size: 1.1rem; }
+  .incident-type-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;
+  }
+  .incident-type-btn {
+    padding: 10px 6px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05); color: #ccc; font-size: 0.78rem;
+    cursor: pointer; text-align: center; transition: all 0.15s;
+  }
+  .incident-type-btn.selected {
+    border-color: #f87171; background: rgba(239,68,68,0.18); color: #f87171; font-weight: 600;
+  }
+  .incident-type-btn .icon { font-size: 1.4rem; display: block; margin-bottom: 3px; }
+  .incident-photo-area {
+    border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px;
+    padding: 16px; text-align: center; cursor: pointer; margin-bottom: 12px;
+    color: #888; transition: border-color 0.15s;
+  }
+  .incident-photo-area:active { border-color: #f87171; }
+  .incident-photo-preview {
+    width: 100%; max-height: 180px; object-fit: cover;
+    border-radius: 10px; margin-bottom: 10px; display: none;
+  }
+  .incident-note-input {
+    width: 100%; background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
+    color: #e0e0e0; padding: 10px 12px; font-size: 0.9rem;
+    resize: none; box-sizing: border-box; margin-bottom: 14px;
+  }
+  .incident-submit-btn {
+    width: 100%; padding: 13px; border-radius: 12px; border: none;
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    color: white; font-size: 1rem; font-weight: 700; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .incident-submit-btn:active { opacity: 0.8; }
+  .incident-cancel-btn {
+    width: 100%; padding: 11px; border-radius: 12px; border: none;
+    background: rgba(255,255,255,0.07); color: #aaa;
+    font-size: 0.9rem; cursor: pointer; margin-top: 8px;
+  }
+  /* Incident list in admin */
+  .incident-card {
+    background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
+    border-left: 4px solid #ef4444; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 10px;
+  }
+  .incident-card.resolved {
+    border-left-color: #22c55e; background: rgba(34,197,94,0.05);
+    opacity: 0.7;
+  }
+  .incident-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .incident-card-type { color: #f87171; font-weight: 700; font-size: 0.95rem; }
+  .incident-card-time { color: #888; font-size: 0.78rem; }
+  .incident-card-note { color: #ccc; font-size: 0.85rem; margin: 4px 0; }
+  .incident-card-photo { width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; margin: 8px 0; cursor: pointer; }
+  .incident-resolve-btn {
+    padding: 6px 14px; border-radius: 8px; border: none;
+    background: rgba(34,197,94,0.2); color: #4ade80;
+    font-size: 0.8rem; cursor: pointer; font-weight: 600;
+  }
+  .incident-delete-btn {
+    padding: 6px 12px; border-radius: 8px; border: none;
+    background: rgba(239,68,68,0.15); color: #f87171;
+    font-size: 0.8rem; cursor: pointer; margin-left: 6px;
+  }
+
+  </style>
 </head>
 <body>
 
@@ -846,7 +938,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.7.1</span>
+        <span id="version-badge">v3.7.2</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -988,7 +1080,17 @@ body::before {
           <input type="date" id="recordsDatePicker" onchange="loadAdminRecords()">
         </div>
         <div id="adminRecordsContent"><div class="loading-spin"></div></div>
-      </div>
+      
+        <!-- Incidents Section -->
+        <div style="margin-top: 24px; padding-bottom: 20px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h3 style="color:#f87171; margin:0; font-size:1rem;">🆘 異常上報記錄</h3>
+            <button onclick="loadAdminIncidents()" style="background:rgba(255,255,255,0.07);border:none;border-radius:8px;padding:5px 12px;color:#aaa;font-size:0.8rem;cursor:pointer;">🔄 刷新</button>
+          </div>
+          <div id="adminIncidentList">
+            <p style="color:#666;text-align:center;padding:20px 0;">載入中...</p>
+          </div>
+        </div></div>
 
       <!-- Weights Tab -->
       <div id="adminTabWeights" class="admin-tab-content">
@@ -2090,7 +2192,7 @@ function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('adminTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
   if (tab === 'cat') loadAdminCat();
-  if (tab === 'records') loadAdminRecords();
+  if (tab === 'records') { loadAdminRecords(); loadAdminIncidents(); }
   if (tab === 'weights') loadAdminWeights();
   if (tab === 'overview') loadAdminOverview();
 }
@@ -2941,6 +3043,142 @@ async function checkPushStatus() {
 }
 // ===== END PUSH =====
 
+
+  // ── Incident Report ──────────────────────────────────────────
+  let _incidentType = 'vomit';
+  let _incidentPhotoBase64 = null;
+
+  function openIncidentModal() {
+    _incidentType = 'vomit';
+    _incidentPhotoBase64 = null;
+    document.getElementById('incidentNoteInput').value = '';
+    document.getElementById('incidentPhotoPreview').style.display = 'none';
+    document.getElementById('incidentPhotoPreview').src = '';
+    document.querySelectorAll('.incident-type-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelector('[data-type="vomit"]').classList.add('selected');
+    document.getElementById('incidentModalOverlay').classList.add('open');
+  }
+
+  function closeIncidentModal(e) {
+    if (!e || e.target === document.getElementById('incidentModalOverlay')) {
+      document.getElementById('incidentModalOverlay').classList.remove('open');
+    }
+  }
+
+  function selectIncidentType(type, btn) {
+    _incidentType = type;
+    document.querySelectorAll('.incident-type-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  }
+
+  function previewIncidentPhoto(input) {
+    const file = input.files[0];
+    if (!file) return;
+    // Compress image before storing
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > h && w > MAX) { h = h * MAX / w; w = MAX; }
+        else if (h > MAX) { w = w * MAX / h; h = MAX; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        _incidentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.75);
+        const preview = document.getElementById('incidentPhotoPreview');
+        preview.src = _incidentPhotoBase64;
+        preview.style.display = 'block';
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function submitIncident() {
+    const note = document.getElementById('incidentNoteInput').value.trim();
+    const typeLabels = { vomit:'嘔吐', no_eat:'拒食', lethargy:'精神差', diarrhea:'腹瀉', blood:'血跡', other:'其他' };
+    try {
+      const r = await api('/api/incidents', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: _incidentType,
+          note,
+          photo: _incidentPhotoBase64,
+          reportedBy: 'caregiver'
+        })
+      });
+      if (r.ok) {
+        closeIncidentModal();
+        showToast('🆘 異常狀況已上報！管理員將收到通知。');
+        _incidentPhotoBase64 = null;
+      } else {
+        showToast('❌ 上報失敗，請重試');
+      }
+    } catch(e) {
+      showToast('❌ 網絡錯誤，請重試');
+    }
+  }
+
+  // Admin: load and render incidents
+  async function loadAdminIncidents() {
+    try {
+      const list = await api('/api/incidents');
+      renderAdminIncidents(list);
+    } catch(e) { console.error('loadAdminIncidents:', e); }
+  }
+
+  function renderAdminIncidents(list) {
+    const container = document.getElementById('adminIncidentList');
+    if (!container) return;
+    const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❓ 其他' };
+    if (!list || list.length === 0) {
+      container.innerHTML = '<p style="color:#666;text-align:center;padding:20px 0;">暫無異常上報記錄</p>';
+      return;
+    }
+    container.innerHTML = list.map(inc => {
+      const dt = utcToCalgaryClock(inc.reportedAt);
+      const date = utcToCalgaryDate ? utcToCalgaryDate(inc.reportedAt) : inc.reportedAt.slice(0,10);
+      return `<div class="incident-card ${inc.resolved ? 'resolved' : ''}">
+        <div class="incident-card-header">
+          <span class="incident-card-type">${typeLabels[inc.type] || inc.type}</span>
+          <span class="incident-card-time">${date} ${dt}</span>
+        </div>
+        ${inc.note ? `<div class="incident-card-note">📝 ${inc.note}</div>` : ''}
+        ${inc.photo ? `<img class="incident-card-photo" src="${inc.photo}" alt="事發照片" onclick="viewIncidentPhoto('${inc.id}')">` : ''}
+        <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
+          ${!inc.resolved ? `<button class="incident-resolve-btn" onclick="resolveIncident('${inc.id}')">✅ 標記處理</button>` : `<span style="color:#4ade80;font-size:0.8rem">✅ 已處理 ${utcToCalgaryClock(inc.resolvedAt||'')}</span>`}
+          <button class="incident-delete-btn" onclick="deleteIncident('${inc.id}')">🗑️ 刪除</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function resolveIncident(id) {
+    await api('/api/incidents/' + id + '/resolve', { method: 'POST', body: JSON.stringify({ note: '' }) });
+    showToast('✅ 已標記處理');
+    loadAdminIncidents();
+  }
+
+  async function deleteIncident(id) {
+    if (!confirm('確認刪除此上報記錄？')) return;
+    await api('/api/incidents/' + id, { method: 'DELETE' });
+    showToast('🗑️ 已刪除');
+    loadAdminIncidents();
+  }
+
+  function viewIncidentPhoto(id) {
+    // View full-screen photo (open in new tab via data URL)
+    api('/api/incidents').then(list => {
+      const inc = list.find(x => x.id === id);
+      if (inc && inc.photo) {
+        const w = window.open();
+        w.document.write('<img src="' + inc.photo + '" style="max-width:100%;display:block;margin:auto">');
+      }
+    });
+  }
+
 </script>
 
 <!-- ========== TASK DETAIL MODAL ========== -->
@@ -3294,5 +3532,41 @@ async function checkPushStatus() {
     font-size:0.82rem;font-weight:600;z-index:9999;opacity:0;
     transition:opacity 0.3s,transform 0.3s;pointer-events:none;
     box-shadow:0 4px 16px rgba(255,133,161,0.35);">↓ 下拉更新</div>
+
+  <!-- Incident Report Modal -->
+  <div class="incident-modal-overlay" id="incidentModalOverlay" onclick="closeIncidentModal(event)">
+    <div class="incident-modal" onclick="event.stopPropagation()">
+      <h3>🆘 上報異常狀況</h3>
+      <div class="incident-type-grid" id="incidentTypeGrid">
+        <button class="incident-type-btn selected" data-type="vomit" onclick="selectIncidentType('vomit',this)">
+          <span class="icon">🤢</span>嘔吐
+        </button>
+        <button class="incident-type-btn" data-type="no_eat" onclick="selectIncidentType('no_eat',this)">
+          <span class="icon">🚫</span>拒食
+        </button>
+        <button class="incident-type-btn" data-type="lethargy" onclick="selectIncidentType('lethargy',this)">
+          <span class="icon">😴</span>精神差
+        </button>
+        <button class="incident-type-btn" data-type="diarrhea" onclick="selectIncidentType('diarrhea',this)">
+          <span class="icon">💦</span>腹瀉
+        </button>
+        <button class="incident-type-btn" data-type="blood" onclick="selectIncidentType('blood',this)">
+          <span class="icon">🩸</span>血跡
+        </button>
+        <button class="incident-type-btn" data-type="other" onclick="selectIncidentType('other',this)">
+          <span class="icon">❓</span>其他
+        </button>
+      </div>
+      <img id="incidentPhotoPreview" class="incident-photo-preview" src="" alt="照片預覽">
+      <div class="incident-photo-area" onclick="document.getElementById('incidentPhotoInput').click()">
+        📷 點擊拍照或選擇圖片（可選）
+      </div>
+      <input type="file" id="incidentPhotoInput" accept="image/*" capture="environment" style="display:none" onchange="previewIncidentPhoto(this)">
+      <textarea class="incident-note-input" id="incidentNoteInput" rows="3" placeholder="備注說明（可選）：例如嘔吐次數、顏色等..."></textarea>
+      <button class="incident-submit-btn" onclick="submitIncident()">📤 送出上報</button>
+      <button class="incident-cancel-btn" onclick="closeIncidentModal()">取消</button>
+    </div>
+  </div>
+
 </body>
 </html>
