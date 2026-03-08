@@ -53,7 +53,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.7.7' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.7.8' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.7.7', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.7.8', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -83,8 +83,25 @@ async function handleApi(request, env, url) {
       const body = await request.json();
       const stored = await KV.get('pin');
       if (!stored) return json({ valid: false, error: 'No PIN set' }, 400);
+      // Rate-limit: max 10 attempts per hour per CF worker (KV-based)
+      const rlKey = 'pin:attempts';
+      const rlRaw = await KV.get(rlKey);
+      const rl = rlRaw ? JSON.parse(rlRaw) : { count: 0, resetAt: 0 };
+      const now = Date.now();
+      if (now > rl.resetAt) { rl.count = 0; rl.resetAt = now + 3600000; }
+      if (rl.count >= 10) {
+        const wait = Math.ceil((rl.resetAt - now) / 60000);
+        return json({ valid: false, locked: true, error: `Too many attempts. Try again in ${wait} min.` }, 429);
+      }
       const hashed = await hashPin(body.pin);
-      return json({ valid: hashed === stored });
+      const valid = hashed === stored;
+      if (!valid) {
+        rl.count++;
+        await KV.put(rlKey, JSON.stringify(rl), { expirationTtl: 3600 });
+      } else {
+        await KV.delete(rlKey); // reset on success
+      }
+      return json({ valid });
     }
     if (path === '/pin/change' && method === 'POST') {
       const body = await request.json();

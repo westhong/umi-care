@@ -939,7 +939,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.7.7</span>
+        <span id="version-badge">v3.7.8</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1368,7 +1368,7 @@ async function loadLatestWeight() {
     const weights = await api('/api/weights');
     if (weights && weights.length > 0) {
       // Most recent weight – find latest catWeight entry
-      const sorted = weights.slice().sort((a, b) => new Date(b.date || b.time) - new Date(a.date || a.time));
+      const sorted = weights.slice().sort((a, b) => new Date(b.measuredAt || b.date || b.time) - new Date(a.measuredAt || a.date || a.time));
       const latest = sorted[0];
       if (latest.catWeight || latest.result) {
         state.latestCatWeight = latest.catWeight || parseFloat(latest.result);
@@ -1509,7 +1509,17 @@ function closeAdminLogin() {
   document.getElementById('adminLoginOverlay').classList.add('hidden');
 }
 
+// PIN brute-force protection: max 5 attempts, 60-second lockout
+let _pinAttempts = 0;
+let _pinLockedUntil = 0;
+
 function handleLoginPin(key) {
+  const now = Date.now();
+  if (now < _pinLockedUntil) {
+    const secs = Math.ceil((_pinLockedUntil - now) / 1000);
+    document.getElementById('loginError').textContent = `🔒 太多錯誤，請等 ${secs} 秒`;
+    return;
+  }
   if (key === '⌫') {
     state.pinBuffer = state.pinBuffer.slice(0,-1);
   } else if (state.pinBuffer.length < 6) {
@@ -1523,14 +1533,26 @@ function handleLoginPin(key) {
     api('/api/pin/verify', { method: 'POST', body: JSON.stringify({ pin }) })
       .then(r => {
         if (r.valid) {
+          _pinAttempts = 0;
+          _pinLockedUntil = 0;
           closeAdminLogin();
           state.adminMode = true;
           sessionStorage.setItem('adminSessionStart', Date.now().toString());
           switchPage('admin', true);  // true = use wipe animation
           loadAdminData();
           setTimeout(() => showToast('✅ 管理員模式'), 300);
+        } else if (r.locked) {
+          document.getElementById('loginError').textContent = '🔒 錯誤次數過多，請稍後再試';
+          updatePinDots('loginDots', 0);
         } else {
-          document.getElementById('loginError').textContent = '❌ PIN 不正確';
+          _pinAttempts++;
+          if (_pinAttempts >= 5) {
+            _pinLockedUntil = Date.now() + 60000;
+            _pinAttempts = 0;
+            document.getElementById('loginError').textContent = '🔒 錯誤次數過多，鎖定 60 秒';
+          } else {
+            document.getElementById('loginError').textContent = `❌ PIN 不正確（${_pinAttempts}/5 次）`;
+          }
           updatePinDots('loginDots', 0);
         }
       })
@@ -1980,7 +2002,7 @@ function renderTaskPanel(task, checkin) {
       <div class="confirm-row">
         <button class="btn btn-success" onclick="submitWeight('${task.id}')">✅ 確認記錄</button>
         <button class="btn btn-warning" onclick="skipWeightTask('${task.id}')">⏭️ 今日略過</button>
-        <button class="btn btn-secondary" onclick="cancelReRecord('${task.id}')">取消</button>
+        <button class="btn btn-secondary" onclick="cancelReRecord('${task.id}')">關閉</button>
       </div>`;
   }
 
