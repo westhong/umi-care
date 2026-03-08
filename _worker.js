@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v3.1 – Cloudflare Worker with Static Assets
+// UmiCare v3.7.3 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.6', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.7.3', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -371,7 +371,8 @@ async function handleApi(request, env, url) {
   }
 }
 
-const VAPID_PUBLIC_KEY = 'BDJvsxEbiMOiPGPJTp8XCdMO1VhCz3BGhtCinJyjFUYZsJNFENtt5OOaoQxzm17LSMfW7-XvIrr2uGfyu8GRjus';
+const VAPID_PUBLIC_KEY = 'BKxdGI0ffaWrjM1mmewRQ7nEBkGFDmbQXrVH-jk--HBjf1uBVZdjvQHfTc16Ggn_0r5K6pK1pHckX_zJMHgTq3w';
+const VAPID_SUBJECT = 'mailto:west.wong@westech.com.hk';
 
 // ─── Calgary date helper (shared by cron, simulate, dashboard) ─────────────
 function getCalgaryDateStr(now) {
@@ -414,7 +415,7 @@ export default {
     return assetResp;
   },
 
-  // Cron trigger: runs every 5 min to send due-task notifications
+  // Cron trigger: runs every 30 min to send due-task notifications
   async scheduled(event, env, ctx) {
     const KV = env.UMICARE_DATA;
     const raw = await KV.get('push:subscription');
@@ -502,9 +503,9 @@ export default {
 
 // ─── WEB PUSH HELPERS ──────────────────────────────────────────
 
-// VAPID key coordinates (from public key BHgJpA...)
-const VAPID_KEY_X = 'Mm-zERuIw6I8Y8lOnxcJ0w7VWELPcEaG0KKcnKMVRhk';
-const VAPID_KEY_Y = 'sJNFENtt5OOaoQxzm17LSMfW7-XvIrr2uGfyu8GRjus';
+// VAPID key coordinates (derived from current public key)
+const VAPID_KEY_X = 'rF0YjR99pauMzWaZ7BFDucQGQYUOZtBetUf6OT74cGM';
+const VAPID_KEY_Y = 'f1uBVZdjvQHfTc16Ggn_0r5K6pK1pHckX_zJMHgTq3w';
 
 function b64url(buf) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)))
@@ -553,7 +554,7 @@ async function sendWebPush(env, subscription, payload) {
   const now = Math.floor(Date.now() / 1000);
   const enc = s => btoa(JSON.stringify(s)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
   const header = enc({ typ: 'JWT', alg: 'ES256' });
-  const claims = enc({ aud: audience, exp: now + 43200, sub: 'mailto:admin@umi-care.app' });
+  const claims = enc({ aud: audience, exp: now + 43200, sub: env.VAPID_SUBJECT || VAPID_SUBJECT });
   const sigInput = header + '.' + claims;
 
   // Import private key as JWK (raw private key d + public key x,y)

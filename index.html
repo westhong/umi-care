@@ -2916,7 +2916,8 @@ if ('BroadcastChannel' in window) {
   };
 }
 
-const VAPID_PUBLIC_KEY = 'BDJvsxEbiMOiPGPJTp8XCdMO1VhCz3BGhtCinJyjFUYZsJNFENtt5OOaoQxzm17LSMfW7-XvIrr2uGfyu8GRjus';
+const VAPID_PUBLIC_KEY = 'BKxdGI0ffaWrjM1mmewRQ7nEBkGFDmbQXrVH-jk--HBjf1uBVZdjvQHfTc16Ggn_0r5K6pK1pHckX_zJMHgTq3w';
+const PUSH_VAPID_STORAGE_KEY = 'umicare_push_vapid_public_key';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -2927,10 +2928,54 @@ function urlBase64ToUint8Array(base64String) {
   return arr;
 }
 
+async function syncPushSubscription({ forceResubscribe = false, requestPermission = false } = {}) {
+  if (!('serviceWorker' in navigator)) throw new Error('此裝置不支援 ServiceWorker');
+  if (!('PushManager' in window)) throw new Error('此裝置不支援 Web Push');
+
+  const reg = await navigator.serviceWorker.register('/sw.js');
+  await navigator.serviceWorker.ready;
+
+  if (requestPermission && Notification.permission === 'default') {
+    const result = await Notification.requestPermission();
+    if (result !== 'granted') throw new Error('通知權限被拒絕');
+  }
+  if (Notification.permission !== 'granted') {
+    throw new Error('通知權限未開啟');
+  }
+
+  let sub = await reg.pushManager.getSubscription();
+  const savedKey = localStorage.getItem(PUSH_VAPID_STORAGE_KEY);
+  const vapidChanged = savedKey !== VAPID_PUBLIC_KEY;
+
+  if ((forceResubscribe || vapidChanged) && sub) {
+    try { await sub.unsubscribe(); } catch(e) {}
+    sub = null;
+    try { await fetch('/api/push/subscribe', { method: 'DELETE' }); } catch(e) {}
+  }
+
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+  }
+
+  const subJson = sub.toJSON();
+  const resp = await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(subJson)
+  });
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || 'subscribe failed');
+
+  localStorage.setItem(PUSH_VAPID_STORAGE_KEY, VAPID_PUBLIC_KEY);
+  return { ok: true, subscription: subJson, vapidChanged };
+}
+
 async function togglePushNotification() {
   const btn = document.getElementById('push-btn');
 
-  // Check if already subscribed → unsubscribe
   if (btn && btn.dataset.subscribed === 'true') {
     try {
       const reg = await navigator.serviceWorker.getRegistration('/sw.js');
@@ -2939,6 +2984,7 @@ async function togglePushNotification() {
         if (sub) await sub.unsubscribe();
       }
       await fetch('/api/push/subscribe', { method: 'DELETE' });
+      localStorage.removeItem(PUSH_VAPID_STORAGE_KEY);
       btn.textContent = '🔔';
       btn.style.color = '';
       btn.title = '啟用通知';
@@ -2965,49 +3011,19 @@ async function togglePushNotification() {
   }
   try {
     btn.textContent = '⏳';
-    // Register SW
-    const reg = await navigator.serviceWorker.register('/sw.js');
-    await navigator.serviceWorker.ready;
-    // Request permission explicitly first (for iOS)
-    if (Notification.permission === 'default') {
-      const result = await Notification.requestPermission();
-      if (result !== 'granted') {
-        btn.textContent = '🔔';
-        showToast('❌ 通知權限被拒絕');
-        return;
-      }
-    }
-    // Subscribe
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-    });
-    // Send subscription to server
-    const subJson = sub.toJSON();
-    console.log('[Push] Subscription:', JSON.stringify(subJson).substring(0,100));
-    const resp = await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(subJson)
-    });
-    const data = await resp.json();
-    if (data.ok) {
-      btn.textContent = '🔔';
-      btn.style.color = '#4caf50';
-      btn.title = '通知已啟用 ✅（點擊關閉）';
-      btn.dataset.subscribed = 'true';
-      showToast('✅ 推播通知已啟用！');
-      // Send immediate test push to confirm
-      setTimeout(async () => {
-        try {
-          const r = await fetch('/api/push/test', { method: 'POST' });
-          const d = await r.json();
-          if (!d.ok) console.warn('[Push] Test failed:', d);
-        } catch(e) {}
-      }, 1500);
-    } else {
-      throw new Error(data.error || 'subscribe failed');
-    }
+    await syncPushSubscription({ forceResubscribe: true, requestPermission: true });
+    btn.textContent = '🔔';
+    btn.style.color = '#4caf50';
+    btn.title = '通知已啟用 ✅（點擊關閉）';
+    btn.dataset.subscribed = 'true';
+    showToast('✅ 推播通知已啟用！');
+    setTimeout(async () => {
+      try {
+        const r = await fetch('/api/push/test', { method: 'POST' });
+        const d = await r.json();
+        if (!d.ok) console.warn('[Push] Test failed:', d);
+      } catch(e) {}
+    }, 1500);
   } catch (err) {
     btn.textContent = '🔔';
     console.error('[Push] Subscribe error:', err);
@@ -3027,20 +3043,36 @@ async function checkPushStatus() {
     return;
   }
   try {
-    const reg = await navigator.serviceWorker.getRegistration('/sw.js');
-    if (reg) {
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        btn.textContent = '🔔';
-        btn.style.color = '#4caf50';
-        btn.title = '通知已啟用 ✅（點擊關閉）';
-        btn.dataset.subscribed = 'true';
-        return;
-      }
+    const savedKey = localStorage.getItem(PUSH_VAPID_STORAGE_KEY);
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+
+    if (Notification.permission === 'granted' && (!sub || savedKey !== VAPID_PUBLIC_KEY)) {
+      await syncPushSubscription({ forceResubscribe: true, requestPermission: false });
+      btn.textContent = '🔔';
+      btn.style.color = '#4caf50';
+      btn.title = '通知已啟用 ✅（點擊關閉）';
+      btn.dataset.subscribed = 'true';
+      showToast('✅ 已自動修復推播設定');
+      setTimeout(async () => {
+        try { await fetch('/api/push/test', { method: 'POST' }); } catch(e) {}
+      }, 1200);
+      return;
     }
-  } catch(e) { /* ignore */ }
+
+    if (sub) {
+      btn.textContent = '🔔';
+      btn.style.color = '#4caf50';
+      btn.title = '通知已啟用 ✅（點擊關閉）';
+      btn.dataset.subscribed = 'true';
+      localStorage.setItem(PUSH_VAPID_STORAGE_KEY, VAPID_PUBLIC_KEY);
+      return;
+    }
+  } catch(e) { console.warn('[Push] Status check failed:', e); }
   btn.dataset.subscribed = 'false';
 }
+
 // ===== END PUSH =====
 
 
