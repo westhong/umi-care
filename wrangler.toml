@@ -1,4 +1,4 @@
-name = "umi-care"
+name = "umi-care-next"
 main = "_worker.js"
 compatibility_date = "2025-09-27"
 compatibility_flags = ["nodejs_compat"]
