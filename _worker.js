@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v3.7.4 – Cloudflare Worker with Static Assets
+// UmiCare v3.7.5 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.7.4', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.7.5', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -322,11 +322,14 @@ async function handleApi(request, env, url) {
       const body = await request.json();
       const raw = await KV.get('selfreports:list');
       const list = raw ? JSON.parse(raw) : [];
+      const quantity = Math.max(1, Math.min(9, parseInt(body.quantity || 1, 10) || 1));
       const item = {
         id: 'sr_' + Date.now(),
         type: body.type || 'other',
         title: body.title || '',
         icon: body.icon || '📝',
+        quantity,
+        unit: body.unit || '',
         note: body.note || '',
         photo: body.photo || null,
         reportedAt: new Date().toISOString(),
@@ -336,6 +339,15 @@ async function handleApi(request, env, url) {
       if (list.length > 120) list.splice(120);
       await KV.put('selfreports:list', JSON.stringify(list));
       return json({ ok: true, item });
+    }
+    const selfReportDelMatch = path.match(/^\/selfreports\/(sr_\d+)$/);
+    if (selfReportDelMatch && method === 'DELETE') {
+      const id = selfReportDelMatch[1];
+      const raw = await KV.get('selfreports:list');
+      if (!raw) return json({ ok: true });
+      const list = JSON.parse(raw).filter(x => x.id !== id);
+      await KV.put('selfreports:list', JSON.stringify(list));
+      return json({ ok: true });
     }
 
     // === Incident Reports ===

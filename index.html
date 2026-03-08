@@ -938,7 +938,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.7.4</span>
+        <span id="version-badge">v3.7.5</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -975,11 +975,9 @@ body::before {
       <div class="section-title">⚡ 主動回報</div>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
         <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openIncidentModal()">🤢 嘔吐 / 異常</button>
-        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="quickSelfReport('self_feed')">🍽️ 主動餵糧</button>
-        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="quickSelfReport('self_treat')">🐟 貓條</button>
-        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="quickSelfReport('self_paste')">🥣 貓泥</button>
+        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openFeedReportModal()">🍽️ 餵食回報</button>
       </div>
-      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">照顧者可主動回報額外餵食或異常情況，管理員可在記錄頁查看。</div>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">按一下「餵食回報」後，再選擇貓糧 / 貓條 / 貓泥與數量；管理員可在記錄頁查看及刪除。</div>
     </div>
 
     <div class="task-section">
@@ -1798,29 +1796,76 @@ async function submitAdhoc(id) {
 }
 
 
-async function quickSelfReport(type) {
-  const presets = {
-    self_feed: { title: '主動餵糧', icon: '🍽️', success: '🍽️ 已回報主動餵糧' },
-    self_treat: { title: '主動餵貓條', icon: '🐟', success: '🐟 已回報貓條' },
-    self_paste: { title: '主動餵貓泥', icon: '🥣', success: '🥣 已回報貓泥' },
-  };
-  const preset = presets[type];
-  if (!preset) return;
-  const note = window.prompt(`可輸入 ${preset.title} 備注（選填）`, '') || '';
+let _feedReportType = 'self_feed';
+let _feedReportQty = 1;
+
+function getFeedPreset(type) {
+  return {
+    self_feed: { title: '主動餵糧', icon: '🍽️', unit: '次', success: '🍽️ 已回報主動餵糧' },
+    self_treat: { title: '主動餵貓條', icon: '🐟', unit: '條', success: '🐟 已回報貓條' },
+    self_paste: { title: '主動餵貓泥', icon: '🥣', unit: '罐', success: '🥣 已回報貓泥' },
+  }[type] || { title: '主動回報', icon: '📝', unit: '次', success: '✅ 已回報' };
+}
+
+function updateFeedQtyOptions() {
+  const preset = getFeedPreset(_feedReportType);
+  const unitEl = document.getElementById('feedQtyUnitLabel');
+  const listEl = document.getElementById('feedQtyButtons');
+  if (!unitEl || !listEl) return;
+  unitEl.textContent = preset.unit;
+  listEl.innerHTML = [1,2,3,4].map(q =>
+    `<button class="toggle-btn ${_feedReportQty === q ? 'selected-done' : ''}" onclick="selectFeedReportQty(${q})">${q}${preset.unit}</button>`
+  ).join('');
+}
+
+function openFeedReportModal() {
+  _feedReportType = 'self_feed';
+  _feedReportQty = 1;
+  document.getElementById('feedReportNoteInput').value = '';
+  document.querySelectorAll('.feed-type-btn').forEach(btn => btn.classList.remove('selected'));
+  document.querySelector('[data-feed-type="self_feed"]')?.classList.add('selected');
+  updateFeedQtyOptions();
+  document.getElementById('feedReportModalOverlay').classList.add('open');
+}
+
+function closeFeedReportModal(e) {
+  if (!e || e.target === document.getElementById('feedReportModalOverlay')) {
+    document.getElementById('feedReportModalOverlay').classList.remove('open');
+  }
+}
+
+function selectFeedReportType(type, btn) {
+  _feedReportType = type;
+  document.querySelectorAll('.feed-type-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  updateFeedQtyOptions();
+}
+
+function selectFeedReportQty(qty) {
+  _feedReportQty = qty;
+  updateFeedQtyOptions();
+}
+
+async function submitFeedReport() {
+  const preset = getFeedPreset(_feedReportType);
+  const note = document.getElementById('feedReportNoteInput').value.trim();
   try {
     const res = await api('/api/selfreports', {
       method: 'POST',
       body: JSON.stringify({
-        type,
+        type: _feedReportType,
         title: preset.title,
         icon: preset.icon,
+        quantity: _feedReportQty,
+        unit: preset.unit,
         note,
         reportedBy: 'caregiver',
       })
     });
     if (res?.ok) {
       state.selfReports = [res.item, ...(state.selfReports || [])];
-      showToast(preset.success);
+      closeFeedReportModal();
+      showToast(`${preset.success}（${_feedReportQty}${preset.unit}）`);
       confetti();
       if (document.getElementById('adminTabRecords')?.classList.contains('active')) loadAdminRecords();
     } else {
@@ -1828,6 +1873,18 @@ async function quickSelfReport(type) {
     }
   } catch (e) {
     showToast('❌ 網絡錯誤，請重試');
+  }
+}
+
+async function deleteSelfReport(id) {
+  if (!confirm('確認刪除此主動回報記錄？')) return;
+  try {
+    await api('/api/selfreports/' + id, { method: 'DELETE' });
+    state.selfReports = (state.selfReports || []).filter(item => item.id !== id);
+    showToast('🗑️ 已刪除主動回報');
+    loadAdminRecords();
+  } catch (e) {
+    showToast('❌ 刪除失敗，請重試');
   }
 }
 
@@ -2381,23 +2438,27 @@ async function loadAdminRecords() {
 
     if (selfReportContainer) {
       const labels = {
-        self_feed: { icon: '🍽️', title: '主動餵糧' },
-        self_treat: { icon: '🐟', title: '主動餵貓條' },
-        self_paste: { icon: '🥣', title: '主動餵貓泥' },
-        other: { icon: '📝', title: '其他回報' },
+        self_feed: { icon: '🍽️', title: '主動餵糧', unit: '次' },
+        self_treat: { icon: '🐟', title: '主動餵貓條', unit: '條' },
+        self_paste: { icon: '🥣', title: '主動餵貓泥', unit: '罐' },
+        other: { icon: '📝', title: '其他回報', unit: '' },
       };
       if (!selfReports.length) {
         selfReportContainer.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日無主動回報</div>';
       } else {
         selfReportContainer.innerHTML = selfReports.map(item => {
-          const meta = labels[item.type] || { icon: item.icon || '📝', title: item.title || item.type || '主動回報' };
+          const meta = labels[item.type] || { icon: item.icon || '📝', title: item.title || item.type || '主動回報', unit: item.unit || '' };
           const timeStr = item.reportedAt ? utcToCalgaryClock(item.reportedAt) : '-';
+          const qtyText = item.quantity ? ` · ${item.quantity}${item.unit || meta.unit || ''}` : '';
           return `<div class="incident-card" style="border-left-color:#8b5cf6;">
             <div class="incident-card-header">
-              <span class="incident-card-type">${meta.icon} ${item.title || meta.title}</span>
+              <span class="incident-card-type">${meta.icon} ${item.title || meta.title}${qtyText}</span>
               <span class="incident-card-time">${date} ${timeStr}</span>
             </div>
             ${item.note ? `<div class="incident-card-note">📝 ${item.note}</div>` : '<div class="incident-card-note" style="color:var(--text-muted)">無備注</div>'}
+            <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
+              <button class="incident-delete-btn" onclick="deleteSelfReport('${item.id}')">🗑️ 刪除</button>
+            </div>
           </div>`;
         }).join('');
       }
@@ -3656,6 +3717,31 @@ async function checkPushStatus() {
     font-size:0.82rem;font-weight:600;z-index:9999;opacity:0;
     transition:opacity 0.3s,transform 0.3s;pointer-events:none;
     box-shadow:0 4px 16px rgba(255,133,161,0.35);">↓ 下拉更新</div>
+
+  <!-- Feed Report Modal -->
+  <div class="incident-modal-overlay" id="feedReportModalOverlay" onclick="closeFeedReportModal(event)">
+    <div class="incident-modal" onclick="event.stopPropagation()">
+      <h3>🍽️ 餵食回報</h3>
+      <div class="incident-type-grid" id="feedTypeGrid">
+        <button class="incident-type-btn feed-type-btn selected" data-feed-type="self_feed" onclick="selectFeedReportType('self_feed',this)">
+          <span class="icon">🍽️</span>貓糧
+        </button>
+        <button class="incident-type-btn feed-type-btn" data-feed-type="self_treat" onclick="selectFeedReportType('self_treat',this)">
+          <span class="icon">🐟</span>貓條
+        </button>
+        <button class="incident-type-btn feed-type-btn" data-feed-type="self_paste" onclick="selectFeedReportType('self_paste',this)">
+          <span class="icon">🥣</span>貓泥
+        </button>
+      </div>
+      <div style="margin-top:14px;">
+        <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px;">選擇數量（<span id="feedQtyUnitLabel">次</span>）</div>
+        <div class="done-toggle" id="feedQtyButtons"></div>
+      </div>
+      <textarea class="incident-note-input" id="feedReportNoteInput" rows="3" placeholder="備注說明（選填）：例如轉咗新糧、食得好快等..."></textarea>
+      <button class="incident-submit-btn" onclick="submitFeedReport()">📤 送出回報</button>
+      <button class="incident-cancel-btn" onclick="closeFeedReportModal()">取消</button>
+    </div>
+  </div>
 
   <!-- Incident Report Modal -->
   <div class="incident-modal-overlay" id="incidentModalOverlay" onclick="closeIncidentModal(event)">
