@@ -939,7 +939,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.7.8</span>
+        <span id="version-badge">v3.7.9</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1978,6 +1978,20 @@ function renderTaskPanel(task, checkin) {
         </div>`;
     }
 
+    // Already skipped today — show read-only skipped view
+    if (isSkip) {
+      const skipTimeStr = utcToCalgaryClock(checkin.time) || '';
+      return `
+        <div class="weight-recorded-view mt-8" style="border-left:3px solid #f59e0b;background:rgba(245,158,11,0.06)">
+          <div class="weight-recorded-title" style="color:#f59e0b">⏭️ 今日已略過 ${skipTimeStr ? '<span class="weight-recorded-time">('+skipTimeStr+')</span>' : ''}</div>
+          ${checkin.note && checkin.note !== '略過' ? '<div class="weight-rec-note" style="margin-top:6px">備註: ' + checkin.note + '</div>' : ''}
+        </div>
+        <div class="confirm-row mt-8">
+          <button class="btn btn-secondary" style="flex:1" onclick="reRecordWeight('${task.id}')">🔄 改為記錄體重</button>
+          <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">關閉</button>
+        </div>`;
+    }
+
     return `
       <div class="weight-inputs mt-8" id="weightInputs-${task.id}">
         <div class="weight-field">
@@ -2121,8 +2135,7 @@ async function skipWeightTask(taskId) {
     });
     delete _savedWeightCheckins[taskId];
     showToast('⏭️ 量體重已略過');
-    await reloadCheckins(null);
-    toggleTask(taskId);
+    await reloadCheckins(taskId);  // pass taskId for slide animation; panel stays closed after re-render
   } catch(e) {
     showToast('❌ 略過失敗，請重試');
   }
