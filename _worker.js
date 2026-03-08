@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v3.7.3 – Cloudflare Worker with Static Assets
+// UmiCare v3.7.4 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -30,7 +30,7 @@ function json(data, status = 200) {
 
 const DEFAULT_TASKS = [
   { id: 't1', name: '第一餐', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['05:30'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
-  { id: 't2', name: '量體重', icon: '⚖️', type: 'weight', scheduleType: 'daily', scheduledTimes: ['07:00'], resultOptions: [] },
+  { id: 't2', name: '量體重', icon: '⚖️', type: 'weight', scheduleType: 'weekly', weekDays: [0], scheduledTimes: ['07:00'], resultOptions: [] },
   { id: 't3', name: '早上鏟貓砂', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['08:00'], resultOptions: [{ label: '💩 有屎', value: 'poop' }, { label: '💦 有尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
   { id: 't4', name: '換新鮮飲水', icon: '💧', type: 'water', scheduleType: 'daily', scheduledTimes: ['08:30'], resultOptions: [{ label: '已換 ✅', value: 'done' }, { label: '只補水', value: 'topped' }] },
   { id: 't5', name: '第二餐', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['09:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.7.3', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.7.4', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -225,6 +225,7 @@ async function handleApi(request, env, url) {
         KV.get('weights:list'), KV.get('periodic:list'), KV.get('cat:profile'),
       ]);
       const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;
+      const activeTasks = tasks.filter(task => isTaskActiveOnCalgaryDate(task, new Date()));
       const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
       const weights = weightsRaw ? JSON.parse(weightsRaw) : [];
       const periodic = periodicRaw ? JSON.parse(periodicRaw) : DEFAULT_PERIODIC;
@@ -242,8 +243,8 @@ async function handleApi(request, env, url) {
         today: {
           date: today,
           done: checkins.filter(c => c.isDone).length,
-          total: tasks.length,
-          percent: tasks.length > 0 ? Math.round(checkins.filter(c => c.isDone).length / tasks.length * 100) : 0,
+          total: activeTasks.length,
+          percent: activeTasks.length > 0 ? Math.round(checkins.filter(c => c.isDone).length / activeTasks.length * 100) : 0,
         },
         latestWeight,
         overduePeriodic,
@@ -304,6 +305,37 @@ async function handleApi(request, env, url) {
       const list = JSON.parse(raw).filter(x => x.id !== id);
       await KV.put('adhoc:requests', JSON.stringify(list));
       return json({ ok: true });
+    }
+
+
+    // === Caregiver Self Reports ===
+    if (path === '/selfreports' && method === 'GET') {
+      const date = url.searchParams.get('date');
+      const raw = await KV.get('selfreports:list');
+      const list = raw ? JSON.parse(raw) : [];
+      const filtered = date
+        ? list.filter(item => getCalgaryDateStr(new Date(item.reportedAt || item.createdAt || Date.now())) === date)
+        : list;
+      return json(filtered);
+    }
+    if (path === '/selfreports' && method === 'POST') {
+      const body = await request.json();
+      const raw = await KV.get('selfreports:list');
+      const list = raw ? JSON.parse(raw) : [];
+      const item = {
+        id: 'sr_' + Date.now(),
+        type: body.type || 'other',
+        title: body.title || '',
+        icon: body.icon || '📝',
+        note: body.note || '',
+        photo: body.photo || null,
+        reportedAt: new Date().toISOString(),
+        reportedBy: body.reportedBy || 'caregiver',
+      };
+      list.unshift(item);
+      if (list.length > 120) list.splice(120);
+      await KV.put('selfreports:list', JSON.stringify(list));
+      return json({ ok: true, item });
     }
 
     // === Incident Reports ===
@@ -398,6 +430,37 @@ function getCalgaryDateStr(now) {
   ].join('-');
 }
 
+
+function getCalgaryWeekday(now) {
+  const year = now.getUTCFullYear();
+  const dstStart = (() => {
+    const d = new Date(Date.UTC(year, 2, 1));
+    let sundays = 0;
+    while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
+    d.setUTCHours(9, 0, 0, 0); return d;
+  })();
+  const dstEnd = (() => {
+    const d = new Date(Date.UTC(year, 10, 1));
+    while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
+    d.setUTCHours(8, 0, 0, 0); return d;
+  })();
+  const isDST = now >= dstStart && now < dstEnd;
+  const offset = isDST ? -6 : -7;
+  return new Date(now.getTime() + offset * 3600000).getUTCDay();
+}
+
+function isTaskActiveOnCalgaryDate(task, now) {
+  if (!task) return false;
+  const scheduleType = task.scheduleType || 'daily';
+  const day = getCalgaryWeekday(now);
+  const weekDays = Array.isArray(task.weekDays) ? task.weekDays : null;
+  if (scheduleType === 'daily') return true;
+  if (scheduleType === 'weekly') return weekDays && weekDays.length ? weekDays.includes(day) : true;
+  if (scheduleType === 'weekdays') return day >= 1 && day <= 5;
+  if (scheduleType === 'weekends') return day === 0 || day === 6;
+  return true;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -453,6 +516,7 @@ export default {
     // Load tasks + today's checkins
     const tasksRaw = await KV.get('tasks:list');
     const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;
+    const activeTasks = tasks.filter(task => isTaskActiveOnCalgaryDate(task, now));
     const checkinsRaw = await KV.get('checkins:' + today);
     const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
     const doneIds = new Set(checkins.map(c => c.taskId));
@@ -463,7 +527,7 @@ export default {
 
     // Find OVERDUE tasks: Calgary time has passed AND not done/skipped
     const overdue = [];
-    for (const task of tasks) {
+    for (const task of activeTasks) {
       if (doneIds.has(task.id)) continue;
       const times = task.scheduledTimes || [];
       for (const t of times) {
@@ -719,12 +783,13 @@ async function handlePushApi(path, method, request, env) {
 
     const tasksRaw = await KV.get('tasks:list');
     const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;
+    const activeTasks = tasks.filter(task => isTaskActiveOnCalgaryDate(task, now));
     const checkinsRaw = await KV.get('checkins:' + today);
     const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
     const doneIds = new Set(checkins.map(c => c.taskId));
 
     const overdue = [];
-    for (const task of tasks) {
+    for (const task of activeTasks) {
       if (doneIds.has(task.id)) continue;
       const times = task.scheduledTimes || [];
       for (const t of times) {
@@ -748,7 +813,7 @@ async function handlePushApi(path, method, request, env) {
       isDST,
       calgaryDate: today,  // now Calgary local date
       catName,
-      totalTasks: tasks.length,
+      totalTasks: activeTasks.length,
       doneToday: checkins.length,
       overdueCount: overdue.length,
       overdueTasks: overdue,

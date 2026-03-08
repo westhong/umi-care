@@ -938,7 +938,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.7.2</span>
+        <span id="version-badge">v3.7.4</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -963,38 +963,24 @@ body::before {
         </div>
       </div>
       <div class="progress-info">
-        <h2 id="catNameDisplay">喔咪</h2>
+        <h2 id="catNameDisplay">今日照護</h2>
         <div class="sub" id="progressSub">今日任務</div>
         <div class="count" id="progressCount">0 / 0 完成</div>
       </div>
     </div>
 
-    <!-- Collapsible Cat Profile Card -->
-    <div class="cat-profile-wrap" id="catProfileWrap">
-      <button class="cat-card-toggle" onclick="toggleCatCard()">
-        <span id="catCardToggleIcon">▶</span>
-        <span id="catCardName">屋咪</span>
-        <span class="cat-card-subtitle">的資料</span>
-      </button>
-      <div class="cat-card-body hidden" id="catCardBody">
-        <div class="cat-stats-row">
-          <div class="cat-stat">
-            <div class="cat-stat-label">品種</div>
-            <div class="cat-stat-value" id="catCardBreed">未設定</div>
-          </div>
-          <div class="cat-stat">
-            <div class="cat-stat-label">生日</div>
-            <div class="cat-stat-value" id="catCardBday">未設定</div>
-          </div>
-          <div class="cat-stat">
-            <div class="cat-stat-label">體重</div>
-            <div class="cat-stat-value" id="catCardWeight">未記錄</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="alerts" id="alertsContainer"></div>
+
+    <div class="task-section" style="margin-top:14px;">
+      <div class="section-title">⚡ 主動回報</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openIncidentModal()">🤢 嘔吐 / 異常</button>
+        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="quickSelfReport('self_feed')">🍽️ 主動餵糧</button>
+        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="quickSelfReport('self_treat')">🐟 貓條</button>
+        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="quickSelfReport('self_paste')">🥣 貓泥</button>
+      </div>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">照顧者可主動回報額外餵食或異常情況，管理員可在記錄頁查看。</div>
+    </div>
 
     <div class="task-section">
       <div class="section-title">📋 今日任務</div>
@@ -1080,6 +1066,16 @@ body::before {
           <input type="date" id="recordsDatePicker" onchange="loadAdminRecords()">
         </div>
         <div id="adminRecordsContent"><div class="loading-spin"></div></div>
+
+        <div style="margin-top: 24px; padding-bottom: 8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h3 style="color:#8b5cf6; margin:0; font-size:1rem;">📝 主動回報記錄</h3>
+            <button onclick="loadAdminRecords()" style="background:rgba(255,255,255,0.07);border:none;border-radius:8px;padding:5px 12px;color:#aaa;font-size:0.8rem;cursor:pointer;">🔄 刷新</button>
+          </div>
+          <div id="adminSelfReportsList">
+            <p style="color:#666;text-align:center;padding:20px 0;">載入中...</p>
+          </div>
+        </div>
       
         <!-- Incidents Section -->
         <div style="margin-top: 24px; padding-bottom: 20px;">
@@ -1186,6 +1182,7 @@ let state = {
   calMonth: new Date().getMonth(),
   expandedTask: null,
   adhocRequests: [],  // pending admin requests
+  selfReports: [],
   setupStep: 'enter', // 'enter' or 'confirm'
   setupFirstPin: '',
   pinBuffer: [],
@@ -1333,19 +1330,21 @@ async function loadApp() {
   document.getElementById('pinSetupOverlay').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   try {
-    const [tasks, checkins, settings, cat, weights, adhoc] = await Promise.all([
+    const [tasks, checkins, settings, cat, weights, adhoc, selfReports] = await Promise.all([
       api('/api/tasks'),
       api('/api/checkins?date=' + state.currentDate),
       api('/api/settings'),
       api('/api/cat').catch(() => null),
       api('/api/weights').catch(() => []),
       api('/api/adhoc').catch(() => []),
+      api('/api/selfreports?date=' + state.currentDate).catch(() => []),
     ]);
     state.tasks = tasks;
     state.checkins = checkins;
     state.settings = settings;
     state.weightsList = weights || [];
     state.adhocRequests = (adhoc || []).filter(a => !a.done);
+    state.selfReports = selfReports || [];
     // Cat name: cat profile takes priority over settings
     if (cat && cat.name) {
       state.cat = cat;
@@ -1353,7 +1352,7 @@ async function loadApp() {
     } else {
       state.catName = settings.catName || '喔咪';
     }
-    document.getElementById('catNameDisplay').textContent = state.catName;
+    document.getElementById('catNameDisplay').textContent = '今日照護';
     updateCatProfileCard();
     // Also load latest weight
     loadLatestWeight();
@@ -1411,6 +1410,28 @@ function getCalgaryDate() {
   const isDST = now >= dstStart && now < dstEnd;
   const offset = isDST ? -6 : -7;
   return new Date(now.getTime() + offset * 3600000);
+}
+
+
+function getWeekdayForDateStr(dateStr = state.currentDate) {
+  const [y, m, d] = (dateStr || todayStr()).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0)).getUTCDay();
+}
+
+function isTaskScheduledForDate(task, dateStr = state.currentDate) {
+  if (!task) return false;
+  const scheduleType = task.scheduleType || 'daily';
+  const day = getWeekdayForDateStr(dateStr);
+  const weekDays = Array.isArray(task.weekDays) ? task.weekDays : null;
+  if (scheduleType === 'daily') return true;
+  if (scheduleType === 'weekly') return weekDays && weekDays.length ? weekDays.includes(day) : true;
+  if (scheduleType === 'weekdays') return day >= 1 && day <= 5;
+  if (scheduleType === 'weekends') return day === 0 || day === 6;
+  return true;
+}
+
+function getVisibleTasks(dateStr = state.currentDate) {
+  return (state.tasks || []).filter(task => isTaskScheduledForDate(task, dateStr));
 }
 
 function updateDateDisplay() {
@@ -1645,7 +1666,8 @@ function renderTaskCard(task, checkin) {
 
 function renderTaskList() {
   const container = document.getElementById('taskList');
-  if (!state.tasks.length) {
+  const visibleTasks = getVisibleTasks();
+  if (!visibleTasks.length) {
     container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">暫無任務</div>';
     return;
   }
@@ -1653,7 +1675,7 @@ function renderTaskList() {
   const pending = [];
   const done    = [];
 
-  state.tasks.forEach(task => {
+  visibleTasks.forEach(task => {
     const checkin = state.checkins.find(c => c.taskId === task.id);
     const isDone  = checkin?.isDone;
     const isSkip  = checkin && !checkin.isDone;
@@ -1775,7 +1797,42 @@ async function submitAdhoc(id) {
   }
 }
 
+
+async function quickSelfReport(type) {
+  const presets = {
+    self_feed: { title: '主動餵糧', icon: '🍽️', success: '🍽️ 已回報主動餵糧' },
+    self_treat: { title: '主動餵貓條', icon: '🐟', success: '🐟 已回報貓條' },
+    self_paste: { title: '主動餵貓泥', icon: '🥣', success: '🥣 已回報貓泥' },
+  };
+  const preset = presets[type];
+  if (!preset) return;
+  const note = window.prompt(`可輸入 ${preset.title} 備注（選填）`, '') || '';
+  try {
+    const res = await api('/api/selfreports', {
+      method: 'POST',
+      body: JSON.stringify({
+        type,
+        title: preset.title,
+        icon: preset.icon,
+        note,
+        reportedBy: 'caregiver',
+      })
+    });
+    if (res?.ok) {
+      state.selfReports = [res.item, ...(state.selfReports || [])];
+      showToast(preset.success);
+      confetti();
+      if (document.getElementById('adminTabRecords')?.classList.contains('active')) loadAdminRecords();
+    } else {
+      showToast('❌ 回報失敗，請重試');
+    }
+  } catch (e) {
+    showToast('❌ 網絡錯誤，請重試');
+  }
+}
+
 function getOverdueStatus(task) {
+  if (!isTaskScheduledForDate(task, state.currentDate)) return 'pending';
   // Always compare in Calgary local time so status is correct regardless
   // of where the browser/phone is physically located.
   const calgaryNow = getCalgaryDate();        // shifted Date: UTC methods give Calgary values
@@ -2066,8 +2123,10 @@ async function reloadCheckins(justCompletedId) {
 
 // ─── PROGRESS ──────────────────────────────────────────────────
 function renderProgress() {
-  const total = state.tasks.length;
-  const done = state.checkins.filter(c => c.isDone).length;
+  const visibleTasks = getVisibleTasks();
+  const visibleIds = new Set(visibleTasks.map(t => t.id));
+  const total = visibleTasks.length;
+  const done = state.checkins.filter(c => c.isDone && visibleIds.has(c.taskId)).length;
   const pct = total > 0 ? Math.round(done / total * 100) : 0;
   const circumference = 2 * Math.PI * 33;
   const offset = circumference - (pct / 100) * circumference;
@@ -2083,13 +2142,13 @@ function renderProgress() {
 async function checkAlerts() {
   const container = document.getElementById('alertsContainer');
   container.innerHTML = '';
-  const now = new Date();
-  const hour = now.getHours();
+  const now = getCalgaryDate();
+  const hour = now.getUTCHours();
   if (state.checkins.length === 0 && hour >= 14) {
     container.innerHTML += `<div class="alert alert-blue">💡 今天還沒有打卡記錄</div>`;
   }
   // Check no meal eaten
-  const mealTasks = state.tasks.filter(t => t.type === 'meal');
+  const mealTasks = getVisibleTasks().filter(t => t.type === 'meal');
   const noneEaten = state.checkins.filter(c => c.result === 'none' && mealTasks.find(t => t.id === c.taskId));
   if (noneEaten.length >= 2) {
     container.innerHTML += `<div class="alert alert-red">⚠️ 喔咪今天多次未進食，請留意健康狀況</div>`;
@@ -2128,7 +2187,7 @@ async function loadCalendarData(y, m) {
     const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     try {
       const checkins = await api('/api/checkins?date=' + dateStr);
-      const total = state.tasks.length;
+      const total = getVisibleTasks(dateStr).length;
       const done = checkins.filter(c => c.isDone).length;
       const el = document.getElementById('cal-' + dateStr);
       if (!el) continue;
@@ -2217,13 +2276,15 @@ async function loadAdminOverview() {
     const now = getCalgaryDate();
     const nowMins = now.getUTCHours() * 60 + now.getUTCMinutes();
 
-    const total = state.tasks.length;
-    const done  = checkins.filter(c => c.isDone).length;
-    const skipped = checkins.filter(c => !c.isDone && c.taskId).length;
+    const visibleTasks = getVisibleTasks(date);
+    const visibleIds = new Set(visibleTasks.map(t => t.id));
+    const total = visibleTasks.length;
+    const done  = checkins.filter(c => c.isDone && visibleIds.has(c.taskId)).length;
+    const skipped = checkins.filter(c => !c.isDone && visibleIds.has(c.taskId)).length;
     const pct = total ? Math.round((done / total) * 100) : 0;
 
     // Build timeline items (sorted by scheduled time)
-    const sorted = [...state.tasks].sort((a,b) => {
+    const sorted = [...visibleTasks].sort((a,b) => {
       const ta = (a.scheduledTimes?.[0] || '99:99');
       const tb = (b.scheduledTimes?.[0] || '99:99');
       return ta.localeCompare(tb);
@@ -2288,31 +2349,62 @@ async function loadAdminOverview() {
 async function loadAdminRecords() {
   const date = document.getElementById('recordsDatePicker').value || state.currentDate;
   const container = document.getElementById('adminRecordsContent');
+  const selfReportContainer = document.getElementById('adminSelfReportsList');
   container.innerHTML = '<div class="loading-spin"></div>';
+  if (selfReportContainer) selfReportContainer.innerHTML = '<div class="loading-spin"></div>';
   try {
-    const checkins = await api('/api/checkins?date=' + date);
+    const [checkins, selfReports] = await Promise.all([
+      api('/api/checkins?date=' + date),
+      api('/api/selfreports?date=' + date).catch(() => []),
+    ]);
+
     if (!checkins.length) {
       container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日無打卡記錄</div>';
-      return;
+    } else {
+      const rows = checkins.map(c => {
+        const task = state.tasks.find(t => t.id === c.taskId);
+        const timeStr = c.time ? utcToCalgaryClock(c.time) : '-';
+        return `<tr>
+          <td>${task?.icon || ''} ${task?.name || c.taskId}</td>
+          <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅ 完成' : '⏭️ 跳過'}</td>
+          <td>${c.result || '-'}</td>
+          <td>${c.note || '-'}</td>
+          <td style="font-family:var(--mono);font-size:0.75rem">${timeStr}</td>
+        </tr>`;
+      }).join('');
+      container.innerHTML = `<div style="overflow-x:auto">
+        <table class="records-table">
+          <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備注</th><th>時間</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`;
     }
-    const rows = checkins.map(c => {
-      const task = state.tasks.find(t => t.id === c.taskId);
-      const timeStr = c.time ? utcToCalgaryClock(c.time) : '-';
-      return `<tr>
-        <td>${task?.icon || ''} ${task?.name || c.taskId}</td>
-        <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅ 完成' : '⏭️ 跳過'}</td>
-        <td>${c.result || '-'}</td>
-        <td>${c.note || '-'}</td>
-        <td style="font-family:var(--mono);font-size:0.75rem">${timeStr}</td>
-      </tr>`;
-    }).join('');
-    container.innerHTML = `<div style="overflow-x:auto">
-      <table class="records-table">
-        <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備注</th><th>時間</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>`;
+
+    if (selfReportContainer) {
+      const labels = {
+        self_feed: { icon: '🍽️', title: '主動餵糧' },
+        self_treat: { icon: '🐟', title: '主動餵貓條' },
+        self_paste: { icon: '🥣', title: '主動餵貓泥' },
+        other: { icon: '📝', title: '其他回報' },
+      };
+      if (!selfReports.length) {
+        selfReportContainer.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日無主動回報</div>';
+      } else {
+        selfReportContainer.innerHTML = selfReports.map(item => {
+          const meta = labels[item.type] || { icon: item.icon || '📝', title: item.title || item.type || '主動回報' };
+          const timeStr = item.reportedAt ? utcToCalgaryClock(item.reportedAt) : '-';
+          return `<div class="incident-card" style="border-left-color:#8b5cf6;">
+            <div class="incident-card-header">
+              <span class="incident-card-type">${meta.icon} ${item.title || meta.title}</span>
+              <span class="incident-card-time">${date} ${timeStr}</span>
+            </div>
+            ${item.note ? `<div class="incident-card-note">📝 ${item.note}</div>` : '<div class="incident-card-note" style="color:var(--text-muted)">無備注</div>'}
+          </div>`;
+        }).join('');
+      }
+    }
   } catch(e) {
     container.innerHTML = '<div class="text-muted">載入失敗</div>';
+    if (selfReportContainer) selfReportContainer.innerHTML = '<div class="text-muted">載入失敗</div>';
   }
 }
 
