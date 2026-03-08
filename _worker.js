@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v3.7.5 – Cloudflare Worker with Static Assets
+// UmiCare v3.7.6 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -31,29 +31,29 @@ function json(data, status = 200) {
 const DEFAULT_TASKS = [
   { id: 't1', name: '第一餐', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['05:30'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
   { id: 't2', name: '量體重', icon: '⚖️', type: 'weight', scheduleType: 'weekly', weekDays: [0], scheduledTimes: ['07:00'], resultOptions: [] },
-  { id: 't3', name: '早上鏟貓砂', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['08:00'], resultOptions: [{ label: '💩 有屎', value: 'poop' }, { label: '💦 有尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
-  { id: 't4', name: '換新鮮飲水', icon: '💧', type: 'water', scheduleType: 'daily', scheduledTimes: ['08:30'], resultOptions: [{ label: '已換 ✅', value: 'done' }, { label: '只補水', value: 'topped' }] },
+  { id: 't3', name: '早上清貓砂', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['08:00'], resultOptions: [{ label: '💩 有便便', value: 'poop' }, { label: '💦 有尿尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
+  { id: 't4', name: '更換新鮮飲水', icon: '💧', type: 'water', scheduleType: 'daily', scheduledTimes: ['08:30'], resultOptions: [{ label: '已更換 ✅', value: 'done' }, { label: '僅補水', value: 'topped' }] },
   { id: 't5', name: '第二餐', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['09:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
   { id: 't6', name: '第三餐', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['12:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
-  { id: 't7', name: '下午鏟貓砂', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['14:00'], resultOptions: [{ label: '💩 有屎', value: 'poop' }, { label: '💦 有尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
+  { id: 't7', name: '下午清貓砂', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['14:00'], resultOptions: [{ label: '💩 有便便', value: 'poop' }, { label: '💦 有尿尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
   { id: 't8', name: '第四餐', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['16:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
-  { id: 't9', name: '貓薄荷', icon: '🌿', type: 'other', scheduleType: 'daily', scheduledTimes: ['19:00'], resultOptions: [{ label: '已給 ✅', value: 'given' }, { label: '跳過', value: 'skip' }] },
+  { id: 't9', name: '貓薄荷', icon: '🌿', type: 'other', scheduleType: 'daily', scheduledTimes: ['19:00'], resultOptions: [{ label: '已給予 ✅', value: 'given' }, { label: '略過', value: 'skip' }] },
   { id: 't10', name: '第五餐(睡前)', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['21:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
-  { id: 't11', name: '晚間鏟貓砂', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['21:30'], resultOptions: [{ label: '💩 有屎', value: 'poop' }, { label: '💦 有尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
-  { id: 't12', name: '刷牙', icon: '🦷', type: 'groom', scheduleType: 'daily', scheduledTimes: ['22:00'], resultOptions: [{ label: '完成 ✅', value: 'done' }, { label: '部分完成', value: 'partial' }, { label: '跳過', value: 'skip' }] },
+  { id: 't11', name: '晚上清貓砂', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['21:30'], resultOptions: [{ label: '💩 有便便', value: 'poop' }, { label: '💦 有尿尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
+  { id: 't12', name: '刷牙', icon: '🦷', type: 'groom', scheduleType: 'daily', scheduledTimes: ['22:00'], resultOptions: [{ label: '完成 ✅', value: 'done' }, { label: '部分完成', value: 'partial' }, { label: '略過', value: 'skip' }] },
 ];
 
 const DEFAULT_PERIODIC = [
-  { id: 'p1', name: '罐頭加水', intervalDays: 3, lastDoneAt: null, note: '無吞拿魚，喜歡糊狀' },
+  { id: 'p1', name: '罐頭加水', intervalDays: 3, lastDoneAt: null, note: '不含鮪魚，偏好泥狀' },
   { id: 'p2', name: '貓泥', weeklyMax: 3, weeklyCount: 0, weekStart: null, lastDoneAt: null },
   { id: 'p3', name: '剪指甲', intervalDays: 14, lastDoneAt: null },
   { id: 'p4', name: '清耳朵', intervalDays: 14, lastDoneAt: null },
-  { id: 'p5', name: '全換貓砂(豆腐砂)', intervalDays: 25, lastDoneAt: null, note: '3-4cm深度' },
-  { id: 'p6', name: '洗澡', intervalDays: 45, lastDoneAt: null, note: '抗菌洗劑×2，低速風筒，擦臉' },
+  { id: 'p5', name: '全盆更換貓砂（豆腐砂）', intervalDays: 25, lastDoneAt: null, note: '深度 3–4 公分' },
+  { id: 'p6', name: '洗澡', intervalDays: 45, lastDoneAt: null, note: '抗菌洗劑 ×2、低速吹風機、擦拭臉部' },
   { id: 'p7', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '喔咪', appVersion: '3.0' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.0' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.7.5', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.7.6', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -112,7 +112,7 @@ async function handleApi(request, env, url) {
     if (path === '/cat') {
       if (method === 'GET') {
         const raw = await KV.get('cat:profile');
-        return json(raw ? JSON.parse(raw) : { name: '喔咪', nickname: 'Omi' });
+        return json(raw ? JSON.parse(raw) : { name: '屋咪', nickname: 'Omi' });
       }
       if (method === 'POST') {
         await KV.put('cat:profile', JSON.stringify(await request.json()));
@@ -229,7 +229,7 @@ async function handleApi(request, env, url) {
       const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
       const weights = weightsRaw ? JSON.parse(weightsRaw) : [];
       const periodic = periodicRaw ? JSON.parse(periodicRaw) : DEFAULT_PERIODIC;
-      const cat = catRaw ? JSON.parse(catRaw) : { name: '喔咪' };
+      const cat = catRaw ? JSON.parse(catRaw) : { name: '屋咪' };
       const latestWeight = weights.length > 0 ? weights[weights.length - 1] : null;
       const now = new Date();
       const overduePeriodic = periodic.filter(p => {
@@ -535,7 +535,7 @@ export default {
 
     // Get cat name for push title
     const catRaw = await KV.get('cat:profile');
-    const catName = catRaw ? (JSON.parse(catRaw).name || '喔咪') : '喔咪';
+    const catName = catRaw ? (JSON.parse(catRaw).name || '屋咪') : '屋咪';
 
     // Find OVERDUE tasks: Calgary time has passed AND not done/skipped
     const overdue = [];
@@ -556,8 +556,8 @@ export default {
 
     const firstName = overdue[0].name;
     const body = overdue.length === 1
-      ? `${firstName} 未完成，快去記錄！`
-      : `${firstName} 等 ${overdue.length} 項任務未完成`;
+      ? `${firstName} 尚未完成，請盡快記錄！`
+      : `${firstName}，還有 ${overdue.length} 項任務尚未完成`;
 
     const result = await sendWebPush(env, sub, {
       title: `🐾 ${catName} 照護提醒`,
@@ -791,7 +791,7 @@ async function handlePushApi(path, method, request, env) {
     const today = getCalgaryDateStr(now);
 
     const catRaw = await KV.get('cat:profile');
-    const catName = catRaw ? (JSON.parse(catRaw).name || '喔咪') : '喔咪';
+    const catName = catRaw ? (JSON.parse(catRaw).name || '屋咪') : '屋咪';
 
     const tasksRaw = await KV.get('tasks:list');
     const tasks = tasksRaw ? JSON.parse(tasksRaw) : DEFAULT_TASKS;
@@ -814,7 +814,7 @@ async function handlePushApi(path, method, request, env) {
     let pushResult = null;
     if (overdue.length > 0) {
       const firstName = overdue[0].name;
-      const body = overdue.length === 1 ? `${firstName} 未完成，快去記錄！` : `${firstName} 等 ${overdue.length} 項任務未完成`;
+      const body = overdue.length === 1 ? `${firstName} 尚未完成，請盡快記錄！` : `${firstName}，還有 ${overdue.length} 項任務尚未完成`;
       try {
         pushResult = await sendWebPush(env, sub, { title: `🐾 ${catName} 照護提醒 (simulate)`, body, tag: 'umicare-reminder', icon: '/icon-192.png' });
       } catch(e) { pushResult = { error: e.message }; }

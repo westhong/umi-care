@@ -2,16 +2,17 @@
 <html lang="zh-HK">
 <head>
   <link rel="manifest" href="/manifest.json">
-  <link rel="icon" type="image/png" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <meta name="theme-color" content="#ff85a1">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>UmiCare 🐱 喔咪照護</title>
+<title>UmiCare 🐱 屋咪照護</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="UmiCare">
 <meta name="theme-color" content="#fff8f5">
-<link rel="apple-touch-icon" href="/icon-192.png"></meta>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"></meta>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -938,7 +939,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.7.5</span>
+        <span id="version-badge">v3.7.6</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -974,10 +975,10 @@ body::before {
     <div class="task-section" style="margin-top:14px;">
       <div class="section-title">⚡ 主動回報</div>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
-        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openIncidentModal()">🤢 嘔吐 / 異常</button>
-        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openFeedReportModal()">🍽️ 餵食回報</button>
+        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openIncidentModal()">🤢 嘔吐 / 異常狀況</button>
+        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openFeedReportModal()">🍽️ 餵食紀錄</button>
       </div>
-      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">按一下「餵食回報」後，再選擇貓糧 / 貓條 / 貓泥與數量；管理員可在記錄頁查看及刪除。</div>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">按一下「餵食紀錄」後，再選擇飼料 / 貓條 / 貓泥與數量；管理員可在記錄頁查看及刪除。</div>
     </div>
 
     <div class="task-section">
@@ -1050,7 +1051,7 @@ body::before {
             <input type="text" id="adhocName" placeholder="任務名稱（例：換新鮮水）" maxlength="40"
               style="flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--glass-border);background:var(--glass);color:var(--text);font-size:0.92rem;">
           </div>
-          <input type="text" id="adhocNote" placeholder="備注（選填，例：用過濾水）" maxlength="80"
+          <input type="text" id="adhocNote" placeholder="備註（選填，例：使用過濾水）" maxlength="80"
             style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1px solid var(--glass-border);background:var(--glass);color:var(--text);font-size:0.88rem;margin-top:6px;">
           <button class="adhoc-send-btn" onclick="createAdhocRequest()">📌 發送請求</button>
           <div id="adhocPendingList" style="margin-top:12px;"></div>
@@ -1119,7 +1120,7 @@ body::before {
             <input type="date" id="catFormBday" class="cat-input">
           </div>
           <div class="form-field">
-            <label>備注</label>
+            <label>備註</label>
             <textarea id="catFormNotes" placeholder="例：已絕育、過敏食物..." rows="3" class="cat-input"></textarea>
           </div>
           <button class="btn btn-primary cat-save-btn" onclick="saveCatProfile()">💾 儲存貓咪資料</button>
@@ -1129,7 +1130,7 @@ body::before {
       <!-- Settings Tab -->
       <div id="adminTabSettings" class="admin-tab-content">
         <div class="card">
-          <div class="form-field"><label>貓咪名字</label><input type="text" id="settingCatName" placeholder="喔咪"></div>
+          <div class="form-field"><label>貓咪名字</label><input type="text" id="settingCatName" placeholder="屋咪"></div>
           <div class="form-field"><label>預設人重 (kg)</label><input type="number" id="settingPersonWeight" step="0.1" placeholder="66.5"></div>
           <button class="btn btn-primary" onclick="saveSettings()">儲存設定</button>
         </div>
@@ -1172,7 +1173,7 @@ let state = {
   checkins: [],
   settings: { lastPersonWeight: 66.5 },
   cat: { name: '屋咪', breed: '', birthdate: '', weight: '', notes: '' },
-  catName: '喔咪',
+  catName: '屋咪',
   weightsList: [],
   adminMode: false,
   currentDate: todayStr(),
@@ -1236,7 +1237,7 @@ async function init() {
       checkPushStatus();
     }
   } catch(e) {
-    showToast('⚠️ 無法連接伺服器，請檢查網絡');
+    showToast('⚠️ 無法連線至伺服器，請檢查網路');
     document.getElementById('pinSetupOverlay').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     renderTaskList();
@@ -1348,7 +1349,7 @@ async function loadApp() {
       state.cat = cat;
       state.catName = cat.name;
     } else {
-      state.catName = settings.catName || '喔咪';
+      state.catName = settings.catName || '屋咪';
     }
     document.getElementById('catNameDisplay').textContent = '今日照護';
     updateCatProfileCard();
@@ -1634,7 +1635,7 @@ function utcToCalgaryClock(isoStr) {
 
 function renderTaskCard(task, checkin) {
   const status = checkin ? (checkin.isDone ? 'done' : 'skip') : getOverdueStatus(task);
-  const statusLabel = { done: '✅ 完成', skip: '⏭️ 跳過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
+  const statusLabel = { done: '✅ 完成', skip: '⏭️ 略過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
   const statusClass = 'status-' + status;
 
   // Show completion time for done/skip tasks
@@ -1666,7 +1667,7 @@ function renderTaskList() {
   const container = document.getElementById('taskList');
   const visibleTasks = getVisibleTasks();
   if (!visibleTasks.length) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">暫無任務</div>';
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">目前沒有任務</div>';
     return;
   }
 
@@ -1730,10 +1731,10 @@ function renderAdhocCard(a) {
         <button class="toggle-btn" id="adhoc-done-${a.id}"
           onclick="selectAdhocDone('${a.id}', true)">✅ 完成</button>
         <button class="toggle-btn" id="adhoc-skip-${a.id}"
-          onclick="selectAdhocDone('${a.id}', false)">⏭️ 跳過</button>
+          onclick="selectAdhocDone('${a.id}', false)">⏭️ 略過</button>
       </div>
       <textarea class="note-input" id="adhoc-note-${a.id}"
-        placeholder="備注（選填）" rows="2"></textarea>
+        placeholder="備註（選填）" rows="2"></textarea>
       <div class="confirm-row">
         <button class="btn btn-success" onclick="submitAdhoc('${a.id}')">✅ 確認提交</button>
         <button class="btn btn-secondary" onclick="toggleAdhocPanel('${a.id}')">取消</button>
@@ -1769,7 +1770,7 @@ function toggleAdhocPanel(id) {
 async function submitAdhoc(id) {
   const isDone = adhocDoneState[id];
   if (isDone === undefined || isDone === null) {
-    showToast('⚠️ 請先選擇完成 / 跳過');
+    showToast('⚠️ 請先選擇完成 / 略過');
     return;
   }
   const note = document.getElementById('adhoc-note-' + id)?.value || '';
@@ -1789,7 +1790,7 @@ async function submitAdhoc(id) {
     renderTaskList();
     renderProgress();
     if (isDone) { showToast('✅ 已回報完成！'); confetti(); }
-    else showToast('⏭️ 已標記跳過');
+    else showToast('⏭️ 已標記略過');
   } catch(e) {
     showToast('⚠️ 更新失敗，請重試');
   }
@@ -1872,7 +1873,7 @@ async function submitFeedReport() {
       showToast('❌ 回報失敗，請重試');
     }
   } catch (e) {
-    showToast('❌ 網絡錯誤，請重試');
+    showToast('❌ 網路錯誤，請重試');
   }
 }
 
@@ -1947,7 +1948,7 @@ function renderTaskPanel(task, checkin) {
             <div class="weight-rec-item"><div class="weight-rec-label">抱貓重</div><div class="weight-rec-val">${carryW} kg</div></div>
             <div class="weight-rec-item cat-weight-highlight"><div class="weight-rec-label">🐱 ${catDisplayName}</div><div class="weight-rec-val">${displayCatKg} kg</div></div>
           </div>
-          ${checkin.note ? '<div class="weight-rec-note">備注: ' + checkin.note + '</div>' : ''}
+          ${checkin.note ? '<div class="weight-rec-note">備註: ' + checkin.note + '</div>' : ''}
         </div>
         <div class="confirm-row mt-8">
           <button class="btn btn-secondary" style="flex:1" onclick="reRecordWeight('${task.id}')">🔄 重新記錄</button>
@@ -1975,7 +1976,7 @@ function renderTaskPanel(task, checkin) {
           <span class="value" id="catWValue-${task.id}">-- kg</span>
         </div>
       </div>
-      <textarea class="note-input" id="note-${task.id}" placeholder="備注（選填）" rows="2">${note}</textarea>
+      <textarea class="note-input" id="note-${task.id}" placeholder="備註（選填）" rows="2">${note}</textarea>
       <div class="confirm-row">
         <button class="btn btn-success" onclick="submitWeight('${task.id}')">✅ 確認記錄</button>
         <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">取消</button>
@@ -1998,10 +1999,10 @@ function renderTaskPanel(task, checkin) {
       <button class="toggle-btn ${isDone ? 'selected-done' : ''}" 
         id="done-${task.id}" onclick="selectDone('${task.id}', true)">✅ 完成</button>
       <button class="toggle-btn ${isSkip ? 'selected-skip' : ''}"
-        id="skip-${task.id}" onclick="selectDone('${task.id}', false)">⏭️ 跳過</button>
+        id="skip-${task.id}" onclick="selectDone('${task.id}', false)">⏭️ 略過</button>
     </div>
     ${resultHtml}
-    <textarea class="note-input" id="note-${task.id}" placeholder="備注（選填）" rows="2">${note}</textarea>
+    <textarea class="note-input" id="note-${task.id}" placeholder="備註（選填）" rows="2">${note}</textarea>
     <div class="confirm-row">
       <button class="btn btn-success" onclick="submitCheckin('${task.id}')">✅ 確認提交</button>
       <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">取消</button>
@@ -2131,7 +2132,7 @@ async function submitWeight(taskId) {
 async function submitCheckin(taskId) {
   const isDone = taskDoneState[taskId];
   if (isDone === undefined || isDone === null) {
-    showToast('⚠️ 請先選擇完成 / 跳過');
+    showToast('⚠️ 請先選擇完成 / 略過');
     return;
   }
   const result = taskResultState[taskId] || null;
@@ -2208,7 +2209,7 @@ async function checkAlerts() {
   const mealTasks = getVisibleTasks().filter(t => t.type === 'meal');
   const noneEaten = state.checkins.filter(c => c.result === 'none' && mealTasks.find(t => t.id === c.taskId));
   if (noneEaten.length >= 2) {
-    container.innerHTML += `<div class="alert alert-red">⚠️ 喔咪今天多次未進食，請留意健康狀況</div>`;
+    container.innerHTML += `<div class="alert alert-red">⚠️ 屋咪今天多次未進食，請留意健康狀況</div>`;
   }
 }
 
@@ -2263,7 +2264,7 @@ async function showDayDetail(dateStr) {
   try {
     const checkins = await api('/api/checkins?date=' + dateStr);
     if (!checkins.length) {
-      detail.innerHTML = `<div class="card"><div class="text-muted">${dateStr} 無打卡記錄</div></div>`;
+      detail.innerHTML = `<div class="card"><div class="text-muted">${dateStr} 沒有打卡紀錄</div></div>`;
       return;
     }
     const rows = checkins.map(c => {
@@ -2280,7 +2281,7 @@ async function showDayDetail(dateStr) {
       <div style="font-weight:600;margin-bottom:12px">${dateStr} 打卡記錄</div>
       <div style="overflow-x:auto">
       <table class="records-table">
-        <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備注</th><th>時間</th></tr></thead>
+        <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備註</th><th>時間</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div></div>`;
   } catch(e) {
@@ -2359,7 +2360,7 @@ async function loadAdminOverview() {
 
       const doneTime = ci?.time ? utcToCalgaryClock(ci.time) : null;
       const badgeMap = { done:'badge-tl-done', skip:'badge-tl-skip', overdue:'badge-tl-over', pending:'badge-tl-pend' };
-      const labelMap = { done:'✅ 完成', skip:'⏭️ 跳過', overdue:'⚠️ 逾時', pending:'待完成' };
+      const labelMap = { done:'✅ 完成', skip:'⏭️ 略過', overdue:'⚠️ 逾時', pending:'待完成' };
       const card = `<div class="tl-item tl-${status}" onclick="openTaskDetailModal('${task.id}',${ci?JSON.stringify(ci).replace(/"/g,"'"):null})">
         <div class="tl-card">
           <div style="display:flex;align-items:center;flex:1;min-width:0">
@@ -2395,7 +2396,7 @@ async function loadAdminOverview() {
         <div class="ov-stat"><div class="ov-stat-num" style="color:#6b7280">${total - done - skipped}</div><div class="ov-stat-label">待完成</div></div>
       </div>
       ${pendItems.length ? `<div class="ov-section-title">⏳ 待完成 / 逾時</div><div class="timeline">${pendItems.join('')}</div>` : ''}
-      ${doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 跳過</div><div class="timeline">${doneItems.join('')}</div>` : ''}
+      ${doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 略過</div><div class="timeline">${doneItems.join('')}</div>` : ''}
       ${(!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : ''}
     `;
   } catch(e) {
@@ -2416,14 +2417,14 @@ async function loadAdminRecords() {
     ]);
 
     if (!checkins.length) {
-      container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日無打卡記錄</div>';
+      container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日沒有打卡紀錄</div>';
     } else {
       const rows = checkins.map(c => {
         const task = state.tasks.find(t => t.id === c.taskId);
         const timeStr = c.time ? utcToCalgaryClock(c.time) : '-';
         return `<tr>
           <td>${task?.icon || ''} ${task?.name || c.taskId}</td>
-          <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅ 完成' : '⏭️ 跳過'}</td>
+          <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅ 完成' : '⏭️ 略過'}</td>
           <td>${c.result || '-'}</td>
           <td>${c.note || '-'}</td>
           <td style="font-family:var(--mono);font-size:0.75rem">${timeStr}</td>
@@ -2431,7 +2432,7 @@ async function loadAdminRecords() {
       }).join('');
       container.innerHTML = `<div style="overflow-x:auto">
         <table class="records-table">
-          <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備注</th><th>時間</th></tr></thead>
+          <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備註</th><th>時間</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>`;
     }
@@ -2444,7 +2445,7 @@ async function loadAdminRecords() {
         other: { icon: '📝', title: '其他回報', unit: '' },
       };
       if (!selfReports.length) {
-        selfReportContainer.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日無主動回報</div>';
+        selfReportContainer.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">當日沒有主動回報</div>';
       } else {
         selfReportContainer.innerHTML = selfReports.map(item => {
           const meta = labels[item.type] || { icon: item.icon || '📝', title: item.title || item.type || '主動回報', unit: item.unit || '' };
@@ -2455,7 +2456,7 @@ async function loadAdminRecords() {
               <span class="incident-card-type">${meta.icon} ${item.title || meta.title}${qtyText}</span>
               <span class="incident-card-time">${date} ${timeStr}</span>
             </div>
-            ${item.note ? `<div class="incident-card-note">📝 ${item.note}</div>` : '<div class="incident-card-note" style="color:var(--text-muted)">無備注</div>'}
+            ${item.note ? `<div class="incident-card-note">📝 ${item.note}</div>` : '<div class="incident-card-note" style="color:var(--text-muted)">沒有備註</div>'}
             <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
               <button class="incident-delete-btn" onclick="deleteSelfReport('${item.id}')">🗑️ 刪除</button>
             </div>
@@ -2475,7 +2476,7 @@ async function loadAdminWeights() {
   try {
     const weights = await api('/api/weights');
     if (!weights.length) {
-      container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">暫無體重記錄</div>';
+      container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">目前沒有體重紀錄</div>';
       return;
     }
     const rows = weights.slice().reverse().map(w => {
@@ -2490,7 +2491,7 @@ async function loadAdminWeights() {
     }).join('');
     container.innerHTML = `<div style="overflow-x:auto">
       <table class="records-table">
-        <thead><tr><th>日期</th><th>人重</th><th>抱貓重</th><th id="weightTableCatHeader">貓咪體重</th><th>備注</th></tr></thead>
+        <thead><tr><th>日期</th><th>人重</th><th>抱貓重</th><th id="weightTableCatHeader">貓咪體重</th><th>備註</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
   } catch(e) {
@@ -2555,7 +2556,7 @@ function openTaskModal(taskId) {
     }
     // show result preview
     const opts = (task.resultOptions || []).map(o=>o.label).join(' / ');
-    document.getElementById('temResultPreview').textContent = opts || '(無結果選項)';
+    document.getElementById('temResultPreview').textContent = opts || '(沒有結果選項)';
   }
 
   updateTemWeekdays();
@@ -2605,17 +2606,17 @@ function updateTemResultOptions() {
   const type = document.getElementById('temType').value;
   const presets = {
     meal: '🍽️ 餐食: 正常 / 少量 / 完全不吃',
-    litter: '🪣 貓砂: 💩有屎 / 💦有尿 / 都有 / 都沒有',
+    litter: '🪣 貓砂: 💩有便便 / 💦有尿尿 / 都有 / 都沒有',
     water: '💧 飲水: 完成 / 加水',
   };
-  document.getElementById('temResultPreview').textContent = presets[type] || '(無預設 — 可從下方選擇)';
+  document.getElementById('temResultPreview').textContent = presets[type] || '(沒有預設 — 可從下方選擇)';
 }
 
 function applyResultPreset() {
   const p = document.getElementById('temResultPreset').value;
   const presets = {
     meal: '🍽️ 餐食: 正常進食 / 少量進食 / 完全不吃',
-    litter: '🪣 貓砂: 💩有屎 / 💦有尿 / 都有 / 都沒有',
+    litter: '🪣 貓砂: 💩有便便 / 💦有尿尿 / 都有 / 都沒有',
     water: '💧 飲水: 完成 / 加水',
     none: '(清空)',
   };
@@ -2625,7 +2626,7 @@ function applyResultPreset() {
 function getResultOptionsForPreset(preset) {
   const map = {
     meal: [{label:'正常進食 ✅',value:'normal'},{label:'少量進食',value:'little'},{label:'完全不吃',value:'none'}],
-    litter: [{label:'💩 有屎',value:'poop'},{label:'💦 有尿',value:'urine'},{label:'💩💦 都有',value:'both'},{label:'✨ 都沒有',value:'none'}],
+    litter: [{label:'💩 有便便',value:'poop'},{label:'💦 有尿尿',value:'urine'},{label:'💩💦 都有',value:'both'},{label:'✨ 都沒有',value:'none'}],
     water: [{label:'✅ 完成',value:'done'},{label:'💧 加水',value:'topped'}],
     none: [],
   };
@@ -2724,10 +2725,10 @@ function openTaskDetailModal(taskId, checkin) {
   const modal = document.getElementById('taskDetailModal');
   document.getElementById('tdmTitle').textContent = task.icon + ' ' + task.name;
   let rows = [];
-  rows.push(['狀態', checkin?.isDone === false ? '⏭️ 跳過' : checkin?.isDone ? '✅ 完成' : '⏳ 待完成']);
+  rows.push(['狀態', checkin?.isDone === false ? '⏭️ 略過' : checkin?.isDone ? '✅ 完成' : '⏳ 待完成']);
   if (checkin?.time) rows.push(['完成時間', utcToCalgaryClock(checkin.time) + ' (Calgary)']);
   if (checkin?.result) rows.push(['結果', checkin.result]);
-  if (checkin?.note) rows.push(['備注', checkin.note]);
+  if (checkin?.note) rows.push(['備註', checkin.note]);
   rows.push(['排程時間', (task.scheduledTimes||[]).join(', ') || '-']);
   rows.push(['重複規則', ({daily:'每天',weekly:'每週指定日',weekdays:'平日',weekends:'週末'})[task.scheduleType||'daily']]);
   if (task.weekDays) rows.push(['重複日', task.weekDays.map(d=>['日','一','二','三','四','五','六'][d]).join('、')]);
@@ -2792,7 +2793,7 @@ async function loadAdminCat() {
       document.getElementById('catFormBday').value = cat.birthdate || '';
       document.getElementById('catFormNotes').value = cat.notes || '';
     }
-  } catch(e) { showToast('⚠️ 載入貓咪資料失敗'); }
+  } catch(e) { showToast('⚠️ 載入貓咪資訊失敗'); }
 }
 
 async function saveCatProfile() {
@@ -2816,12 +2817,12 @@ async function saveCatProfile() {
 
 async function loadAdminSettings() {
   const settings = await api('/api/settings').catch(() => ({}));
-  document.getElementById('settingCatName').value = settings.catName || '喔咪';
+  document.getElementById('settingCatName').value = settings.catName || '屋咪';
   document.getElementById('settingPersonWeight').value = settings.lastPersonWeight || 66.5;
 }
 
 async function saveSettings() {
-  const catName = document.getElementById('settingCatName').value.trim() || '喔咪';
+  const catName = document.getElementById('settingCatName').value.trim() || '屋咪';
   const lastPersonWeight = parseFloat(document.getElementById('settingPersonWeight').value) || 66.5;
   const settings = { ...state.settings, catName, lastPersonWeight };
   await api('/api/settings', { method: 'POST', body: JSON.stringify(settings) });
@@ -3007,14 +3008,14 @@ async function loadAdhocPendingList() {
   if (!container) return;
   try {
     const list = await api('/api/adhoc');
-    if (!list.length) { container.innerHTML = '<div style="text-align:center;padding:8px;color:var(--text-muted);font-size:0.82rem">暫無待辦請求</div>'; return; }
+    if (!list.length) { container.innerHTML = '<div style="text-align:center;padding:8px;color:var(--text-muted);font-size:0.82rem">目前沒有待辦請求</div>'; return; }
     container.innerHTML = list.map(a => `
       <div class="adhoc-pending-item">
         <div class="item-icon">${a.icon || '📌'}</div>
         <div class="item-info">
           <div class="item-name">${a.name}</div>
           ${a.note ? `<div class="item-note">${a.note}</div>` : ''}
-          ${a.done ? `<div class="item-status">✅ 已完成 ${a.doneNote ? '· ' + a.doneNote : ''}</div>` : '<div style="font-size:0.75rem;color:var(--text-muted)">⏳ 待照顧者處理</div>'}
+          ${a.done ? `<div class="item-status">✅ 已完成 ${a.doneNote ? '· ' + a.doneNote : ''}</div>` : '<div style="font-size:0.75rem;color:var(--text-muted)">⏳ 待照護者處理</div>'}
         </div>
         <button class="adhoc-dismiss-btn" onclick="dismissAdhoc('${a.id}')">✕</button>
       </div>`).join('');
@@ -3302,7 +3303,7 @@ async function checkPushStatus() {
         showToast('❌ 上報失敗，請重試');
       }
     } catch(e) {
-      showToast('❌ 網絡錯誤，請重試');
+      showToast('❌ 網路錯誤，請重試');
     }
   }
 
@@ -3319,7 +3320,7 @@ async function checkPushStatus() {
     if (!container) return;
     const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❓ 其他' };
     if (!list || list.length === 0) {
-      container.innerHTML = '<p style="color:#666;text-align:center;padding:20px 0;">暫無異常上報記錄</p>';
+      container.innerHTML = '<p style="color:#666;text-align:center;padding:20px 0;">目前沒有異常通報紀錄</p>';
       return;
     }
     container.innerHTML = list.map(inc => {
@@ -3342,7 +3343,7 @@ async function checkPushStatus() {
 
   async function resolveIncident(id) {
     await api('/api/incidents/' + id + '/resolve', { method: 'POST', body: JSON.stringify({ note: '' }) });
-    showToast('✅ 已標記處理');
+    showToast('✅ 已標記為處理完成');
     loadAdminIncidents();
   }
 
@@ -3455,7 +3456,7 @@ async function checkPushStatus() {
       </div>
 
       <div class="form-field">
-        <label>備注欄位</label>
+        <label>備註欄位</label>
         <select id="temRequireNote">
           <option value="false">不需要</option>
           <option value="optional">可選填</option>
@@ -3721,10 +3722,10 @@ async function checkPushStatus() {
   <!-- Feed Report Modal -->
   <div class="incident-modal-overlay" id="feedReportModalOverlay" onclick="closeFeedReportModal(event)">
     <div class="incident-modal" onclick="event.stopPropagation()">
-      <h3>🍽️ 餵食回報</h3>
+      <h3>🍽️ 餵食紀錄</h3>
       <div class="incident-type-grid" id="feedTypeGrid">
         <button class="incident-type-btn feed-type-btn selected" data-feed-type="self_feed" onclick="selectFeedReportType('self_feed',this)">
-          <span class="icon">🍽️</span>貓糧
+          <span class="icon">🍽️</span>飼料
         </button>
         <button class="incident-type-btn feed-type-btn" data-feed-type="self_treat" onclick="selectFeedReportType('self_treat',this)">
           <span class="icon">🐟</span>貓條
@@ -3737,8 +3738,8 @@ async function checkPushStatus() {
         <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px;">選擇數量（<span id="feedQtyUnitLabel">次</span>）</div>
         <div class="done-toggle" id="feedQtyButtons"></div>
       </div>
-      <textarea class="incident-note-input" id="feedReportNoteInput" rows="3" placeholder="備注說明（選填）：例如轉咗新糧、食得好快等..."></textarea>
-      <button class="incident-submit-btn" onclick="submitFeedReport()">📤 送出回報</button>
+      <textarea class="incident-note-input" id="feedReportNoteInput" rows="3" placeholder="備註說明（選填）：例如例如更換新飼料、吃得很快等..."></textarea>
+      <button class="incident-submit-btn" onclick="submitFeedReport()">📤 送出紀錄</button>
       <button class="incident-cancel-btn" onclick="closeFeedReportModal()">取消</button>
     </div>
   </div>
@@ -3746,7 +3747,7 @@ async function checkPushStatus() {
   <!-- Incident Report Modal -->
   <div class="incident-modal-overlay" id="incidentModalOverlay" onclick="closeIncidentModal(event)">
     <div class="incident-modal" onclick="event.stopPropagation()">
-      <h3>🆘 上報異常狀況</h3>
+      <h3>🆘 通報異常狀況</h3>
       <div class="incident-type-grid" id="incidentTypeGrid">
         <button class="incident-type-btn selected" data-type="vomit" onclick="selectIncidentType('vomit',this)">
           <span class="icon">🤢</span>嘔吐
@@ -3769,11 +3770,11 @@ async function checkPushStatus() {
       </div>
       <img id="incidentPhotoPreview" class="incident-photo-preview" src="" alt="照片預覽">
       <div class="incident-photo-area" onclick="document.getElementById('incidentPhotoInput').click()">
-        📷 點擊拍照或選擇圖片（可選）
+        📷 點一下拍照或選擇圖片（選填）
       </div>
       <input type="file" id="incidentPhotoInput" accept="image/*" capture="environment" style="display:none" onchange="previewIncidentPhoto(this)">
-      <textarea class="incident-note-input" id="incidentNoteInput" rows="3" placeholder="備注說明（可選）：例如嘔吐次數、顏色等..."></textarea>
-      <button class="incident-submit-btn" onclick="submitIncident()">📤 送出上報</button>
+      <textarea class="incident-note-input" id="incidentNoteInput" rows="3" placeholder="備註說明（可選）：例如嘔吐次數、顏色等..."></textarea>
+      <button class="incident-submit-btn" onclick="submitIncident()">📤 送出通報</button>
       <button class="incident-cancel-btn" onclick="closeIncidentModal()">取消</button>
     </div>
   </div>
