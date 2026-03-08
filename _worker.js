@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v3.7.6 – Cloudflare Worker with Static Assets
+// UmiCare v3.7.7 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -53,7 +53,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.0' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.7.7' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.7.6', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.7.7', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -361,11 +361,16 @@ async function handleApi(request, env, url) {
       const body = await request.json();
       const raw = await KV.get('incidents:list');
       const list = raw ? JSON.parse(raw) : [];
+      const incId = 'inc_' + Date.now();
+      // Store photo separately in its own KV key (TTL 30 days) to keep list lean
+      if (body.photo) {
+        await KV.put('incident:photo:' + incId, body.photo, { expirationTtl: 30 * 86400 });
+      }
       const incident = {
-        id: 'inc_' + Date.now(),
+        id: incId,
         type: body.type || 'vomit',
         note: body.note || '',
-        photo: body.photo || null,
+        hasPhoto: !!body.photo,   // flag only — no base64 in list
         reportedAt: new Date().toISOString(),
         reportedBy: body.reportedBy || 'caregiver',
         resolved: false,
@@ -376,6 +381,13 @@ async function handleApi(request, env, url) {
       if (list.length > 50) list.splice(50);
       await KV.put('incidents:list', JSON.stringify(list));
       return json({ ok: true, incident });
+    }
+    // GET /api/incidents/:id/photo
+    const incPhotoMatch = path.match(/^\/incidents\/(inc_\d+)\/photo$/);
+    if (incPhotoMatch && method === 'GET') {
+      const photo = await KV.get('incident:photo:' + incPhotoMatch[1]);
+      if (!photo) return json({ error: 'not found' }, 404);
+      return json({ photo });
     }
     // POST /api/incidents/:id/resolve
     const incResolveMatch = path.match(/^\/incidents\/(inc_\d+)\/resolve$/);

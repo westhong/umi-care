@@ -939,7 +939,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.7.6</span>
+        <span id="version-badge">v3.7.7</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1979,7 +1979,8 @@ function renderTaskPanel(task, checkin) {
       <textarea class="note-input" id="note-${task.id}" placeholder="備註（選填）" rows="2">${note}</textarea>
       <div class="confirm-row">
         <button class="btn btn-success" onclick="submitWeight('${task.id}')">✅ 確認記錄</button>
-        <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">取消</button>
+        <button class="btn btn-warning" onclick="skipWeightTask('${task.id}')">⏭️ 今日略過</button>
+        <button class="btn btn-secondary" onclick="cancelReRecord('${task.id}')">取消</button>
       </div>`;
   }
 
@@ -2066,12 +2067,15 @@ function calcCatWeight(taskId) {
   }
 }
 
+// Stores checkin temporarily removed during re-record
+const _savedWeightCheckins = {};
+
 function reRecordWeight(taskId) {
   // Allow re-recording: clear the checkin state and re-render panel in edit mode
   const checkinIdx = state.checkins.findIndex(c => c.taskId === taskId);
   if (checkinIdx !== -1) {
-    // Temporarily remove the checkin from state to show the input form
-    const savedCheckin = state.checkins[checkinIdx];
+    // Save a copy so cancel can restore it
+    _savedWeightCheckins[taskId] = { ...state.checkins[checkinIdx] };
     state.checkins.splice(checkinIdx, 1);
     // Re-render just this panel
     const panel = document.getElementById('panel-' + taskId);
@@ -2081,11 +2085,45 @@ function reRecordWeight(taskId) {
       const personInput = document.getElementById('personW-' + taskId);
       if (personInput) personInput.placeholder = `上次: ${state.settings.lastPersonWeight || 66.5} kg`;
     }
-    // Restore checkin after a tick (so panel shows entry form)
-    // User can cancel to restore
     const card = document.getElementById('card-' + taskId);
-    if (card) card.classList.remove('done');
+    if (card) { card.classList.remove('done'); card.classList.remove('skip'); }
   }
+}
+
+
+async function skipWeightTask(taskId) {
+  try {
+    await api('/api/checkins', {
+      method: 'POST',
+      body: JSON.stringify({ taskId, isDone: false, result: null, note: '略過', date: state.currentDate, time: new Date().toISOString() }),
+    });
+    delete _savedWeightCheckins[taskId];
+    showToast('⏭️ 量體重已略過');
+    await reloadCheckins(null);
+    toggleTask(taskId);
+  } catch(e) {
+    showToast('❌ 略過失敗，請重試');
+  }
+}
+
+function cancelReRecord(taskId) {
+  // Restore the saved checkin and re-render
+  const saved = _savedWeightCheckins[taskId];
+  if (saved) {
+    const existing = state.checkins.findIndex(c => c.taskId === taskId);
+    if (existing === -1) state.checkins.push(saved);
+    delete _savedWeightCheckins[taskId];
+  }
+  const panel = document.getElementById('panel-' + taskId);
+  const task = state.tasks.find(t => t.id === taskId);
+  const checkin = state.checkins.find(c => c.taskId === taskId);
+  if (panel && task) panel.innerHTML = renderTaskPanel(task, checkin || null);
+  const card = document.getElementById('card-' + taskId);
+  if (card && checkin) {
+    card.classList.toggle('done', !!checkin.isDone);
+    card.classList.toggle('skip', !checkin.isDone);
+  }
+  toggleTask(taskId); // close panel
 }
 
 async function submitWeight(taskId) {
@@ -2184,13 +2222,15 @@ function renderProgress() {
   const visibleTasks = getVisibleTasks();
   const visibleIds = new Set(visibleTasks.map(t => t.id));
   const total = visibleTasks.length;
+  // Count both done (isDone=true) and skipped (isDone=false but checkin exists) as resolved
+  const resolved = state.checkins.filter(c => visibleIds.has(c.taskId)).length; // done + skipped
   const done = state.checkins.filter(c => c.isDone && visibleIds.has(c.taskId)).length;
-  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  const pct = total > 0 ? Math.round(resolved / total * 100) : 0;
   const circumference = 2 * Math.PI * 33;
   const offset = circumference - (pct / 100) * circumference;
   document.getElementById('progressRing').style.strokeDashoffset = offset;
   document.getElementById('progressPct').textContent = pct + '%';
-  document.getElementById('progressCount').textContent = `${done} / ${total} 完成`;
+  document.getElementById('progressCount').textContent = `${done} / ${total} 完成${resolved > done ? '（' + (resolved - done) + ' 略過）' : ''}`;
   const msgs = ['今日任務','加油！繼續努力 💪','快到了！','差不多啦 🎉','全部完成！🎊'];
   const idx = pct === 100 ? 4 : pct >= 75 ? 3 : pct >= 50 ? 2 : pct > 0 ? 1 : 0;
   document.getElementById('progressSub').textContent = msgs[idx];
@@ -2220,13 +2260,15 @@ function renderCalendar() {
   const grid = document.getElementById('calGrid');
   const firstDay = new Date(y, m, 1).getDay();
   const daysInMonth = new Date(y, m+1, 0).getDate();
-  const today = new Date();
+  // Use Calgary date for "today" marker — not browser local time
+  const calgaryTodayStr = state.currentDate; // already Calgary date from todayStr()
+  const [cty, ctm, ctd] = calgaryTodayStr.split('-').map(Number);
   let html = '';
   for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday = y===today.getFullYear() && m===today.getMonth() && d===today.getDate();
-    const isFuture = new Date(y,m,d) > today;
+    const isToday = y===cty && (m+1)===ctm && d===ctd;
+    const isFuture = dateStr > calgaryTodayStr;
     const cls = isFuture ? 'future' : 'no-data';
     html += `<div class="cal-day ${cls} ${isToday?'today':''}" id="cal-${dateStr}" 
       onclick="showDayDetail('${dateStr}')">${d}</div>`;
@@ -2247,12 +2289,13 @@ async function loadCalendarData(y, m) {
       const checkins = await api('/api/checkins?date=' + dateStr);
       const total = getVisibleTasks(dateStr).length;
       const done = checkins.filter(c => c.isDone).length;
+      const resolved = checkins.length; // done + skipped
       const el = document.getElementById('cal-' + dateStr);
       if (!el) continue;
       el.classList.remove('no-data','full','partial','missed');
       if (checkins.length === 0) el.classList.add('missed');
-      else if (done === total) el.classList.add('full');
-      else if (done > 0) el.classList.add('partial');
+      else if (resolved >= total) el.classList.add('full');  // all resolved (done or skipped)
+      else if (resolved > 0) el.classList.add('partial');
       else el.classList.add('missed');
     } catch(e) {}
   }
@@ -3332,7 +3375,7 @@ async function checkPushStatus() {
           <span class="incident-card-time">${date} ${dt}</span>
         </div>
         ${inc.note ? `<div class="incident-card-note">📝 ${inc.note}</div>` : ''}
-        ${inc.photo ? `<img class="incident-card-photo" src="${inc.photo}" alt="事發照片" onclick="viewIncidentPhoto('${inc.id}')">` : ''}
+        ${inc.hasPhoto || inc.photo ? `<img class="incident-card-photo" id="inc-photo-${inc.id}" src="${inc.photo || ''}" alt="事發照片" onclick="viewIncidentPhoto('${inc.id}')" onerror="loadIncidentPhoto('${inc.id}')">` : ''}
         <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
           ${!inc.resolved ? `<button class="incident-resolve-btn" onclick="resolveIncident('${inc.id}')">✅ 標記處理</button>` : `<span style="color:#4ade80;font-size:0.8rem">✅ 已處理 ${utcToCalgaryClock(inc.resolvedAt||'')}</span>`}
           <button class="incident-delete-btn" onclick="deleteIncident('${inc.id}')">🗑️ 刪除</button>
@@ -3354,15 +3397,31 @@ async function checkPushStatus() {
     loadAdminIncidents();
   }
 
-  function viewIncidentPhoto(id) {
-    // View full-screen photo (open in new tab via data URL)
-    api('/api/incidents').then(list => {
-      const inc = list.find(x => x.id === id);
-      if (inc && inc.photo) {
-        const w = window.open();
-        w.document.write('<img src="' + inc.photo + '" style="max-width:100%;display:block;margin:auto">');
+  async function loadIncidentPhoto(id) {
+    const imgEl = document.getElementById('inc-photo-' + id);
+    try {
+      const data = await api('/api/incidents/' + id + '/photo');
+      if (data.photo && imgEl) {
+        imgEl.src = data.photo;
+        const inc = (state.incidents || []).find(i => i.id === id);
+        if (inc) inc.photo = data.photo;
       }
-    });
+    } catch(e) { if (imgEl) imgEl.style.display = 'none'; }
+  }
+  function viewIncidentPhoto(id) {
+    // View full-screen photo — load from API if not inline
+    const inc = (state.incidents || []).find(i => i.id === id);
+    const imgEl = document.getElementById('inc-photo-' + id);
+    const src = inc?.photo || (imgEl?.src?.length > 10 ? imgEl.src : null);
+    if (src) {
+      const w = window.open();
+      w.document.write('<img src="' + src + '" style="max-width:100%;display:block;margin:auto">');
+    } else {
+      loadIncidentPhoto(id).then(() => {
+        const inc2 = (state.incidents || []).find(i => i.id === id);
+        if (inc2?.photo) { const w = window.open(); w.document.write('<img src="' + inc2.photo + '" style="max-width:100%;display:block;margin:auto">'); }
+      });
+    }
   }
 
 </script>
