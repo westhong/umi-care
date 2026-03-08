@@ -933,66 +933,54 @@ body::before {
 
   <!-- PAGE: TODAY -->
   <div id="pageTasks" class="page">
-    <!-- Compact header: cat name + date + progress ring + buttons all in one row -->
-    <div class="header header-compact">
-      <div class="header-left header-cat-info">
-        <div class="progress-ring-wrap progress-ring-small">
-          <svg width="56" height="56" viewBox="0 0 80 80">
-            <defs>
-              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#ff85a1"/>
-                <stop offset="100%" style="stop-color:#ffb347"/>
-              </linearGradient>
-            </defs>
-            <circle class="progress-ring-bg" cx="40" cy="40" r="33"/>
-            <circle class="progress-ring-fill" id="progressRing" cx="40" cy="40" r="33"
-              stroke-dasharray="207.3" stroke-dashoffset="207.3"/>
-          </svg>
-          <div class="progress-center">
-            <div class="progress-pct progress-pct-sm" id="progressPct">0%</div>
-          </div>
-        </div>
-        <div>
-          <div class="header-cat-name" id="catNameDisplay">今日照護</div>
-          <div class="header-cat-sub">
-            <span class="date" id="todayDate"></span>
-            <span id="progressCount" class="header-progress-count">0/0</span>
-          </div>
+    <div class="header">
+      <div class="header-left">
+        <h1>UmiCare 🐾</h1>
+        <div class="date" id="todayDate"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="version-badge">v3.8.0</span>
+        <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
+        <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-ring-wrap">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ff85a1"/>
+              <stop offset="100%" style="stop-color:#ffb347"/>
+            </linearGradient>
+          </defs>
+          <circle class="progress-ring-bg" cx="40" cy="40" r="33"/>
+          <circle class="progress-ring-fill" id="progressRing" cx="40" cy="40" r="33"
+            stroke-dasharray="207.3" stroke-dashoffset="207.3"/>
+        </svg>
+        <div class="progress-center">
+          <div class="progress-pct" id="progressPct">0%</div>
+          <div class="progress-label">完成</div>
         </div>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <span id="version-badge">v3.9.0</span>
-        <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.4rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
-        <div class="admin-btn admin-btn-notif" onclick="openAdminLogin()" title="管理員">🔐<span class="admin-notif-dot hidden" id="adminNotifDot"></span></div>
+      <div class="progress-info">
+        <h2 id="catNameDisplay">今日照護</h2>
+        <div class="sub" id="progressSub">今日任務</div>
+        <div class="count" id="progressCount">0 / 0 完成</div>
       </div>
     </div>
 
     <div class="alerts" id="alertsContainer"></div>
 
-    <!-- Quick report card: outside task-section for full padding -->
-    <div style="margin-top:14px">
-      <div class="quick-report-card" onclick="openFeedReportModal()">
-        <div class="qr-header">
-          <div>
-            <div class="qr-title">🍽️ 快速回報飼餵</div>
-            <div class="qr-sub">點擊選擇種類並送出 → 管理員即時收到通知</div>
-          </div>
-          <div class="qr-arrow">›</div>
-        </div>
-        <div class="qr-presets" onclick="event.stopPropagation()">
-          <button class="qr-chip" onclick="quickFeedReport('主食罐','🍗')">🍗 主食罐</button>
-          <button class="qr-chip" onclick="quickFeedReport('生骨肉','🥩')">🥩 生骨肉</button>
-          <button class="qr-chip" onclick="quickFeedReport('貓泥','🍮')">🍮 貓泥</button>
-          <button class="qr-chip" onclick="quickFeedReport('零食貓條','🐟')">🐟 零食</button>
-          <button class="qr-chip" onclick="quickFeedReport('飲水','💧')">💧 飲水</button>
-        </div>
+    <div class="task-section" style="margin-top:14px;">
+      <div class="section-title">⚡ 主動回報</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openIncidentModal()">🤢 嘔吐 / 異常狀況</button>
+        <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openFeedReportModal()">🍽️ 餵食紀錄</button>
       </div>
-      <div style="margin-bottom:12px">
-        <button class="btn btn-secondary" style="margin-top:0;padding:11px;font-size:0.88rem;" onclick="openIncidentModal()">🆘 上報異常 / 嘔吐狀況</button>
-      </div>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">按一下「餵食紀錄」後，再選擇飼料 / 貓條 / 貓泥與數量；管理員可在記錄頁查看及刪除。</div>
     </div>
 
-    </div><!-- close quick report wrapper -->
     <div class="task-section">
       <div class="section-title">📋 今日任務</div>
       <div id="taskList"><div style="text-align:center;padding:40px"><div class="loading-spin"></div></div></div>
@@ -1046,7 +1034,8 @@ body::before {
         <button class="admin-tab" onclick="switchAdminTab('weights')">⚖️ 體重</button>
         <button class="admin-tab" onclick="switchAdminTab('tasks')">✏️ 任務排程</button>
         <button class="admin-tab" onclick="switchAdminTab('periodic')">🔄 不定期</button>
-        <button class="admin-tab" onclick="switchAdminTab('cat')">🐾 貓咪 &amp; 設定</button>
+        <button class="admin-tab" onclick="switchAdminTab('cat')">🐾 貓咪</button>
+        <button class="admin-tab" onclick="switchAdminTab('settings')">⚙️ 設定</button>
       </div>
 
       <!-- Overview Tab (default) -->
@@ -1136,24 +1125,21 @@ body::before {
           </div>
           <button class="btn btn-primary cat-save-btn" onclick="saveCatProfile()">💾 儲存貓咪資料</button>
         </div>
-
-        <!-- Settings merged into cat tab -->
-        <div style="margin-top:20px">
-          <div style="font-size:0.88rem;font-weight:700;color:var(--text-secondary);margin-bottom:12px;padding:0 4px">⚙️ 系統設定</div>
-          <div class="card mt-16">
-            <div style="font-weight:600;margin-bottom:10px">🔐 更改 PIN</div>
-            <div class="form-field"><label>現有 PIN</label><input type="password" id="oldPin" placeholder="輸入現有 PIN" inputmode="numeric"></div>
-            <div class="form-field"><label>新 PIN</label><input type="password" id="newPin" placeholder="輸入新 PIN" inputmode="numeric"></div>
-            <button class="btn btn-primary" onclick="changePin()">更改 PIN</button>
-          </div>
-          <div class="card mt-16">
-            <div style="font-weight:600;margin-bottom:10px">📥 匯出資料</div>
-            <button class="btn btn-secondary" onclick="exportData()">下載 JSON</button>
-          </div>
-        </div>
       </div>
-      <!-- Settings Tab (hidden, kept for compatibility redirect) -->
-      <div id="adminTabSettings" class="admin-tab-content" style="display:none">
+
+      <!-- Settings Tab -->
+      <div id="adminTabSettings" class="admin-tab-content">
+        <div class="card mt-16">
+          <div style="font-weight:600;margin-bottom:10px">🔐 更改 PIN</div>
+          <div class="form-field"><label>現有 PIN</label><input type="password" id="oldPin" placeholder="輸入現有 PIN" inputmode="numeric"></div>
+          <div class="form-field"><label>新 PIN</label><input type="password" id="newPin" placeholder="輸入新 PIN" inputmode="numeric"></div>
+          <button class="btn btn-primary" onclick="changePin()">更改 PIN</button>
+        </div>
+        
+        <div class="card mt-16">
+          <div style="font-weight:600;margin-bottom:10px">📥 匯出資料</div>
+          <button class="btn btn-secondary" onclick="exportData()">下載 JSON</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1370,7 +1356,6 @@ async function loadApp() {
   renderTaskList();
   renderProgress();
   checkAlerts();
-  updateAdminNotifDot();
 }
 
 async function loadLatestWeight() {
@@ -2137,30 +2122,6 @@ function reRecordWeight(taskId) {
 }
 
 
-// ── Quick one-tap feed report ──────────────────────────────────
-async function quickFeedReport(title, icon) {
-  try {
-    await api('/api/selfreports', {
-      method: 'POST',
-      body: JSON.stringify({ type: 'feed', title, icon, quantity: 1, unit: '', note: '', reportedBy: 'caregiver' }),
-    });
-    showToast(`${icon} ${title} 已回報！`);
-    confetti();
-    state.selfReports = [{ title, icon, reportedAt: new Date().toISOString() }, ...(state.selfReports || [])];
-    updateAdminNotifDot();
-  } catch(e) {
-    showToast('❌ 回報失敗，請重試');
-  }
-}
-
-// ── Admin notification dot: show when today has self-reports ────
-function updateAdminNotifDot() {
-  const dot = document.getElementById('adminNotifDot');
-  if (!dot) return;
-  const hasSelfReports = (state.selfReports || []).length > 0;
-  dot.classList.toggle('hidden', !hasSelfReports);
-}
-
 async function skipWeightTask(taskId) {
   try {
     await api('/api/checkins', {
@@ -2414,7 +2375,6 @@ function calNextMonth() {
 
 // ─── ADMIN ─────────────────────────────────────────────────────
 function switchAdminTab(tab) {
-  if (tab === 'settings') tab = 'cat'; // settings merged into cat tab
   document.querySelectorAll('.admin-tab').forEach((t,i) => {
     const tabs = ['overview','records','weights','tasks','periodic','cat','settings'];
     t.classList.toggle('active', tabs[i] === tab);
@@ -3861,72 +3821,6 @@ async function checkPushStatus() {
 .sr-ov-title { font-size:0.92rem;font-weight:600;color:var(--text); }
 .sr-ov-note { font-size:0.78rem;color:var(--text-muted);margin-top:2px; }
 .sr-ov-time { font-size:0.75rem;color:var(--text-muted);flex-shrink:0; }
-
-/* ── v3.9.0: Compact header ── */
-.header-compact {
-  padding: 16px 20px 12px;
-  align-items: center;
-}
-.header-cat-info {
-  display: flex; align-items: center; gap: 12px;
-}
-.progress-ring-small svg { display: block; }
-.progress-pct-sm { font-size: 0.95rem !important; font-weight: 800 !important; }
-.progress-ring-wrap.progress-ring-small { width: 56px; height: 56px; }
-.header-cat-name {
-  font-size: 1.1rem; font-weight: 700;
-  background: linear-gradient(135deg, var(--primary), var(--cat-accent));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  line-height: 1.2;
-}
-.header-cat-sub {
-  display: flex; align-items: center; gap: 8px;
-  margin-top: 3px;
-}
-.header-progress-count {
-  font-size: 0.72rem; font-weight: 700;
-  background: rgba(255,133,161,0.15);
-  color: var(--primary);
-  padding: 2px 8px; border-radius: 20px;
-  font-family: var(--mono);
-}
-
-/* ── Admin button notif dot ── */
-.admin-btn-notif { position: relative; }
-.admin-notif-dot {
-  position: absolute; top: -2px; right: -2px;
-  width: 9px; height: 9px; border-radius: 50%;
-  background: #ef4444; border: 2px solid var(--bg);
-}
-.admin-notif-dot.hidden { display: none; }
-
-/* ── Quick report card ── */
-.quick-report-card {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  margin: 0 16px 10px;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(109,40,217,0.25);
-  transition: transform .12s, box-shadow .12s;
-  -webkit-tap-highlight-color: transparent;
-}
-.quick-report-card:active { transform: scale(0.98); box-shadow: 0 2px 10px rgba(109,40,217,0.2); }
-.qr-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.qr-title { font-size: 0.95rem; font-weight: 700; color: #fff; }
-.qr-sub { font-size: 0.72rem; color: rgba(255,255,255,0.65); margin-top: 2px; }
-.qr-arrow { font-size: 1.4rem; color: rgba(255,255,255,0.5); line-height: 1; }
-.qr-presets { display: flex; gap: 7px; flex-wrap: wrap; }
-.qr-chip {
-  background: rgba(255,255,255,0.15);
-  border: 1px solid rgba(255,255,255,0.25);
-  border-radius: 20px; padding: 6px 13px;
-  font-size: 0.8rem; color: #fff; cursor: pointer;
-  font-family: var(--font);
-  transition: background .1s;
-  -webkit-tap-highlight-color: transparent;
-}
-.qr-chip:active { background: rgba(255,255,255,0.28); }
 </style>
 
 
