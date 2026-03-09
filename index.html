@@ -3033,7 +3033,7 @@ async function loadAdminOverview() {
     if (selfReports.length && !_pinAcked.sr) {
       const srItems = selfReports.map(sr => {
         const timeStr = utcToCalgaryClock(sr.reportedAt) || '';
-        const qtyStr = sr.quantity > 1 ? ` ×${sr.quantity}${sr.unit || ''}` : (sr.unit ? ` ${sr.unit}` : '');
+        const qtyStr = sr.quantity ? ` ×${sr.quantity}${sr.unit || ''}` : (sr.unit ? ` ${sr.unit}` : '');
         return `<div class="sr-pin-item">
           <div class="sr-pin-icon">${sr.icon || '📝'}</div>
           <div class="sr-pin-body">
