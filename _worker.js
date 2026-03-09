@@ -44,13 +44,13 @@ const DEFAULT_TASKS = [
 ];
 
 const DEFAULT_PERIODIC = [
-  { id: 'p1', name: '罐頭加水', intervalDays: 3, lastDoneAt: null, note: '不含鮪魚，偏好泥狀' },
-  { id: 'p2', name: '貓泥', weeklyMax: 3, weeklyCount: 0, weekStart: null, lastDoneAt: null },
-  { id: 'p3', name: '剪指甲', intervalDays: 14, lastDoneAt: null },
-  { id: 'p4', name: '清耳朵', intervalDays: 14, lastDoneAt: null },
-  { id: 'p5', name: '全盆更換貓砂（豆腐砂）', intervalDays: 25, lastDoneAt: null, note: '深度 3–4 公分' },
-  { id: 'p6', name: '洗澡', intervalDays: 45, lastDoneAt: null, note: '抗菌洗劑 ×2、低速吹風機、擦拭臉部' },
-  { id: 'p7', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
+  { id: 'p1', icon: '💧', name: '罐頭加水', intervalDays: 3, lastDoneAt: null, note: '不含鮪魚，偏好泥狀' },
+  { id: 'p2', icon: '🍮', name: '貓泥', weeklyMax: 3, weeklyCount: 0, weekStart: null, lastDoneAt: null },
+  { id: 'p3', icon: '✂️', name: '剪指甲', intervalDays: 14, lastDoneAt: null },
+  { id: 'p4', icon: '👂', name: '清耳朵', intervalDays: 14, lastDoneAt: null },
+  { id: 'p5', icon: '🪣', name: '全盆更換貓砂（豆腐砂）', intervalDays: 25, lastDoneAt: null, note: '深度 3–4 公分' },
+  { id: 'p6', icon: '🛁', name: '洗澡', intervalDays: 45, lastDoneAt: null, note: '抗菌洗劑 ×2、低速吹風機、擦拭臉部' },
+  { id: 'p7', icon: '🏥', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
 const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.9.4' };
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.9.21', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.9.22', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {

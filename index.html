@@ -1101,6 +1101,32 @@ body::before {
   transition: background 0.15s;
 }
 .inc-photo-btn:active { background: rgba(239,68,68,0.22); }
+  /* ── Periodic card actions ── */
+  .periodic-card-actions {
+    display: flex; gap: 8px; margin-top: 10px;
+  }
+  .periodic-done-btn {
+    flex: 2; padding: 8px 12px; border-radius: 10px; border: none;
+    background: linear-gradient(135deg, #52c77e, #3aaa63); color: white;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer; font-family: var(--font);
+    transition: opacity 0.15s;
+  }
+  .periodic-done-btn:active { opacity: 0.8; }
+  .periodic-edit-btn {
+    flex: 1; padding: 8px 10px; border-radius: 10px;
+    border: 1px solid var(--glass-border); background: var(--bg-card2);
+    color: var(--text-secondary); font-size: 0.82rem; cursor: pointer;
+    font-family: var(--font); transition: background 0.15s;
+  }
+  .periodic-edit-btn:active { background: rgba(255,133,161,0.12); }
+  .periodic-del-btn {
+    padding: 8px 10px; border-radius: 10px;
+    border: 1px solid rgba(248,113,113,0.25); background: rgba(248,113,113,0.06);
+    color: #f87171; font-size: 0.82rem; cursor: pointer;
+    font-family: var(--font); transition: background 0.15s;
+  }
+  .periodic-del-btn:active { background: rgba(248,113,113,0.15); }
+
 .inc-pin-ack-hint {
   font-size: 0.71rem; color: rgba(153,27,27,0.7);
   text-align: center; padding: 3px 8px 6px;
@@ -1242,7 +1268,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.21</span>
+        <span id="version-badge">v3.9.22</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1336,7 +1362,7 @@ body::before {
         <button class="admin-tab" onclick="switchAdminTab('records')">📋 歷史紀錄</button>
         <button class="admin-tab" onclick="switchAdminTab('weights')">⚖️ 體重</button>
         <button class="admin-tab" onclick="switchAdminTab('tasks')">✏️ 任務排程</button>
-        <button class="admin-tab" onclick="switchAdminTab('periodic')">🔄 不定期</button>
+        <button class="admin-tab" onclick="switchAdminTab('periodic')">✨ 特殊任務</button>
         <button class="admin-tab" onclick="switchAdminTab('cat')">🐾 貓咪&設定</button>
       </div>
 
@@ -1402,6 +1428,10 @@ body::before {
 
       <!-- Periodic Tab -->
       <div id="adminTabPeriodic" class="admin-tab-content">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:0.82rem;color:var(--text-muted);">追蹤週期性護理任務的完成狀態</div>
+          <button class="btn btn-primary" style="padding:8px 14px;font-size:0.82rem;margin:0;" onclick="openPeriodicModal(null)">＋ 新增</button>
+        </div>
         <div id="adminPeriodicContent"><div class="loading-spin"></div></div>
       </div>
 
@@ -3547,6 +3577,10 @@ async function loadAdminPeriodic() {
   container.innerHTML = '<div class="loading-spin"></div>';
   try {
     const periodic = await api('/api/periodic');
+    if (!periodic.length) {
+      container.innerHTML = '<div class="text-muted" style="text-align:center;padding:32px 20px;">尚未新增任何特殊任務<br><span style="font-size:0.78rem;margin-top:6px;display:block;">點擊右上角「＋ 新增」開始新增</span></div>';
+      return;
+    }
     const now = new Date();
     container.innerHTML = periodic.map(p => {
       let dueInfo = '', badgeClass = 'badge-ok', dueText = '正常 ✅';
@@ -3554,34 +3588,128 @@ async function loadAdminPeriodic() {
         const due = new Date(p.lastDoneAt);
         due.setDate(due.getDate() + p.intervalDays);
         const diffDays = Math.ceil((due - now) / 86400000);
-        if (diffDays < 0) { badgeClass = 'badge-overdue'; dueText = `逾期 ${-diffDays} 天`; }
-        else if (diffDays <= 3) { badgeClass = 'badge-due-soon'; dueText = `${diffDays} 天後到期`; }
-        dueInfo = `<div class="text-muted mt-8">上次: ${new Date(p.lastDoneAt).toLocaleDateString('zh-HK')} · 每 ${p.intervalDays} 天</div>`;
-      } else if (!p.lastDoneAt) {
+        if (diffDays < 0)      { badgeClass = 'badge-overdue';  dueText = `逾期 ${-diffDays} 天`; }
+        else if (diffDays <= 3){ badgeClass = 'badge-due-soon'; dueText = `${diffDays} 天後到期`; }
+        else                   { dueText = `${diffDays} 天後到期`; }
+        const lastDate = new Date(p.lastDoneAt).toLocaleDateString('zh-HK');
+        dueInfo = `<div class="card-sub" style="margin-top:4px;">上次完成：${lastDate} · 每 ${p.intervalDays} 天</div>`;
+      } else if (p.intervalDays && !p.lastDoneAt) {
         badgeClass = 'badge-overdue'; dueText = '未記錄';
+        dueInfo = `<div class="card-sub" style="margin-top:4px;">週期：每 ${p.intervalDays} 天</div>`;
       }
-      return `<div class="card">
-        <div class="flex-between">
-          <div><div class="card-title">${p.name}</div>${dueInfo}${p.note ? `<div class="text-muted">${p.note}</div>` : ''}</div>
-          <span class="card-badge ${badgeClass}">${dueText}</span>
+      const iconPart = p.icon || '✨';
+      const noteHtml = p.note ? `<div class="card-sub" style="margin-top:3px;font-style:italic;">${p.note}</div>` : '';
+      return `<div class="card" style="margin-bottom:12px;">
+        <div class="flex-between" style="align-items:flex-start;">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+            <div style="width:40px;height:40px;border-radius:12px;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">${iconPart}</div>
+            <div style="min-width:0;">
+              <div class="card-title" style="font-size:0.95rem;">${p.name}</div>
+              ${dueInfo}${noteHtml}
+            </div>
+          </div>
+          <span class="card-badge ${badgeClass}" style="flex-shrink:0;margin-left:8px;">${dueText}</span>
         </div>
-        <button class="btn btn-success mt-8" style="max-width:120px;padding:8px" onclick="markPeriodic('${p.id}')">✅ 完成</button>
+        <div class="periodic-card-actions">
+          <button class="periodic-done-btn" onclick="markPeriodic('${p.id}')">✅ 標記完成</button>
+          <button class="periodic-edit-btn" onclick="openPeriodicModal('${p.id}')">✏️ 編輯</button>
+          <button class="periodic-del-btn" onclick="deletePeriodic('${p.id}')">🗑</button>
+        </div>
       </div>`;
     }).join('');
   } catch(e) {
-    container.innerHTML = '<div class="text-muted">載入失敗</div>';
+    container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
   }
 }
 
 async function markPeriodic(id) {
-  const periodic = await api('/api/periodic');
-  const item = periodic.find(p => p.id === id);
-  if (!item) return;
-  item.lastDoneAt = new Date().toISOString();
-  if (item.weeklyCount !== undefined) item.weeklyCount = (item.weeklyCount || 0) + 1;
-  await api('/api/periodic', { method: 'POST', body: JSON.stringify(periodic) });
-  showToast('✅ 已記錄完成');
-  loadAdminPeriodic();
+  try {
+    const periodic = await api('/api/periodic');
+    const item = periodic.find(p => p.id === id);
+    if (!item) return;
+    item.lastDoneAt = new Date().toISOString();
+    if (item.weeklyCount !== undefined) item.weeklyCount = (item.weeklyCount || 0) + 1;
+    await api('/api/periodic', { method: 'POST', body: JSON.stringify(periodic) });
+    showToast('✅ 已記錄完成');
+    loadAdminPeriodic();
+  } catch(e) { showToast('⚠️ 記錄失敗: ' + e.message); }
+}
+
+async function deletePeriodic(id) {
+  if (!confirm('確認刪除此特殊任務？')) return;
+  try {
+    const periodic = await api('/api/periodic');
+    const updated = periodic.filter(p => p.id !== id);
+    await api('/api/periodic', { method: 'POST', body: JSON.stringify(updated) });
+    showToast('🗑️ 已刪除');
+    loadAdminPeriodic();
+  } catch(e) { showToast('⚠️ 刪除失敗: ' + e.message); }
+}
+
+// ── Periodic add/edit modal ──────────────────────────────────────
+let _periodicEditId = null;
+
+function openPeriodicModal(id) {
+  _periodicEditId = id;
+  const modal = document.getElementById('periodicModal');
+  const title = document.getElementById('periodicModalTitle');
+  // Reset fields
+  document.getElementById('pmIcon').value = '✨';
+  document.getElementById('pmName').value = '';
+  document.getElementById('pmDays').value = '';
+  document.getElementById('pmNote').value = '';
+
+  if (id) {
+    // Edit mode – fetch from API then populate
+    api('/api/periodic').then(list => {
+      const item = list.find(p => p.id === id);
+      if (!item) return;
+      document.getElementById('pmIcon').value = item.icon || '✨';
+      document.getElementById('pmName').value = item.name || '';
+      document.getElementById('pmDays').value = item.intervalDays || '';
+      document.getElementById('pmNote').value = item.note || '';
+    });
+    title.textContent = '✏️ 編輯特殊任務';
+  } else {
+    title.textContent = '＋ 新增特殊任務';
+  }
+  modal.classList.remove('hidden');
+}
+
+function closePeriodicModal() {
+  document.getElementById('periodicModal').classList.add('hidden');
+  _periodicEditId = null;
+}
+
+async function savePeriodicModal() {
+  const icon = (document.getElementById('pmIcon').value.trim() || '✨');
+  const name = document.getElementById('pmName').value.trim();
+  const days = parseInt(document.getElementById('pmDays').value) || null;
+  const note = document.getElementById('pmNote').value.trim();
+
+  if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
+
+  try {
+    const periodic = await api('/api/periodic');
+    if (_periodicEditId) {
+      // Edit existing
+      const item = periodic.find(p => p.id === _periodicEditId);
+      if (item) {
+        item.icon = icon;
+        item.name = name;
+        if (days) item.intervalDays = days; else delete item.intervalDays;
+        item.note = note;
+      }
+    } else {
+      // Add new
+      const newId = 'p' + Date.now();
+      periodic.push({ id: newId, icon, name, intervalDays: days || undefined, note: note || undefined, lastDoneAt: null });
+    }
+    await api('/api/periodic', { method: 'POST', body: JSON.stringify(periodic) });
+    showToast(_periodicEditId ? '✅ 已更新特殊任務' : '✅ 已新增特殊任務');
+    closePeriodicModal();
+    loadAdminPeriodic();
+  } catch(e) { showToast('⚠️ 儲存失敗: ' + e.message); }
 }
 
 function updateCatBdayAge() {
@@ -4699,5 +4827,59 @@ async function checkPushStatus() {
     </div>
   </div>
 
+
+  <!-- Periodic Add/Edit Modal -->
+  <div id="periodicModal" class="modal-overlay hidden" onclick="if(event.target===this)closePeriodicModal()">
+    <div class="modal-box" style="max-width:420px;">
+      <div class="modal-header">
+        <span id="periodicModalTitle" style="font-size:1.05rem;font-weight:700;">＋ 新增特殊任務</span>
+        <button class="modal-close" onclick="closePeriodicModal()">✕</button>
+      </div>
+      <div style="padding:16px 20px 20px;">
+        <div style="display:flex;gap:10px;margin-bottom:14px;">
+          <div style="flex-shrink:0;">
+            <label style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:4px;">圖示</label>
+            <input type="text" id="pmIcon" maxlength="2" placeholder="✨"
+              style="width:52px;text-align:center;font-size:1.4rem;padding:8px;border-radius:10px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-primary);">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:4px;">任務名稱 *</label>
+            <input type="text" id="pmName" maxlength="40" placeholder="例：剪指甲"
+              style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-primary);font-size:0.92rem;box-sizing:border-box;">
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:4px;">週期（天）<span style="color:var(--text-muted);font-size:0.72rem;"> 選填 — 留空代表無固定週期</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <button type="button" onclick="document.getElementById('pmDays').value='7'"
+              style="padding:5px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-secondary);font-size:0.78rem;cursor:pointer;">7天</button>
+            <button type="button" onclick="document.getElementById('pmDays').value='14'"
+              style="padding:5px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-secondary);font-size:0.78rem;cursor:pointer;">14天</button>
+            <button type="button" onclick="document.getElementById('pmDays').value='21'"
+              style="padding:5px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-secondary);font-size:0.78rem;cursor:pointer;">21天</button>
+            <button type="button" onclick="document.getElementById('pmDays').value='30'"
+              style="padding:5px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-secondary);font-size:0.78rem;cursor:pointer;">30天</button>
+            <button type="button" onclick="document.getElementById('pmDays').value='45'"
+              style="padding:5px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-secondary);font-size:0.78rem;cursor:pointer;">45天</button>
+            <button type="button" onclick="document.getElementById('pmDays').value='90'"
+              style="padding:5px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-secondary);font-size:0.78rem;cursor:pointer;">90天</button>
+            <button type="button" onclick="document.getElementById('pmDays').value='365'"
+              style="padding:5px 12px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-secondary);font-size:0.78rem;cursor:pointer;">365天</button>
+          </div>
+          <input type="number" id="pmDays" min="1" max="999" placeholder="或輸入自訂天數"
+            style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-primary);font-size:0.88rem;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:18px;">
+          <label style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:4px;">備註 <span style="font-size:0.72rem;">選填</span></label>
+          <input type="text" id="pmNote" maxlength="80" placeholder="例：抗菌洗劑×2、低速風筒"
+            style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-primary);font-size:0.88rem;box-sizing:border-box;">
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" style="flex:2;margin:0;" onclick="savePeriodicModal()">💾 儲存</button>
+          <button class="btn" style="flex:1;margin:0;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-secondary);" onclick="closePeriodicModal()">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
