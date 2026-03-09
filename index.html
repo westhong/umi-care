@@ -871,33 +871,19 @@ body::before {
   /* ── Compact log rows (records tab) ── */
   .log-list { list-style: none; padding: 0; margin: 0; }
 
-  /* swipe wrapper */
-  .log-row-wrap {
-    position: relative; overflow: hidden;
-    border-radius: 10px; margin-bottom: 5px;
-  }
-  /* red delete reveal */
-  .log-row-del {
-    position: absolute; right: 0; top: 0; bottom: 0; width: 72px;
-    background: #ef4444; display: flex; align-items: center; justify-content: center;
-    color: #fff; font-size: 1.3rem; border-radius: 10px;
-    transition: width 0.2s;
-  }
-  /* the visible row */
+  /* Simple row – no swipe, no absolute positioning tricks */
+  .log-row-wrap { margin-bottom: 5px; }
+
   .log-row {
-    position: relative; z-index: 1;
     display: flex; align-items: center; gap: 8px;
     padding: 9px 12px;
-    /* MUST be opaque – covers the red delete reveal behind it */
     background: var(--bg-card);
     border: 1px solid var(--glass-border);
     border-radius: 10px;
-    transition: transform 0.25s ease;
     cursor: pointer;
-    user-select: none; -webkit-user-select: none;
-}
-  .log-row:active { opacity: 0.85; }
-  .log-row.swiped { transform: translateX(-72px); }
+    -webkit-tap-highlight-color: rgba(0,0,0,0.05);
+  }
+  .log-row:active { background: var(--bg-card2); }
 
   /* row segments */
   .log-row-icon { font-size: 1.05rem; flex-shrink: 0; }
@@ -911,6 +897,15 @@ body::before {
     font-size: 0.72rem; color: var(--text-muted);
     font-family: var(--mono); flex-shrink: 0;
   }
+  /* Trash btn – subtle, always visible, no swipe needed */
+  .log-del-btn {
+    flex-shrink: 0; background: none; border: none;
+    color: var(--text-muted); font-size: 0.95rem;
+    padding: 4px 2px; cursor: pointer; line-height: 1;
+    border-radius: 6px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .log-del-btn:active { color: #ef4444; background: rgba(239,68,68,0.1); }
   /* coloured status pill */
   .log-pill {
     font-size: 0.65rem; font-weight: 700; padding: 2px 7px;
@@ -1191,7 +1186,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.9</span>
+        <span id="version-badge">v3.9.10</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2669,19 +2664,20 @@ async function loadAdminOverview() {
     }
     let incPinnedHtml = '';
     if (todayIncidents.length && !_pinAcked.inc) {
+      // Store incidents in a map so we can look them up by id for click handler
+      if (!window._incidentDataMap) window._incidentDataMap = {};
       const buildIncItem = (inc, dimmed) => {
         const timeStr = utcToCalgaryClock(inc.reportedAt) || '';
         const resolvedTag = inc.resolved
           ? `<div class="inc-pin-resolved">✅ 已處理 ${inc.resolvedAt ? utcToCalgaryClock(inc.resolvedAt) : ''}</div>` : '';
         const label = typeLabels[inc.type] || ('❗ ' + inc.type);
-        // Build detailData for logDetail modal (same as records tab)
-        const dd = JSON.stringify({
-          type:'incident', id:inc.id, name:label, icon:label.split(' ')[0],
+        // Store data by id for safe retrieval on click (no JSON in attribute)
+        window._incidentDataMap[inc.id] = { type:'incident', id:inc.id,
+          name:label, icon:label.split(' ')[0],
           time:inc.reportedAt, note:inc.note||'', hasPhoto:!!inc.hasPhoto,
-          resolved:!!inc.resolved, resolvedAt:inc.resolvedAt||''
-        }).replace(/'/g,"&#39;");
-        return `<div class="inc-pin-item" style="${dimmed ? 'opacity:0.55;cursor:pointer' : 'cursor:pointer'}"
-          onclick="openLogDetail('${dd}')">
+          resolved:!!inc.resolved, resolvedAt:inc.resolvedAt||'' };
+        return `<div class="inc-pin-item" data-inc-id="${inc.id}"
+          style="${dimmed ? 'opacity:0.55' : ''};cursor:pointer">
           <div class="inc-pin-icon">${label.split(' ')[0] || '🆘'}</div>
           <div class="inc-pin-body">
             <div class="inc-pin-title">${label.split(' ').slice(1).join(' ') || label}</div>
@@ -2798,6 +2794,14 @@ async function loadAdminOverview() {
       (doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 略過</div><div class="timeline">${doneItems.join('')}</div>` : '') +
       ((!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : '');
 
+    // Attach delegated click handler for inc-pin-items (safe: data stored in _incidentDataMap)
+    container.querySelectorAll('.inc-pin-item[data-inc-id]').forEach(el => {
+      el.addEventListener('click', () => {
+        const d = window._incidentDataMap[el.dataset.incId];
+        if (d) openLogDetailFromData(d);
+      });
+    });
+
   } catch(e) {
     container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
   }
@@ -2861,128 +2865,117 @@ async function loadAdminRecords() {
       api('/api/selfreports?date=' + date).catch(() => []),
     ]);
 
-    // ── Task checkin rows (compact) ──
+    // ── Task checkin rows ──
     if (!checkins.length) {
       container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日沒有打卡紀錄</div>';
     } else {
-      const rows = checkins.map(c => {
-        const task  = state.tasks.find(t => t.id === c.taskId);
+      const div = document.createElement('div');
+      div.className = 'log-list';
+      checkins.forEach(c => {
+        const task    = state.tasks.find(t => t.id === c.taskId);
         const timeStr = c.time ? utcToCalgaryClock(c.time) : '--:--';
-        const isDone  = c.isDone;
-        const pill    = isDone ? '<span class="log-pill log-pill-done">✅ 完成</span>'
-                               : '<span class="log-pill log-pill-skip">⏭️ 略過</span>';
+        const pill    = c.isDone
+          ? '<span class="log-pill log-pill-done">✅ 完成</span>'
+          : '<span class="log-pill log-pill-skip">⏭️ 略過</span>';
         const noteChip = c.note ? '<span class="log-chip-btn">📝</span>' : '';
-        const detailData = JSON.stringify({ type:'checkin', taskId:c.taskId,
+
+        const wrap = document.createElement('div');
+        wrap.className = 'log-row-wrap';
+
+        const row = document.createElement('div');
+        row.className = 'log-row';
+        row.innerHTML =
+          `<span class="log-row-icon">${task?.icon || '📋'}</span>` +
+          `<span class="log-row-name">${task?.name || c.taskId}</span>` +
+          `<div class="log-row-chips">${noteChip}${pill}</div>` +
+          `<span class="log-row-time">${timeStr}</span>`;
+
+        // Store data safely on the element (no JSON-in-attribute)
+        row._logData = { type:'checkin', taskId:c.taskId,
           name:(task?.name||c.taskId), icon:(task?.icon||'📋'),
-          time:c.time, isDone:c.isDone, result:c.result, note:c.note,
-          date:date }).replace(/'/g,'&#39;');
-        return `<div class="log-row-wrap" data-swipe-id="ck-${c.taskId}-${date}">
-          <div class="log-row-del" onclick="confirmDeleteCheckin('${c.taskId}','${date}')">🗑️</div>
-          <div class="log-row" onclick="openLogDetail('${detailData}')">
-            <span class="log-row-icon">${task?.icon || '📋'}</span>
-            <span class="log-row-name">${task?.name || c.taskId}</span>
-            <div class="log-row-chips">${noteChip}${pill}</div>
-            <span class="log-row-time">${timeStr}</span>
-          </div>
-        </div>`;
-      }).join('');
-      container.innerHTML = `<div class="log-list">${rows}</div>`;
-      attachSwipeHandlers(container);
+          time:c.time, isDone:c.isDone, result:c.result||'', note:c.note||'', date };
+        row.addEventListener('click', () => openLogDetailFromData(row._logData));
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'log-del-btn';
+        delBtn.textContent = '🗑';
+        delBtn.title = '刪除';
+        delBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          confirmDeleteCheckin(c.taskId, date);
+        });
+        row.appendChild(delBtn);
+        wrap.appendChild(row);
+        div.appendChild(wrap);
+      });
+      container.innerHTML = '';
+      container.appendChild(div);
     }
 
-    // ── Self-report rows (compact) ──
+    // ── Self-report rows ──
     if (selfReportContainer) {
       const labels = {
-        self_feed:  { icon: '🍽️', title: '主動餵糧' },
-        self_treat: { icon: '🐟', title: '主動餵貓條' },
-        self_paste: { icon: '🥣', title: '主動餵貓泥' },
-        other:      { icon: '📝', title: '其他回報' },
+        self_feed:  { icon:'🍽️', title:'主動餵糧' },
+        self_treat: { icon:'🐟', title:'主動餵貓條' },
+        self_paste: { icon:'🥣', title:'主動餵貓泥' },
+        other:      { icon:'📝', title:'其他回報' },
       };
       if (!selfReports.length) {
         selfReportContainer.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">當日沒有主動回報</div>';
       } else {
-        const rows = selfReports.map(item => {
-          const meta    = labels[item.type] || { icon: item.icon || '📝', title: item.title || '主動回報' };
+        const div = document.createElement('div');
+        div.className = 'log-list';
+        selfReports.forEach(item => {
+          const meta    = labels[item.type] || { icon:item.icon||'📝', title:item.title||'主動回報' };
           const timeStr = item.reportedAt ? utcToCalgaryClock(item.reportedAt) : '--:--';
           const qtyStr  = item.quantity ? ` ×${item.quantity}${item.unit||''}` : '';
           const noteChip = item.note ? '<span class="log-chip-btn">📝</span>' : '';
-          const detailData = JSON.stringify({ type:'sr', id:item.id,
+
+          const wrap = document.createElement('div');
+          wrap.className = 'log-row-wrap';
+
+          const row = document.createElement('div');
+          row.className = 'log-row';
+          row.innerHTML =
+            `<span class="log-row-icon">${meta.icon}</span>` +
+            `<span class="log-row-name">${item.title||meta.title}${qtyStr}</span>` +
+            `<div class="log-row-chips">${noteChip}<span class="log-pill log-pill-sr">飼養者</span></div>` +
+            `<span class="log-row-time">${timeStr}</span>`;
+
+          row._logData = { type:'sr', id:item.id,
             name:(item.title||meta.title)+qtyStr, icon:meta.icon,
-            time:item.reportedAt, note:item.note, date:date }).replace(/'/g,'&#39;');
-          return `<div class="log-row-wrap" data-swipe-id="sr-${item.id}">
-            <div class="log-row-del" onclick="deleteSelfReport('${item.id}')">🗑️</div>
-            <div class="log-row" onclick="openLogDetail('${detailData}')">
-              <span class="log-row-icon">${meta.icon}</span>
-              <span class="log-row-name">${item.title||meta.title}${qtyStr}</span>
-              <div class="log-row-chips">${noteChip}<span class="log-pill log-pill-sr">飼養者</span></div>
-              <span class="log-row-time">${timeStr}</span>
-            </div>
-          </div>`;
-        }).join('');
-        selfReportContainer.innerHTML = `<div class="log-list">${rows}</div>`;
-        attachSwipeHandlers(selfReportContainer);
+            time:item.reportedAt, note:item.note||'', date };
+          row.addEventListener('click', () => openLogDetailFromData(row._logData));
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'log-del-btn';
+          delBtn.textContent = '🗑';
+          delBtn.title = '刪除';
+          delBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            deleteSelfReport(item.id);
+          });
+          row.appendChild(delBtn);
+          wrap.appendChild(row);
+          div.appendChild(wrap);
+        });
+        selfReportContainer.innerHTML = '';
+        selfReportContainer.appendChild(div);
       }
     }
   } catch(e) {
-    container.innerHTML = '<div class="text-muted">載入失敗</div>';
+    container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
     if (selfReportContainer) selfReportContainer.innerHTML = '<div class="text-muted">載入失敗</div>';
   }
 }
 
-// ── Swipe-to-reveal-delete ───────────────────────────────────────
-function attachSwipeHandlers(container) {
-  container.querySelectorAll('.log-row-wrap').forEach(wrap => {
-    const row = wrap.querySelector('.log-row');
-    if (!row) return;
-    let startX = 0, startY = 0, dragging = false, swiped = false;
-
-    row.addEventListener('touchstart', e => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      dragging = true;
-    }, { passive: true });
-
-    row.addEventListener('touchmove', e => {
-      if (!dragging) return;
-      const dx = e.touches[0].clientX - startX;
-      const dy = e.touches[0].clientY - startY;
-      if (Math.abs(dy) > Math.abs(dx)) { dragging = false; return; }
-      if (dx < -10) e.preventDefault();
-    }, { passive: false });
-
-    row.addEventListener('touchend', e => {
-      if (!dragging) return;
-      dragging = false;
-      const dx = e.changedTouches[0].clientX - startX;
-      if (dx < -40) {
-        // Swipe left: reveal delete
-        swiped = true;
-        row.classList.add('swiped');
-      } else if (dx > 20) {
-        // Swipe right: hide delete
-        swiped = false;
-        row.classList.remove('swiped');
-      }
-    });
-  });
-
-  // Tap elsewhere to close any open swipe
-  container.addEventListener('touchstart', e => {
-    if (!e.target.closest('.log-row')) {
-      container.querySelectorAll('.log-row.swiped').forEach(r => r.classList.remove('swiped'));
-    }
-  }, { passive: true });
-}
+// Swipe removed (v3.9.10) – delete button is now inline in each row
+function attachSwipeHandlers() { /* no-op: swipe removed */ }
 
 // ── Log detail bottom-sheet modal ────────────────────────────────
 let _logDetailCurrent = null;
 
-function openLogDetail(dataStr) {
-  // If row is swiped open, close it instead of opening detail
-  const activeSwipe = document.querySelector('.log-row.swiped');
-  if (activeSwipe) { activeSwipe.classList.remove('swiped'); return; }
-
-  const data = JSON.parse(dataStr);
+function openLogDetailFromData(data) {
   _logDetailCurrent = data;
 
   document.getElementById('logDetailTitle').textContent = (data.icon || '') + ' ' + (data.name || '');
@@ -3972,7 +3965,9 @@ async function checkPushStatus() {
       container.innerHTML = '<p style="color:#666;text-align:center;padding:20px 0;">目前沒有異常通報紀錄</p>';
       return;
     }
-    const rows = list.map(inc => {
+    const div = document.createElement('div');
+    div.className = 'log-list';
+    list.forEach(inc => {
       const timeStr  = utcToCalgaryClock(inc.reportedAt);
       const label    = typeLabels[inc.type] || ('❗ ' + inc.type);
       const resolved = !!inc.resolved;
@@ -3981,22 +3976,36 @@ async function checkPushStatus() {
       const statusPill = resolved
         ? '<span class="log-pill log-pill-resolved">✅ 已處理</span>'
         : '<span class="log-pill log-pill-inc">待處理</span>';
-      const detailData = JSON.stringify({ type:'incident', id:inc.id,
+
+      const wrap = document.createElement('div');
+      wrap.className = 'log-row-wrap';
+
+      const row = document.createElement('div');
+      row.className = 'log-row' + (resolved ? ' opacity-55' : '');
+      row.innerHTML =
+        `<span class="log-row-icon">${label.split(' ')[0]}</span>` +
+        `<span class="log-row-name">${label.split(' ').slice(1).join(' ')||label}</span>` +
+        `<div class="log-row-chips">${noteChip}${photoChip}${statusPill}</div>` +
+        `<span class="log-row-time">${timeStr}</span>`;
+
+      // Safe: store data on element property (not in HTML attribute)
+      row._logData = { type:'incident', id:inc.id,
         name:label, icon:label.split(' ')[0],
-        time:inc.reportedAt, note:inc.note, hasPhoto:inc.hasPhoto,
-        resolved:inc.resolved, resolvedAt:inc.resolvedAt }).replace(/'/g,'&#39;');
-      return `<div class="log-row-wrap" data-swipe-id="inc-${inc.id}">
-        <div class="log-row-del" onclick="deleteIncident('${inc.id}')">🗑️</div>
-        <div class="log-row${resolved ? ' opacity-55' : ''}" onclick="openLogDetail('${detailData}')">
-          <span class="log-row-icon">${label.split(' ')[0]}</span>
-          <span class="log-row-name">${label.split(' ').slice(1).join(' ')}</span>
-          <div class="log-row-chips">${noteChip}${photoChip}${statusPill}</div>
-          <span class="log-row-time">${timeStr}</span>
-        </div>
-      </div>`;
-    }).join('');
-    container.innerHTML = `<div class="log-list">${rows}</div>`;
-    attachSwipeHandlers(container);
+        time:inc.reportedAt, note:inc.note||'', hasPhoto:!!inc.hasPhoto,
+        resolved:inc.resolved, resolvedAt:inc.resolvedAt||'' };
+      row.addEventListener('click', () => openLogDetailFromData(row._logData));
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'log-del-btn';
+      delBtn.textContent = '🗑';
+      delBtn.title = '刪除';
+      delBtn.addEventListener('click', e => { e.stopPropagation(); deleteIncident(inc.id); });
+      row.appendChild(delBtn);
+      wrap.appendChild(row);
+      div.appendChild(wrap);
+    });
+    container.innerHTML = '';
+    container.appendChild(div);
   }
 
   async function resolveIncident(id) {
