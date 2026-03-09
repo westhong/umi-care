@@ -2418,7 +2418,7 @@ async function showDayDetail(dateStr) {
         <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅' : '⏭️'}</td>
         <td>${c.result || '-'}</td>
         <td class="text-muted">${c.note || '-'}</td>
-        <td class="text-muted" style="font-family:var(--mono);font-size:0.75rem">${c.time ? new Date(c.time).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'}) : '-'}</td>
+        <td class="text-muted" style="font-family:var(--mono);font-size:0.75rem">${c.time ? utcToCalgaryClock(c.time) : '-'}</td>
       </tr>`;
     }).join('');
     detail.innerHTML = `<div class="card">
