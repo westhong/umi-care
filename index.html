@@ -2866,10 +2866,10 @@ function calNextMonth() {
 // ─── ADMIN ─────────────────────────────────────────────────────
 function switchAdminTab(tab) {
   if (tab === 'settings') tab = 'cat';  // settings merged into cat
-  // Read tab name directly from onclick attribute – order-independent
+  // Highlight active tab by matching onclick value directly (no regex)
   document.querySelectorAll('.admin-tab').forEach(t => {
-    const m = t.getAttribute('onclick')?.match(/switchAdminTab\('(\w+)'\)/);
-    t.classList.toggle('active', m ? m[1] === tab : false);
+    const oc = t.getAttribute('onclick') || '';
+    t.classList.toggle('active', oc === "switchAdminTab('" + tab + "')");
   });
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('adminTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
