@@ -1424,7 +1424,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.0.3</span>
+        <span id="version-badge">v4.0.4</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2360,6 +2360,14 @@ function openFeedReportModal() {
 function closeFeedReportModal(e) {
   if (!e || e.target === document.getElementById('feedReportModalOverlay')) {
     document.getElementById('feedReportModalOverlay').classList.remove('open');
+    // Reset state so reopening always starts clean (Fix: stale feed type/note bug)
+    _feedReportType = 'self_feed';
+    _feedReportQty = null;
+    const noteInput = document.getElementById('feedReportNoteInput');
+    if (noteInput) noteInput.value = '';
+    document.querySelectorAll('.feed-type-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelector('[data-feed-type="self_feed"]')?.classList.add('selected');
+    updateFeedQtyOptions();
   }
 }
 
@@ -2376,7 +2384,10 @@ function selectFeedReportQty(qty) {
 }
 
 async function submitFeedReport() {
+  // Fix: guard against undefined feed type (user mis-tapped & type not set)
+  if (!_feedReportType) { showToast('⚠️ 請先選擇餵食類型'); return; }
   const preset = getFeedPreset(_feedReportType);
+  if (!preset) { showToast('⚠️ 未知餵食類型'); return; }
   const note = document.getElementById('feedReportNoteInput').value.trim();
   try {
     const res = await api('/api/selfreports', {
@@ -2709,6 +2720,7 @@ async function submitWeight(taskId) {
 }
 
 async function submitCheckin(taskId) {
+  if (window._isCheckingIn) return; window._isCheckingIn = true;
   const isDone = taskDoneState[taskId];
   if (isDone === undefined || isDone === null) {
     showToast('⚠️ 請先選擇完成 / 略過');
@@ -3527,8 +3539,13 @@ async function resolveIncidentFromModal(id) {
     window._incidentDataMap[id].resolvedAt = new Date().toISOString();
   }
 
-  // 5. Call API in background
+  // 5. Call API in background + refresh records tab if active
   await resolveIncident(id);
+  // Fix: refresh Records list so resolved status shows immediately in history
+  if (document.getElementById('adminTabRecords')?.classList.contains('active')) {
+    loadAdminRecords();
+    loadAdminIncidents();
+  }
 }
 
 async function logDetailLoadPhoto() {
@@ -3863,7 +3880,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.3
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.4
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [
@@ -3938,8 +3955,8 @@ async function loadSpecialTaskAdmin() {
       <div class="st-task-item${t.done ? ' done' : ''}">
         <div class="st-task-icon">${t.icon || '📌'}</div>
         <div class="st-task-body">
-          <div class="st-task-name${t.done ? ' done' : ''}">${t.name}</div>
-          ${t.note ? `<div class="st-task-note">📝 ${t.note}</div>` : ''}
+          <div class="st-task-name${t.done ? ' done' : ''}">${escapeHtml(t.name)}</div>
+          ${t.note ? `<div class="st-task-note">📝 ${escapeHtml(t.note)}</div>` : ''}
           <div class="st-task-meta">派發時間：${timeStr}</div>
           ${t.done
             ? `<span class="st-task-status-done">✅ 已完成${doneStr ? '  ' + doneStr : ''}</span>`
@@ -4143,6 +4160,9 @@ async function exportData() {
 }
 
 // ─── TOAST & CONFETTI ──────────────────────────────────────────
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -4296,6 +4316,10 @@ async function refreshAdmin(showIndicator) {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     refreshAdhocForCaregiver(false);
+    // Fix: also refresh admin data if admin page is open
+    if (state.adminMode && !document.getElementById('pageAdmin')?.classList.contains('hidden')) {
+      refreshAdmin();
+    }
   }
 });
 
@@ -4565,6 +4589,13 @@ async function checkPushStatus() {
   function previewIncidentPhoto(input) {
     const file = input.files[0];
     if (!file) return;
+    // Fix: reject files > 8 MB before even reading (prevents base64 memory spike)
+    const MAX_BYTES = 8 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      showToast('⚠️ 照片過大（上限 8 MB），請選擇較小的圖片');
+      input.value = '';
+      return;
+    }
     // Compress image before storing
     const reader = new FileReader();
     reader.onload = function(e) {
