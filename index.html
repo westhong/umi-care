@@ -1069,6 +1069,18 @@ body::before {
   border-bottom: 1px solid rgba(239,68,68,0.09);
 }
 .inc-pin-item:last-of-type { border-bottom: none; }
+.inc-pin-item.resolved {
+  opacity: 0.52;
+  pointer-events: none;
+}
+.inc-pin-item.resolved .inc-pin-icon {
+  background: linear-gradient(135deg,#f1f5f9,#e2e8f0);
+  box-shadow: none;
+}
+.inc-pin-item.resolved .inc-pin-title {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
 .inc-pin-icon {
   width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
   background: linear-gradient(135deg,#fef2f2,#fee2e2);
@@ -1230,7 +1242,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.20</span>
+        <span id="version-badge">v3.9.21</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2707,30 +2719,48 @@ async function loadAdminOverview() {
     if (_pinAcked.inc && unresolvedInc.length > 0) { _pinAcked.inc = false; }
 
     let incPinnedHtml = '';
+    // Show pin if: has unresolved AND not session-dismissed
+    // Also show dimmed resolved items (current session) alongside unresolved ones
+    const hasAnyIncToShow = (unresolvedInc.length > 0 && !_pinAcked.inc) || resolvedInc.length > 0;
     if (unresolvedInc.length > 0 && !_pinAcked.inc) {
       if (!window._incidentDataMap) window._incidentDataMap = {};
+      // Build a single incident row (handles both resolved + unresolved)
       const buildIncItem = (inc) => {
-        const timeStr = utcToCalgaryClock(inc.reportedAt) || '';
+        const timeStr  = utcToCalgaryClock(inc.reportedAt) || '';
         const label    = typeLabels[inc.type] || ('❗ ' + inc.type);
         const iconPart = label.split(' ')[0] || '❗';
         const namePart = label.split(' ').slice(1).join(' ') || label;
         window._incidentDataMap[inc.id] = {
           type:'incident', id:inc.id, name:label, icon:iconPart,
           time:inc.reportedAt, note:inc.note||'', hasPhoto:!!inc.hasPhoto,
-          resolved:false, resolvedAt:''
+          resolved:inc.resolved||false, resolvedAt:inc.resolvedAt||''
         };
         const metaTxt = timeStr + (inc.note ? ' — ' + inc.note : '');
-        return `<div class="inc-pin-item" data-inc-id="${inc.id}" style="cursor:pointer">
+        const isResolved = !!inc.resolved;
+        const resolvedTag = isResolved
+          ? `<div class="inc-pin-resolved">✅ 已完成</div>`
+          : '';
+        const arrow = isResolved
+          ? `<span style="color:#3aaa63;font-size:0.8rem;flex-shrink:0">✅</span>`
+          : `<span style="color:var(--text-muted);font-size:0.9rem;flex-shrink:0">›</span>`;
+        const photoChip = (!isResolved && inc.hasPhoto)
+          ? '<span class="log-chip-btn" style="margin-top:4px;display:inline-block;font-size:0.72rem">📷 點擊查看照片</span>'
+          : '';
+        return `<div class="inc-pin-item${isResolved ? ' resolved' : ''}" data-inc-id="${inc.id}" ${isResolved ? '' : 'style="cursor:pointer"'}>
           <div class="inc-pin-icon">${iconPart}</div>
           <div class="inc-pin-body">
             <div class="inc-pin-title">${namePart}</div>
             <div class="inc-pin-meta">${metaTxt}</div>
-            ${inc.hasPhoto ? '<span class="log-chip-btn" style="margin-top:4px;display:inline-block;font-size:0.72rem">📷 點擊查看照片</span>' : ''}
+            ${resolvedTag}${photoChip}
           </div>
-          <span style="color:var(--text-muted);font-size:0.9rem;flex-shrink:0">›</span>
+          ${arrow}
         </div>`;
       };
-      const incItems = unresolvedInc.map(i => buildIncItem(i)).join('');
+      // Render unresolved first, then resolved (dimmed) below
+      const incItems = [
+        ...unresolvedInc.map(i => buildIncItem(i)),
+        ...resolvedInc.map(i => buildIncItem(i))
+      ].join('');
       incPinnedHtml = `
         <div class="inc-pin-section" id="incPinSection">
           <div class="inc-pin-header">
@@ -3128,11 +3158,56 @@ function closeLogDetail(e) {
   _logDetailCurrent = null;
 }
 
-// Resolve incident from modal: close modal, remove from pin, call API
+// Resolve incident from modal: close modal, dim the pin item instantly, call API
 async function resolveIncidentFromModal(id) {
+  // 1. Close the detail modal immediately
   const overlay = document.getElementById('logDetailOverlay');
   overlay.classList.remove('open');
   _logDetailCurrent = null;
+
+  // 2. Instantly dim the inc-pin-item in the overview (no waiting for API)
+  const pinItem = document.querySelector(`.inc-pin-item[data-inc-id="${id}"]`);
+  if (pinItem) {
+    pinItem.classList.add('resolved');
+    pinItem.style.cursor = '';
+    pinItem.style.pointerEvents = 'none';
+    // Swap arrow ›  with  ✅
+    const arrowEl = pinItem.querySelector('span[style*="flex-shrink"]');
+    if (arrowEl) { arrowEl.textContent = '✅'; arrowEl.style.color = '#3aaa63'; arrowEl.style.fontSize = '0.8rem'; }
+    // Add ✅ 已完成 tag under meta
+    const bodyEl = pinItem.querySelector('.inc-pin-body');
+    if (bodyEl && !bodyEl.querySelector('.inc-pin-resolved')) {
+      const tag = document.createElement('div');
+      tag.className = 'inc-pin-resolved';
+      tag.textContent = '✅ 已完成';
+      bodyEl.appendChild(tag);
+    }
+    // Strikethrough the title
+    const titleEl = pinItem.querySelector('.inc-pin-title');
+    if (titleEl) titleEl.style.textDecoration = 'line-through';
+  }
+
+  // 3. Update badge count in the pin header
+  const badge = document.querySelector('#incPinSection .inc-pin-badge');
+  if (badge) {
+    const cur = parseInt(badge.textContent) || 1;
+    const newCount = Math.max(0, cur - 1);
+    badge.textContent = newCount + ' 則待處理';
+    if (newCount === 0) {
+      // All resolved – change header colour to green
+      badge.style.background = 'rgba(82,199,126,0.15)';
+      badge.style.color = '#3aaa63';
+      badge.style.borderColor = 'rgba(82,199,126,0.28)';
+    }
+  }
+
+  // 4. Update _incidentDataMap so detail modal shows correct resolved state
+  if (window._incidentDataMap && window._incidentDataMap[id]) {
+    window._incidentDataMap[id].resolved = true;
+    window._incidentDataMap[id].resolvedAt = new Date().toISOString();
+  }
+
+  // 5. Call API in background
   await resolveIncident(id);
 }
 
