@@ -13,6 +13,8 @@
   v4.0.5  fix: deleteIncident missing loadAdminOverview → pin stays
   v4.0.6  fix: typeLabels 3-way inconsistency (other/❓→❗/其他異常)
   v4.1.0  LTS: Long-Term Support release, meta tags, export metadata
+  v4.1.1  fix: .hidden CSS rule missing (temWeekdaysRow never hides),
+              saveTaskModal missing try/catch (silent API failures)
 -->
 <html lang="zh-HK">
 <head>
@@ -21,9 +23,9 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <meta name="theme-color" content="#ff85a1">
 <meta charset="UTF-8">
-<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.1.0 LTS">
+<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.1.1">
   <meta name="application-name" content="UmiCare">
-  <meta name="version" content="4.1.0-lts">
+  <meta name="version" content="4.1.1">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>UmiCare 🐱 屋咪照護</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1442,7 +1444,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.1.0 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">LTS</span></span>
+        <span id="version-badge">v4.1.1 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">LTS</span></span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -3849,11 +3851,18 @@ async function saveTaskModal() {
     };
   }
 
-  await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
-  showToast(isNew ? '✅ 任務已新增' : '✅ 任務已更新');
-  closeTaskModal();
-  loadAdminTasks();
-  renderTaskList();
+  try {
+    await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
+    showToast(isNew ? '✅ 任務已新增' : '✅ 任務已更新');
+    closeTaskModal();
+    loadAdminTasks();
+    renderTaskList();
+  } catch (e) {
+    console.error('saveTaskModal error:', e);
+    showToast('❌ 儲存失敗，請重試');
+    // rollback optimistic push
+    if (isNew) state.tasks.pop();
+  }
 }
 
 async function deleteCurrentTask() {
@@ -3905,7 +3914,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.1.0
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.1.1
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [
@@ -5062,6 +5071,8 @@ async function deletePeriodicTask(taskId) {
   z-index: 9000; padding: 16px;
 }
 .modal-overlay.hidden { display: none !important; }
+/* global helper used by JS classList.toggle('hidden') */
+.hidden { display: none !important; }
 .modal-box {
   background: var(--card-bg, #fff); border-radius: 16px;
   width: 100%; max-width: 480px; box-shadow: 0 8px 40px rgba(0,0,0,0.25);
