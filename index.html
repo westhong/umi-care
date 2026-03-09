@@ -1411,7 +1411,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.24</span>
+        <span id="version-badge">v3.9.25</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1530,6 +1530,16 @@ body::before {
             <button onclick="loadAdminRecords()" style="background:rgba(255,255,255,0.07);border:none;border-radius:8px;padding:5px 12px;color:#aaa;font-size:0.8rem;cursor:pointer;">🔄 刷新</button>
           </div>
           <div id="adminSelfReportsList">
+            <p style="color:#666;text-align:center;padding:20px 0;">載入中...</p>
+          </div>
+        </div>
+
+        <!-- Special Tasks Records Section -->
+        <div style="margin-top: 24px; padding-bottom: 8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h3 style="color:var(--primary); margin:0; font-size:1rem;">✨ 特殊任務紀錄</h3>
+          </div>
+          <div id="adminSpecialTaskRecords">
             <p style="color:#666;text-align:center;padding:20px 0;">載入中...</p>
           </div>
         </div>
@@ -1797,6 +1807,14 @@ async function loadApp() {
     state.settings = settings;
     state.weightsList = weights || [];
     state.adhocRequests = (adhoc || []).filter(a => !a.done);
+    // Completed special tasks for today (shown dimmed in caretaker view)
+    state.adhocDoneToday = (adhoc || []).filter(a => {
+      if (!a.done || !a.doneAt) return false;
+      try {
+        const calDate = getCalgaryDate(new Date(a.doneAt));
+        return calDate.toISOString().slice(0,10) === state.currentDate;
+      } catch(_) { return false; }
+    });
     state.selfReports = selfReports || [];
     // Cat name: cat profile takes priority over settings
     if (cat && cat.name) {
@@ -2152,8 +2170,25 @@ function renderTaskList() {
     else pending.push({ task, checkin });
   });
 
-  // Adhoc request cards from admin (always shown at top of pending)
+  // Adhoc request cards from admin (pending only – at top)
   const adhocCards = (state.adhocRequests || []).map(a => renderAdhocCard(a)).join('');
+
+  // Completed special tasks for today (dimmed, read-only)
+  const todayDoneAdhoc = (state.adhocDoneToday || []);
+  const adhocDoneCards = todayDoneAdhoc.map(a => `
+    <div class="task-card" style="opacity:0.5;pointer-events:none;">
+      <div class="task-header">
+        <div class="task-icon">${a.icon || '📌'}</div>
+        <div class="task-info">
+          <div class="task-name" style="text-decoration:line-through;">${a.name}</div>
+          <div class="task-time">
+            <span class="adhoc-time-tag">📌 特殊任務</span>
+            ${a.doneAt ? ' · ' + (utcToCalgaryClock ? utcToCalgaryClock(a.doneAt) : '') : ''}
+          </div>
+        </div>
+        <div class="task-status" style="color:#4ade80;">✅ 完成</div>
+      </div>
+    </div>`).join('');
 
   let html = '<div class="tasks-pending-section">';
   html += adhocCards;
@@ -2166,9 +2201,11 @@ function renderTaskList() {
   }
   html += '</div>';
 
-  if (done.length > 0) {
-    html += `<div class="tasks-done-divider"><span>✅ 已完成 (${done.length})</span></div>`;
+  if (done.length > 0 || adhocDoneCards) {
+    const doneCount = done.length + todayDoneAdhoc.length;
+    html += `<div class="tasks-done-divider"><span>✅ 已完成 (${doneCount})</span></div>`;
     html += '<div class="tasks-done-section">';
+    html += adhocDoneCards;
     html += done.map(({ task, checkin }) => renderTaskCard(task, checkin)).join('');
     html += '</div>';
   }
@@ -3028,6 +3065,36 @@ async function loadAdminOverview() {
       else pendItems.push(card);
     });
 
+    // ── Load completed special tasks for today ──
+    let specialDoneHtml = '';
+    try {
+      const allAdhoc = await api('/api/adhoc').catch(() => []);
+      const todayDone = allAdhoc.filter(t => {
+        if (!t.done || !t.doneAt) return false;
+        // Compare doneAt date in Calgary timezone
+        const calDate = t.doneAt ? getCalgaryDate(new Date(t.doneAt)) : null;
+        if (!calDate) return false;
+        const dStr = calDate.toISOString().slice(0,10);
+        return dStr === date;
+      });
+      if (todayDone.length) {
+        specialDoneHtml = `
+          <div class="ov-section-title" style="margin-top:16px;">✨ 今日完成的特殊任務</div>
+          <div class="st-task-list" style="margin-bottom:16px;">
+            ${todayDone.map(t => `
+              <div class="st-task-item done">
+                <div class="st-task-icon">${t.icon || '📌'}</div>
+                <div class="st-task-body">
+                  <div class="st-task-name done">${t.name}</div>
+                  ${t.note ? `<div class="st-task-note">📝 ${t.note}</div>` : ''}
+                  <div class="st-task-meta">完成時間：${new Date(t.doneAt).toLocaleString('zh-HK',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+                  <span class="st-task-status-done">✅ 已完成</span>
+                </div>
+              </div>`).join('')}
+          </div>`;
+      }
+    } catch(_) {}
+
     container.innerHTML =
       // ① Alerts always first
       `<div class="alert-panel">${incPinnedHtml}${pinnedHtml}${clearHtml}</div>` +
@@ -3041,7 +3108,9 @@ async function loadAdminOverview() {
       // ③ Task timeline
       (pendItems.length ? `<div class="ov-section-title">⏳ 待完成 / 逾時</div><div class="timeline">${pendItems.join('')}</div>` : '') +
       (doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 略過</div><div class="timeline">${doneItems.join('')}</div>` : '') +
-      ((!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : '');
+      ((!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : '') +
+      // ④ Completed special tasks for today (dimmed, no delete)
+      specialDoneHtml;
 
     // Attach delegated click handler for inc-pin-items (safe: data stored in _incidentDataMap)
     container.querySelectorAll('.inc-pin-item[data-inc-id]').forEach(el => {
@@ -3050,6 +3119,55 @@ async function loadAdminOverview() {
         if (d) openLogDetailFromData(d);
       });
     });
+
+    // ── Special task records for selected date ──
+    const stRecordsContainer = document.getElementById('adminSpecialTaskRecords');
+    if (stRecordsContainer) {
+      try {
+        const allAdhoc = await api('/api/adhoc').catch(() => []);
+        const dateDone = allAdhoc.filter(t => {
+          if (!t.done || !t.doneAt) return false;
+          const calDate = getCalgaryDate(new Date(t.doneAt));
+          if (!calDate) return false;
+          return calDate.toISOString().slice(0,10) === date;
+        });
+        if (!dateDone.length) {
+          stRecordsContainer.innerHTML = '<div class="text-muted" style="padding:12px;text-align:center;font-size:0.85rem;">當日沒有特殊任務完成紀錄</div>';
+        } else {
+          const doneDiv = document.createElement('div');
+          doneDiv.className = 'log-list';
+          dateDone.forEach(t => {
+            const timeStr = t.doneAt ? utcToCalgaryClock(t.doneAt) : '--:--';
+            const doneNote = t.doneNote ? ` · ${t.doneNote}` : '';
+            const wrap = document.createElement('div');
+            wrap.className = 'log-row-wrap';
+            const row = document.createElement('div');
+            row.className = 'log-row';
+            row.innerHTML =
+              `<span class="log-row-icon">${t.icon || '📌'}</span>` +
+              `<span class="log-row-name">${t.name}${t.note ? ' <span style="font-size:0.75rem;color:var(--text-muted);">· '+t.note+'</span>' : ''}</span>` +
+              `<div class="log-row-chips"><span class="log-pill log-pill-done">✅ 完成</span></div>` +
+              `<span class="log-row-time">${timeStr}${doneNote}</span>`;
+            // Admin delete button
+            const delBtn = document.createElement('button');
+            delBtn.className = 'log-del-btn';
+            delBtn.textContent = '🗑';
+            delBtn.title = '刪除（管理員）';
+            delBtn.addEventListener('click', e => {
+              e.stopPropagation();
+              deleteSpecialTask(t.id);
+            });
+            row.appendChild(delBtn);
+            wrap.appendChild(row);
+            doneDiv.appendChild(wrap);
+          });
+          stRecordsContainer.innerHTML = '';
+          stRecordsContainer.appendChild(doneDiv);
+        }
+      } catch(_) {
+        stRecordsContainer.innerHTML = '<div style="color:#f87171;text-align:center;padding:12px;">載入失敗</div>';
+      }
+    }
 
   } catch(e) {
     container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
@@ -3779,18 +3897,17 @@ async function loadSpecialTaskAdmin() {
   if (!container) return;
   try {
     const list = await api('/api/adhoc');
-    if (!list.length) {
+
+    // Show PENDING only in this tab; completed tasks go to overview + records
+    const sorted = list.filter(t => !t.done)
+                       .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    if (!sorted.length) {
       container.innerHTML = `<div style="text-align:center;padding:28px 20px;color:var(--text-muted);font-size:0.88rem;">
-        目前沒有任何特殊任務<br>
+        目前沒有待完成的特殊任務<br>
         <span style="font-size:0.78rem;margin-top:4px;display:block;">點上方快速選擇或填寫自訂任務後按「立即派發」</span>
       </div>`;
       return;
     }
-    // Sort: pending first, done last
-    const sorted = [...list].sort((a,b) => {
-      if (a.done === b.done) return new Date(b.createdAt) - new Date(a.createdAt);
-      return a.done ? 1 : -1;
-    });
     container.innerHTML = `<div class="st-task-list">${sorted.map(t => {
       const timeStr = t.createdAt ? new Date(t.createdAt).toLocaleString('zh-HK', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
       const doneStr = t.doneAt   ? new Date(t.doneAt).toLocaleString('zh-HK',   { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
@@ -3829,8 +3946,12 @@ async function dispatchSpecialTask() {
     showToast('✅ 已派發特殊任務給飼養員');
     loadSpecialTaskAdmin();
     // Refresh caretaker task list too
-    state.adhocRequests = await api('/api/adhoc').catch(() => []);
-    state.adhocRequests = state.adhocRequests.filter(a => !a.done);
+    const fresh = await api('/api/adhoc').catch(() => []);
+    state.adhocRequests = fresh.filter(a => !a.done);
+    state.adhocDoneToday = fresh.filter(a => {
+      if (!a.done || !a.doneAt) return false;
+      try { return getCalgaryDate(new Date(a.doneAt)).toISOString().slice(0,10) === state.currentDate; } catch(_) { return false; }
+    });
     renderTaskList();
   } catch(e) { showToast('❌ 派發失敗：' + e.message); }
 }
@@ -3841,8 +3962,12 @@ async function deleteSpecialTask(id) {
     await api('/api/adhoc/' + id, { method: 'DELETE' });
     showToast('🗑️ 已刪除');
     loadSpecialTaskAdmin();
-    state.adhocRequests = await api('/api/adhoc').catch(() => []);
-    state.adhocRequests = state.adhocRequests.filter(a => !a.done);
+    const fresh2 = await api('/api/adhoc').catch(() => []);
+    state.adhocRequests = fresh2.filter(a => !a.done);
+    state.adhocDoneToday = fresh2.filter(a => {
+      if (!a.done || !a.doneAt) return false;
+      try { return getCalgaryDate(new Date(a.doneAt)).toISOString().slice(0,10) === state.currentDate; } catch(_) { return false; }
+    });
     renderTaskList();
   } catch(e) { showToast('❌ 刪除失敗'); }
 }

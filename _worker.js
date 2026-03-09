@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.9.24', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.9.25', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
