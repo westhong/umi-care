@@ -1424,7 +1424,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.0.5</span>
+        <span id="version-badge">v4.0.6</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2423,6 +2423,8 @@ async function deleteSelfReport(id) {
     state.selfReports = (state.selfReports || []).filter(item => item.id !== id);
     showToast('🗑️ 已刪除主動回報');
     loadAdminRecords();
+    // Fix: refresh overview so amber self-report pin disappears
+    loadAdminOverview();
   } catch (e) {
     showToast('❌ 刪除失敗，請重試');
   }
@@ -2715,6 +2717,7 @@ async function submitWeight(taskId) {
     updateCatProfileCard();
     await reloadCheckins(taskId);
   } catch(e) {
+    window._isCheckingIn = false; // Fix: reset guard on error
     showToast('❌ 記錄失敗，請重試');
   }
 }
@@ -2723,6 +2726,7 @@ async function submitCheckin(taskId) {
   if (window._isCheckingIn) return; window._isCheckingIn = true;
   const isDone = taskDoneState[taskId];
   if (isDone === undefined || isDone === null) {
+    window._isCheckingIn = false; // Fix: reset guard on early return
     showToast('⚠️ 請先選擇完成 / 略過');
     return;
   }
@@ -2738,6 +2742,7 @@ async function submitCheckin(taskId) {
     else showToast('📝 已記錄');
     delete taskDoneState[taskId];
     delete taskResultState[taskId];
+    window._isCheckingIn = false; // Fix: reset guard after success
     await reloadCheckins(isDone ? taskId : null);
     if (!isDone) toggleTask(taskId);
   } catch(e) {
@@ -2995,7 +3000,7 @@ async function loadAdminOverview() {
           ? `<span style="color:#3aaa63;font-size:0.8rem;flex-shrink:0">✅</span>`
           : `<span style="color:var(--text-muted);font-size:0.9rem;flex-shrink:0">›</span>`;
         const photoChip = (!isResolved && inc.hasPhoto)
-          ? '<span class="log-chip-btn" style="margin-top:4px;display:inline-block;font-size:0.72rem">📷 點擊查看照片</span>'
+          ? `<span class="log-chip-btn" style="margin-top:4px;display:inline-block;font-size:0.72rem" onclick="event.stopPropagation();viewIncidentPhotoFromPin('${inc.id}')">📷 點擊查看照片</span>`
           : '';
         return `<div class="inc-pin-item${isResolved ? ' resolved' : ''}" data-inc-id="${inc.id}" ${isResolved ? '' : 'style="cursor:pointer"'}>
           <div class="inc-pin-icon">${iconPart}</div>
@@ -3583,6 +3588,8 @@ async function confirmDeleteCheckin(taskId, date) {
     await api('/api/checkins?date=' + date + '&taskId=' + encodeURIComponent(taskId), { method: 'DELETE' });
     showToast('🗑️ 已刪除打卡記錄');
     loadAdminRecords();
+    // Fix: refresh overview so completion % updates immediately
+    loadAdminOverview();
   } catch(e) { showToast('⚠️ 刪除失敗: ' + e.message); }
 }
 
@@ -3880,7 +3887,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.5
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.6
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [
@@ -4707,6 +4714,8 @@ async function checkPushStatus() {
     await api('/api/incidents/' + id + '/resolve', { method: 'POST', body: JSON.stringify({ note: '' }) });
     showToast('✅ 已標記為處理完成');
     loadAdminIncidents();
+    // Fix: refresh overview so badge count syncs with server state
+    loadAdminOverview();
   }
 
   async function deleteIncident(id) {
