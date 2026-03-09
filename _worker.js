@@ -48,7 +48,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p2', icon: '🍮', name: '貓泥', weeklyMax: 3, weeklyCount: 0, weekStart: null, lastDoneAt: null },
   { id: 'p3', icon: '✂️', name: '剪指甲', intervalDays: 14, lastDoneAt: null },
   { id: 'p4', icon: '👂', name: '清耳朵', intervalDays: 14, lastDoneAt: null },
-  { id: 'p5', icon: '🪣', name: '全盆更換貓砂（豆腐砂）', intervalDays: 25, lastDoneAt: null, note: '深度 3–4 公分' },
+  { id: 'p5', icon: '🪣', name: '全盆更換貓砂（木薯砂）', intervalDays: 25, lastDoneAt: null, note: '木薯砂，一包' },
   { id: 'p6', icon: '🛁', name: '洗澡', intervalDays: 45, lastDoneAt: null, note: '抗菌洗劑 ×2、低速吹風機、擦拭臉部' },
   { id: 'p7', icon: '🏥', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
