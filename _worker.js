@@ -53,7 +53,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.9.1' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.9.3' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.9.1', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.9.3', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -385,10 +385,18 @@ async function handleApi(request, env, url) {
     }
 
     // === Incident Reports ===
-    // GET /api/incidents
+    // GET /api/incidents  (optional ?date=YYYY-MM-DD filter)
     if (path === '/incidents' && method === 'GET') {
       const raw = await KV.get('incidents:list');
-      return json(raw ? JSON.parse(raw) : []);
+      const list = raw ? JSON.parse(raw) : [];
+      const dateFilter = url.searchParams.get('date');
+      if (dateFilter) {
+        const filtered = list.filter(inc =>
+          getCalgaryDateStr(new Date(inc.reportedAt || Date.now())) === dateFilter
+        );
+        return json(filtered);
+      }
+      return json(list);
     }
     // POST /api/incidents — caregiver reports vomit/abnormal with optional photo
     if (path === '/incidents' && method === 'POST') {

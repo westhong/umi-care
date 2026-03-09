@@ -1010,7 +1010,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.1</span>
+        <span id="version-badge">v3.9.3</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1132,7 +1132,7 @@ body::before {
       <div id="adminTabRecords" class="admin-tab-content">
         <div class="form-field">
           <label>選擇日期</label>
-          <input type="date" id="recordsDatePicker" onchange="loadAdminRecords()">
+          <input type="date" id="recordsDatePicker" onchange="loadAdminRecords();loadAdminIncidents()">
         </div>
         <div id="adminRecordsContent"><div class="loading-spin"></div></div>
 
@@ -1359,35 +1359,11 @@ async function loadCat() {
 }
 
 function updateCatProfileCard() {
-  const cat = state.cat || {};
-  const nameEl = document.getElementById('catCardName');
-  const breedEl = document.getElementById('catCardBreed');
-  const bdayEl = document.getElementById('catCardBday');
-  const wtEl = document.getElementById('catCardWeight');
-  if (nameEl) nameEl.textContent = cat.name || state.catName || '屋咪';
-  // Update weight table header if visible
+  // Update weight table header cat name if the weights tab is currently rendered
   const wth = document.getElementById('weightTableCatHeader');
-  if (wth) wth.textContent = (cat.name || state.catName || '貓咪') + '體重';
-  if (breedEl) breedEl.textContent = cat.breed || '未設定';
-  if (bdayEl) {
-    if (cat.birthdate) {
-      const bd = new Date(cat.birthdate);
-      const now = getCalgaryDate();
-      const ageMs = now - bd;
-      const ageYears = Math.floor(ageMs / (365.25 * 24 * 3600000));
-      const ageMonths = Math.floor((ageMs % (365.25 * 24 * 3600000)) / (30.44 * 24 * 3600000));
-      bdayEl.textContent = `${cat.birthdate} (${ageYears > 0 ? ageYears + '歲' : ''}${ageMonths}個月)`;
-    } else {
-      bdayEl.textContent = '未設定';
-    }
-  }
-  if (wtEl) {
-    // Try to get latest weight from weights history
-    if (state.latestCatWeight) {
-      wtEl.textContent = state.latestCatWeight + ' kg';
-    } else {
-      wtEl.textContent = '未記錄';
-    }
+  if (wth) {
+    const name = (state.cat?.name || state.catName || '貓咪');
+    wth.textContent = name + '體重';
   }
 }
 
@@ -1444,14 +1420,8 @@ async function loadLatestWeight() {
   } catch(e) {}
 }
 
-function toggleCatCard() {
-  const body = document.getElementById('catCardBody');
-  const icon = document.getElementById('catCardToggleIcon');
-  if (!body) return;
-  const isHidden = body.classList.contains('hidden');
-  body.classList.toggle('hidden', !isHidden);
-  if (icon) icon.textContent = isHidden ? '▼' : '▶';
-}
+// toggleCatCard – cat card UI was removed; function kept as no-op for safety
+function toggleCatCard() { /* no-op – cat card removed from caregiver view */ }
 
 function getCalgaryDate() {
   // Calgary: MST = UTC-7, MDT = UTC-6 (second Sun March – first Sun Nov)
@@ -2446,9 +2416,9 @@ function calNextMonth() {
 
 // ─── ADMIN ─────────────────────────────────────────────────────
 function switchAdminTab(tab) {
-  document.querySelectorAll('.admin-tab').forEach((t,i) => {
-    const tabs = ['overview','records','weights','tasks','periodic','cat'];
   if (tab === 'settings') tab = 'cat';  // settings merged into cat
+  const tabs = ['overview','records','weights','tasks','periodic','cat'];
+  document.querySelectorAll('.admin-tab').forEach((t, i) => {
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
@@ -3485,7 +3455,8 @@ async function checkPushStatus() {
   // Admin: load and render incidents
   async function loadAdminIncidents() {
     try {
-      const list = await api('/api/incidents');
+      const date = document.getElementById('recordsDatePicker')?.value || state.currentDate;
+      const list = await api('/api/incidents?date=' + date);
       renderAdminIncidents(list);
     } catch(e) { console.error('loadAdminIncidents:', e); }
   }
@@ -3500,14 +3471,26 @@ async function checkPushStatus() {
     }
     container.innerHTML = list.map(inc => {
       const dt = utcToCalgaryClock(inc.reportedAt);
-      const date = utcToCalgaryDate ? utcToCalgaryDate(inc.reportedAt) : inc.reportedAt.slice(0,10);
+      // Derive Calgary date string from the ISO timestamp without a missing helper
+      const _incDate = (() => {
+        try {
+          const d = new Date(inc.reportedAt);
+          const yr = d.getUTCFullYear();
+          // DST start: 2nd Sunday March 09:00 UTC / end: 1st Sunday Nov 08:00 UTC
+          const ds = (() => { const x=new Date(Date.UTC(yr,2,1)); let n=0; while(n<2){if(x.getUTCDay()===0)n++; if(n<2)x.setUTCDate(x.getUTCDate()+1);} x.setUTCHours(9,0,0,0); return x; })();
+          const de = (() => { const x=new Date(Date.UTC(yr,10,1)); while(x.getUTCDay()!==0)x.setUTCDate(x.getUTCDate()+1); x.setUTCHours(8,0,0,0); return x; })();
+          const off = (d>=ds && d<de) ? -6 : -7;
+          const c = new Date(d.getTime()+off*3600000);
+          return c.getUTCFullYear()+'-'+String(c.getUTCMonth()+1).padStart(2,'0')+'-'+String(c.getUTCDate()).padStart(2,'0');
+        } catch(_){ return (inc.reportedAt||'').slice(0,10); }
+      })();
       return `<div class="incident-card ${inc.resolved ? 'resolved' : ''}">
         <div class="incident-card-header">
           <span class="incident-card-type">${typeLabels[inc.type] || inc.type}</span>
-          <span class="incident-card-time">${date} ${dt}</span>
+          <span class="incident-card-time">${_incDate} ${dt}</span>
         </div>
         ${inc.note ? `<div class="incident-card-note">📝 ${inc.note}</div>` : ''}
-        ${inc.hasPhoto || inc.photo ? `<img class="incident-card-photo" id="inc-photo-${inc.id}" src="${inc.photo || ''}" alt="事發照片" onclick="viewIncidentPhoto('${inc.id}')" onerror="loadIncidentPhoto('${inc.id}')">` : ''}
+        ${inc.hasPhoto ? `<img class="incident-card-photo" id="inc-photo-${inc.id}" src="${inc.photo || ''}" alt="事發照片" style="${inc.photo ? '' : 'display:none'}" onclick="viewIncidentPhoto('${inc.id}')"><button class="btn btn-secondary" style="font-size:0.78rem;padding:4px 10px;margin-top:4px" onclick="loadIncidentPhoto('${inc.id}')">🖼️ 載入照片</button>` : ''}
         <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
           ${!inc.resolved ? `<button class="incident-resolve-btn" onclick="resolveIncident('${inc.id}')">✅ 標記處理</button>` : `<span style="color:#4ade80;font-size:0.8rem">✅ 已處理 ${utcToCalgaryClock(inc.resolvedAt||'')}</span>`}
           <button class="incident-delete-btn" onclick="deleteIncident('${inc.id}')">🗑️ 刪除</button>
