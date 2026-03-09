@@ -53,7 +53,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', icon: '🏥', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.9.4' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '4.1.0' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '4.0.6', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '4.1.0', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
