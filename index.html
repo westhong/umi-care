@@ -821,41 +821,59 @@ body::before {
   }
   .incident-modal-overlay.open { display: flex; }
   .incident-modal {
-    background: #1e1e2e; border-radius: 20px 20px 0 0;
-    padding: 20px; width: 100%; max-width: 480px;
-    max-height: 85vh; overflow-y: auto;
+    background: var(--bg-card); border-radius: 20px 20px 0 0;
+    padding: 20px 20px 32px; width: 100%; max-width: 480px;
+    max-height: 85vh; overflow-y: auto; position: relative;
     animation: slideUp 0.3s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 -4px 32px rgba(255,133,161,0.15);
   }
   @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-  .incident-modal h3 { color: #f87171; margin: 0 0 16px; font-size: 1.1rem; }
+  .incident-modal h3 { color: var(--danger); margin: 0 0 16px; font-size: 1.1rem; font-weight: 700; padding-right: 32px; }
+  .incident-modal-close {
+    position: absolute; top: 16px; right: 16px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--bg-card2); border: none;
+    color: var(--text-muted); font-size: 1rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .incident-modal-close:hover { background: rgba(255,133,161,0.18); }
+  .incident-modal-handle {
+    width: 36px; height: 4px; background: rgba(255,133,161,0.25);
+    border-radius: 2px; margin: 0 auto 16px;
+  }
   .incident-type-grid {
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;
   }
   .incident-type-btn {
-    padding: 10px 6px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.05); color: #ccc; font-size: 0.78rem;
+    padding: 10px 6px; border-radius: 10px; border: 1.5px solid var(--glass-border);
+    background: var(--bg-card2); color: var(--text-secondary); font-size: 0.78rem;
     cursor: pointer; text-align: center; transition: all 0.15s;
+    font-family: var(--font);
   }
   .incident-type-btn.selected {
-    border-color: #f87171; background: rgba(239,68,68,0.18); color: #f87171; font-weight: 600;
+    border-color: #f87171; background: rgba(239,68,68,0.12); color: #e05555; font-weight: 700;
   }
   .incident-type-btn .icon { font-size: 1.4rem; display: block; margin-bottom: 3px; }
   .incident-photo-area {
-    border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px;
+    border: 2px dashed var(--glass-border); border-radius: 12px;
     padding: 16px; text-align: center; cursor: pointer; margin-bottom: 12px;
-    color: #888; transition: border-color 0.15s;
+    color: var(--text-muted); background: var(--bg-card2); transition: border-color 0.15s;
+    font-size: 0.88rem;
   }
-  .incident-photo-area:active { border-color: #f87171; }
+  .incident-photo-area:active { border-color: var(--primary); background: rgba(255,133,161,0.08); }
   .incident-photo-preview {
     width: 100%; max-height: 180px; object-fit: cover;
     border-radius: 10px; margin-bottom: 10px; display: none;
   }
   .incident-note-input {
-    width: 100%; background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
-    color: #e0e0e0; padding: 10px 12px; font-size: 0.9rem;
+    width: 100%; background: var(--bg-card2);
+    border: 1px solid var(--glass-border); border-radius: 10px;
+    color: var(--text-primary); padding: 10px 12px; font-size: 0.9rem;
     resize: none; box-sizing: border-box; margin-bottom: 14px;
+    font-family: var(--font);
   }
+  .incident-note-input::placeholder { color: var(--text-muted); }
   .incident-submit-btn {
     width: 100%; padding: 13px; border-radius: 12px; border: none;
     background: linear-gradient(135deg, #ef4444, #f97316);
@@ -864,10 +882,12 @@ body::before {
   }
   .incident-submit-btn:active { opacity: 0.8; }
   .incident-cancel-btn {
-    width: 100%; padding: 11px; border-radius: 12px; border: none;
-    background: rgba(255,255,255,0.07); color: #aaa;
-    font-size: 0.9rem; cursor: pointer; margin-top: 8px;
+    width: 100%; padding: 11px; border-radius: 12px; border: 1px solid var(--glass-border);
+    background: var(--bg-card2); color: var(--text-secondary);
+    font-size: 0.9rem; cursor: pointer; margin-top: 8px; font-family: var(--font);
+    transition: background 0.15s;
   }
+  .incident-cancel-btn:active { background: rgba(255,133,161,0.08); }
   /* ── Compact log rows (records tab) ── */
   .log-list { list-style: none; padding: 0; margin: 0; }
 
@@ -930,20 +950,39 @@ body::before {
   /* ── Log detail modal ── */
   .log-detail-overlay {
     display: none; position: fixed; inset: 0; z-index: 1200;
-    background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+    background: rgba(0,0,0,0.6);
     align-items: flex-end; justify-content: center;
+    pointer-events: none;
   }
-  .log-detail-overlay.open { display: flex; }
+  .log-detail-overlay.open { display: flex; pointer-events: all; animation: fadeInOverlay 0.2s ease; }
+  @keyframes fadeInOverlay { from { opacity:0; } to { opacity:1; } }
   .log-detail-sheet {
-    background: var(--card); border-radius: 20px 20px 0 0;
+    background: var(--bg-card); border-radius: 20px 20px 0 0;
     padding: 20px 20px 36px; width: 100%; max-width: 480px;
-    max-height: 80vh; overflow-y: auto;
+    max-height: 82vh; overflow-y: auto;
+    position: relative;
+    animation: slideUpSheet 0.3s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 -4px 32px rgba(0,0,0,0.18);
   }
+  @keyframes slideUpSheet { from { transform: translateY(60px); opacity:0; } to { transform: translateY(0); opacity:1; } }
   .log-detail-handle {
     width: 36px; height: 4px; background: rgba(255,255,255,0.18);
-    border-radius: 2px; margin: 0 auto 16px;
+    border-radius: 2px; margin: 0 auto 14px;
   }
-  .log-detail-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+  .log-detail-close-btn {
+    position: absolute; top: 16px; right: 16px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(255,255,255,0.1); border: none;
+    color: var(--text-secondary); font-size: 1.1rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    line-height: 1; transition: background 0.15s;
+  }
+  .log-detail-close-btn:hover { background: rgba(255,255,255,0.2); }
+  .log-detail-header-row {
+    display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px;
+    padding-right: 36px; /* space for close btn */
+  }
+  .log-detail-title { font-size: 1.05rem; font-weight: 700; flex: 1; }
   .log-detail-meta  { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px; font-family: var(--mono); }
   .log-detail-note  { font-size: 0.88rem; color: var(--text-secondary); background: rgba(255,255,255,0.04); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
   .log-detail-photo { width: 100%; border-radius: 12px; margin-bottom: 14px; cursor: pointer; }
@@ -1050,13 +1089,18 @@ body::before {
   transition: background 0.15s;
 }
 .inc-photo-btn:active { background: rgba(239,68,68,0.22); }
+.inc-pin-ack-hint {
+  font-size: 0.71rem; color: rgba(153,27,27,0.7);
+  text-align: center; padding: 3px 8px 6px;
+  font-style: italic;
+}
 .inc-pin-ack {
-  display: block; width: 100%; padding: 10px;
-  background: rgba(239,68,68,0.08);
+  display: block; width: 100%; padding: 9px;
+  background: rgba(239,68,68,0.07);
   border: none; border-top: 1px solid rgba(239,68,68,0.18);
   font-family: var(--font); font-size: 0.82rem; font-weight: 700;
   color: #991b1b; cursor: pointer; text-align: center;
-  transition: background 0.15s;
+  transition: background 0.15s; margin-top: 4px;
 }
 .inc-pin-ack:active { background: rgba(239,68,68,0.18); }
 .inc-pin-section.acked .inc-pin-ack {
@@ -1186,7 +1230,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.15</span>
+        <span id="version-badge">v3.9.20</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2657,57 +2701,53 @@ async function loadAdminOverview() {
     const unresolvedInc = todayIncidents.filter(i => !i.resolved);
     const resolvedInc   = todayIncidents.filter(i =>  i.resolved);
 
-    // Incident pin (red) – skip if already acked (unless new unresolved appeared)
-    if (_pinAcked.inc) {
-      // If new unresolved incidents appeared since ack, reset the flag
-      if (unresolvedInc.length > 0) { _pinAcked.inc = false; }
-    }
+    // Incident pin (red): ONLY show unresolved incidents.
+    // Session-dismissed (_pinAcked.inc) hides this session only.
+    // Reset session-dismiss if new unresolved incidents arrive.
+    if (_pinAcked.inc && unresolvedInc.length > 0) { _pinAcked.inc = false; }
+
     let incPinnedHtml = '';
-    if (todayIncidents.length && !_pinAcked.inc) {
-      // Store incidents in a map so we can look them up by id for click handler
+    if (unresolvedInc.length > 0 && !_pinAcked.inc) {
       if (!window._incidentDataMap) window._incidentDataMap = {};
-      const buildIncItem = (inc, dimmed) => {
+      const buildIncItem = (inc) => {
         const timeStr = utcToCalgaryClock(inc.reportedAt) || '';
-        const resolvedTag = inc.resolved
-          ? `<div class="inc-pin-resolved">✅ 已處理 ${inc.resolvedAt ? utcToCalgaryClock(inc.resolvedAt) : ''}</div>` : '';
-        const label = typeLabels[inc.type] || ('❗ ' + inc.type);
-        // Store data by id for safe retrieval on click (no JSON in attribute)
-        window._incidentDataMap[inc.id] = { type:'incident', id:inc.id,
-          name:label, icon:label.split(' ')[0],
+        const label    = typeLabels[inc.type] || ('❗ ' + inc.type);
+        const iconPart = label.split(' ')[0] || '❗';
+        const namePart = label.split(' ').slice(1).join(' ') || label;
+        window._incidentDataMap[inc.id] = {
+          type:'incident', id:inc.id, name:label, icon:iconPart,
           time:inc.reportedAt, note:inc.note||'', hasPhoto:!!inc.hasPhoto,
-          resolved:!!inc.resolved, resolvedAt:inc.resolvedAt||'' };
-        return `<div class="inc-pin-item" data-inc-id="${inc.id}"
-          style="${dimmed ? 'opacity:0.55' : ''};cursor:pointer">
-          <div class="inc-pin-icon">${label.split(' ')[0] || '🆘'}</div>
+          resolved:false, resolvedAt:''
+        };
+        const metaTxt = timeStr + (inc.note ? ' — ' + inc.note : '');
+        return `<div class="inc-pin-item" data-inc-id="${inc.id}" style="cursor:pointer">
+          <div class="inc-pin-icon">${iconPart}</div>
           <div class="inc-pin-body">
-            <div class="inc-pin-title">${label.split(' ').slice(1).join(' ') || label}</div>
-            <div class="inc-pin-meta">${timeStr}${inc.note ? ' — ' + inc.note : ''}</div>
-            ${resolvedTag}
-            ${inc.hasPhoto ? '<span class="log-chip-btn" style="margin-top:5px;display:inline-block">📷 點擊查看照片</span>' : ''}
+            <div class="inc-pin-title">${namePart}</div>
+            <div class="inc-pin-meta">${metaTxt}</div>
+            ${inc.hasPhoto ? '<span class="log-chip-btn" style="margin-top:4px;display:inline-block;font-size:0.72rem">📷 點擊查看照片</span>' : ''}
           </div>
-          <span style="color:var(--text-muted);font-size:0.8rem;flex-shrink:0">›</span>
+          <span style="color:var(--text-muted);font-size:0.9rem;flex-shrink:0">›</span>
         </div>`;
       };
-      const allIncItems = [
-        ...unresolvedInc.map(i => buildIncItem(i, false)),
-        ...resolvedInc.map(i => buildIncItem(i, true)),
-      ].join('');
-      const badgeText = unresolvedInc.length > 0
-        ? `<span class="inc-pin-badge">${unresolvedInc.length} 則待確認</span>` : '';
-      const ackBtn = unresolvedInc.length > 0
-        ? `<button class="inc-pin-ack" id="incPinAck" onclick="acknowledgeIncidents()">✓ 已確認閱讀，收起</button>` : '';
+      const incItems = unresolvedInc.map(i => buildIncItem(i)).join('');
       incPinnedHtml = `
         <div class="inc-pin-section" id="incPinSection">
           <div class="inc-pin-header">
-            <div class="inc-pin-label">🆘 異常上報 ${badgeText}</div>
+            <div class="inc-pin-label">🆘 異常上報 <span class="inc-pin-badge">${unresolvedInc.length} 則待處理</span></div>
             <span style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
           </div>
-          ${allIncItems}
-          ${ackBtn}
+          ${incItems}
+          <button class="inc-pin-ack" id="incPinAck" onclick="acknowledgeIncidents()">⬇ 暫時收起</button>
+          <div class="inc-pin-ack-hint">⚠ 以上 ${unresolvedInc.length} 筆未處理案件，下次登入仍會提醒</div>
         </div>`;
     }
 
-    // Self-report pin (amber) – skip if already acked
+    // Self-report pin (amber) – use localStorage for true cross-session persistence
+    const _srAckedKey = 'sr_acked_' + date;
+    if (_pinAcked.sr || localStorage.getItem(_srAckedKey)) {
+      _pinAcked.sr = true; // sync in-memory flag with localStorage
+    }
     let pinnedHtml = '';
     if (selfReports.length && !_pinAcked.sr) {
       const srItems = selfReports.map(sr => {
@@ -2728,7 +2768,7 @@ async function loadAdminOverview() {
             <span style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
           </div>
           ${srItems}
-          <button class="sr-pin-ack" id="srPinAck" onclick="acknowledgeSelfReports()">✓ 已確認閱讀，收起</button>
+          <button class="sr-pin-ack" id="srPinAck" onclick="acknowledgeSelfReports()">✓ 確認已閱讀，今日不再顯示</button>
         </div>`;
     }
 
@@ -2850,8 +2890,20 @@ function _ensureAlertClear() {
   }
 }
 
-function acknowledgeSelfReports() { _collapsePin('srPinSection'); }
-function acknowledgeIncidents()   { _collapsePin('incPinSection'); }
+function acknowledgeSelfReports() {
+  // Persist SR acknowledgment in localStorage (survives page refresh / new login)
+  const date = document.getElementById('adminOverviewContent')
+    ? (document.getElementById('recordsDatePicker')?.value || state.currentDate)
+    : state.currentDate;
+  localStorage.setItem('sr_acked_' + state.currentDate, '1');
+  _pinAcked.sr = true;
+  _collapsePin('srPinSection');
+}
+function acknowledgeIncidents() {
+  // Session-only: will reappear on next login if unresolved incidents still exist
+  _pinAcked.inc = true;
+  _collapsePin('incPinSection');
+}
 
 async function loadAdminRecords() {
   const date = document.getElementById('recordsDatePicker').value || state.currentDate;
@@ -2987,26 +3039,45 @@ function openLogDetailFromData(data) {
 
   document.getElementById('logDetailTitle').textContent = (data.icon || '') + ' ' + (data.name || '');
   const timeStr = data.time ? utcToCalgaryClock(data.time) : '';
-  document.getElementById('logDetailMeta').textContent = (data.date||'') + ' ' + timeStr;
+  const dateStr = data.date || '';
+  document.getElementById('logDetailMeta').textContent = (dateStr ? dateStr + ' · ' : '') + timeStr;
 
   // Note
   const noteEl = document.getElementById('logDetailNote');
   if (data.note) {
-    noteEl.textContent = data.note;
+    noteEl.textContent = '📝 ' + data.note;
     noteEl.style.display = '';
   } else {
     noteEl.style.display = 'none';
   }
 
-  // Photo (incidents only)
-  const photoWrap = document.getElementById('logDetailPhotoWrap');
-  const photoBtn  = document.getElementById('logDetailPhotoBtn');
-  const photoImg  = document.getElementById('logDetailPhotoImg');
-  if (data.hasPhoto) {
-    photoWrap.style.display = '';
-    photoBtn.style.display  = '';
-    photoImg.style.display  = 'none';
+  // Photo (incidents only) – auto-load immediately, no button needed
+  const photoWrap    = document.getElementById('logDetailPhotoWrap');
+  const photoLoading = document.getElementById('logDetailPhotoLoading');
+  const photoImg     = document.getElementById('logDetailPhotoImg');
+  const photoError   = document.getElementById('logDetailPhotoError');
+  if (data.hasPhoto && data.id) {
+    photoWrap.style.display    = '';
+    photoLoading.style.display = '';
+    photoImg.style.display     = 'none';
+    photoError.style.display   = 'none';
     photoImg.src = '';
+    // Auto-load photo
+    api('/api/incidents/' + data.id + '/photo').then(resp => {
+      if (resp && resp.photo) {
+        photoLoading.style.display = 'none';
+        photoImg.src = resp.photo;
+        photoImg.style.display = '';
+      } else {
+        photoLoading.style.display = 'none';
+        photoError.style.display = '';
+        photoError.textContent = '⚠️ 照片不存在';
+      }
+    }).catch(() => {
+      photoLoading.style.display = 'none';
+      photoError.style.display = '';
+      photoError.textContent = '⚠️ 照片載入失敗';
+    });
   } else {
     photoWrap.style.display = 'none';
   }
@@ -3019,13 +3090,13 @@ function openLogDetailFromData(data) {
       const rb = document.createElement('button');
       rb.className = 'log-detail-resolve-btn';
       rb.textContent = '✅ 標記為已處理';
-      rb.onclick = () => { closeLogDetail(); resolveIncident(data.id); };
+      rb.onclick = () => { resolveIncidentFromModal(data.id); };
       actEl.appendChild(rb);
     } else {
       const resolvedTime = data.resolvedAt ? utcToCalgaryClock(data.resolvedAt) : '';
       const rb = document.createElement('span');
-      rb.style.cssText = 'color:#4ade80;font-size:0.82rem;padding:10px 0;';
-      rb.textContent = '✅ 已處理 ' + resolvedTime;
+      rb.style.cssText = 'color:#4ade80;font-size:0.82rem;padding:10px 0;display:block;';
+      rb.textContent = '✅ 已處理' + (resolvedTime ? ' ' + resolvedTime : '');
       actEl.appendChild(rb);
     }
     const db = document.createElement('button');
@@ -3051,32 +3122,47 @@ function openLogDetailFromData(data) {
 }
 
 function closeLogDetail(e) {
-  if (e && e.target !== document.getElementById('logDetailOverlay')) return;
+  // If called with event, only close when clicking the overlay background (not the sheet)
+  if (e && e.target && e.target.id !== 'logDetailOverlay') return;
   document.getElementById('logDetailOverlay').classList.remove('open');
   _logDetailCurrent = null;
 }
 
+// Resolve incident from modal: close modal, remove from pin, call API
+async function resolveIncidentFromModal(id) {
+  const overlay = document.getElementById('logDetailOverlay');
+  overlay.classList.remove('open');
+  _logDetailCurrent = null;
+  await resolveIncident(id);
+}
+
 async function logDetailLoadPhoto() {
+  // Legacy function kept for compatibility
   const id = _logDetailCurrent?.id;
   if (!id) return;
-  const btn = document.getElementById('logDetailPhotoBtn');
-  const img = document.getElementById('logDetailPhotoImg');
-  if (btn) btn.textContent = '⏳ 載入中...';
+  const photoLoading = document.getElementById('logDetailPhotoLoading');
+  const photoImg     = document.getElementById('logDetailPhotoImg');
+  const photoError   = document.getElementById('logDetailPhotoError');
   try {
     const data = await api('/api/incidents/' + id + '/photo');
     if (data.photo) {
-      // Show in the sheet's img element AND make it tappable for full-screen
-      if (img) { img.src = data.photo; img.style.display = ''; }
-      if (btn) btn.style.display = 'none';
-    } else { if (btn) btn.textContent = '⚠️ 照片不存在'; }
-  } catch(e) { if (btn) btn.textContent = '⚠️ 載入失敗'; }
+      if (photoLoading) photoLoading.style.display = 'none';
+      if (photoImg) { photoImg.src = data.photo; photoImg.style.display = ''; }
+    } else {
+      if (photoLoading) photoLoading.style.display = 'none';
+      if (photoError) { photoError.style.display = ''; photoError.textContent = '⚠️ 照片不存在'; }
+    }
+  } catch(e) {
+    if (photoLoading) photoLoading.style.display = 'none';
+    if (photoError) { photoError.style.display = ''; photoError.textContent = '⚠️ 載入失敗'; }
+  }
 }
 
 function logDetailViewPhoto() {
   const img = document.getElementById('logDetailPhotoImg');
-  if (!img.src) return;
-  const w = window.open('', '_blank');
-  w.document.write('<body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="' + img.src + '" style="max-width:100%;max-height:100vh;object-fit:contain;border-radius:8px"></body>');
+  if (img && img.src && img.src.length > 10) {
+    openPhotoOverlay(img.src);
+  }
 }
 
 async function confirmDeleteCheckin(taskId, date) {
@@ -3091,7 +3177,11 @@ async function confirmDeleteCheckin(taskId, date) {
 function openPhotoOverlay(src) {
   const ov = document.getElementById('photoOverlay');
   const img = document.getElementById('photoOverlayImg');
+  const errEl = document.getElementById('photoOverlayErr');
   if (!ov || !img) return;
+  // Reset error state
+  if (errEl) errEl.style.display = 'none';
+  img.style.display = '';
   img.src = src;
   ov.style.display = 'flex';
   document.body.style.overflow = 'hidden';
@@ -3102,13 +3192,8 @@ function closePhotoOverlay() {
   document.body.style.overflow = '';
 }
 
-// Also fix logDetailViewPhoto to use overlay instead of window.open
-function logDetailViewPhoto() {
-  const img = document.getElementById('logDetailPhotoImg');
-  if (img && img.src && img.src.length > 10) {
-    openPhotoOverlay(img.src);
-  }
-}
+// logDetailViewPhoto – single definition (uses openPhotoOverlay)
+// (duplicate removed)
 
 async function loadAdminWeights() {
   const container = document.getElementById('adminWeightsContent');
@@ -4434,23 +4519,34 @@ async function checkPushStatus() {
   <!-- Full-screen photo overlay (avoids iOS window.open block) -->
   <div id="photoOverlay" style="
     display:none;position:fixed;inset:0;z-index:2000;
-    background:rgba(0,0,0,0.92);align-items:center;justify-content:center;
+    background:rgba(20,10,15,0.95);align-items:center;justify-content:center;
     flex-direction:column;gap:12px;"
     onclick="closePhotoOverlay()">
-    <img id="photoOverlayImg" style="max-width:96vw;max-height:82vh;object-fit:contain;border-radius:10px;">
-    <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;">點任意處關閉</div>
+    <button onclick="closePhotoOverlay();event.stopPropagation();" style="
+      position:absolute;top:16px;right:16px;
+      background:rgba(255,255,255,0.15);border:none;color:white;
+      width:36px;height:36px;border-radius:50%;font-size:1.1rem;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+    <img id="photoOverlayImg" style="max-width:96vw;max-height:82vh;object-fit:contain;border-radius:10px;" 
+         onerror="this.style.display='none';document.getElementById('photoOverlayErr').style.display=''">
+    <div id="photoOverlayErr" style="display:none;color:#f87171;font-size:0.9rem;text-align:center;padding:20px;">⚠️ 照片載入失敗<br><span style="font-size:0.78rem;color:rgba(255,255,255,0.4)">請確認網絡連接</span></div>
+    <div style="color:rgba(255,255,255,0.4);font-size:0.75rem;">點任意處或 ✕ 關閉</div>
   </div>
 
   <!-- Log detail bottom-sheet modal -->
   <div class="log-detail-overlay" id="logDetailOverlay" onclick="closeLogDetail(event)">
-    <div class="log-detail-sheet" id="logDetailSheet">
+    <div class="log-detail-sheet" id="logDetailSheet" onclick="event.stopPropagation()">
       <div class="log-detail-handle"></div>
-      <div class="log-detail-title" id="logDetailTitle"></div>
+      <button class="log-detail-close-btn" onclick="closeLogDetail()" title="關閉">✕</button>
+      <div class="log-detail-header-row">
+        <div class="log-detail-title" id="logDetailTitle"></div>
+      </div>
       <div class="log-detail-meta"  id="logDetailMeta"></div>
       <div class="log-detail-note"  id="logDetailNote" style="display:none"></div>
-      <div id="logDetailPhotoWrap" style="display:none">
-        <button class="log-chip-btn" id="logDetailPhotoBtn" style="width:100%;padding:10px;font-size:0.85rem;margin-bottom:12px" onclick="logDetailLoadPhoto()">🖼️ 載入照片</button>
-        <img class="log-detail-photo" id="logDetailPhotoImg" style="display:none" onclick="logDetailViewPhoto()">
+      <div id="logDetailPhotoWrap" style="display:none;margin-bottom:14px;">
+        <div id="logDetailPhotoLoading" style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.82rem;">⏳ 載入照片中...</div>
+        <img class="log-detail-photo" id="logDetailPhotoImg" style="display:none;width:100%;border-radius:12px;cursor:pointer;" onclick="logDetailViewPhoto()">
+        <div id="logDetailPhotoError" style="display:none;text-align:center;padding:16px;color:#f87171;font-size:0.82rem;">⚠️ 照片載入失敗</div>
       </div>
       <div class="log-detail-actions" id="logDetailActions"></div>
     </div>
@@ -4467,6 +4563,8 @@ async function checkPushStatus() {
   <!-- Feed Report Modal -->
   <div class="incident-modal-overlay" id="feedReportModalOverlay" onclick="closeFeedReportModal(event)">
     <div class="incident-modal" onclick="event.stopPropagation()">
+      <div class="incident-modal-handle"></div>
+      <button class="incident-modal-close" onclick="closeFeedReportModal()">✕</button>
       <h3>🍽️ 餵食紀錄</h3>
       <div class="incident-type-grid" id="feedTypeGrid">
         <button class="incident-type-btn feed-type-btn selected" data-feed-type="self_feed" onclick="selectFeedReportType('self_feed',this)">
@@ -4492,6 +4590,8 @@ async function checkPushStatus() {
   <!-- Incident Report Modal -->
   <div class="incident-modal-overlay" id="incidentModalOverlay" onclick="closeIncidentModal(event)">
     <div class="incident-modal" onclick="event.stopPropagation()">
+      <div class="incident-modal-handle"></div>
+      <button class="incident-modal-close" onclick="closeIncidentModal()">✕</button>
       <h3>🆘 通報異常狀況</h3>
       <div class="incident-type-grid" id="incidentTypeGrid">
         <button class="incident-type-btn selected" data-type="vomit" onclick="selectIncidentType('vomit',this)">
