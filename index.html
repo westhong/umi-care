@@ -582,6 +582,19 @@ body::before {
 .admin-tab.active { background: linear-gradient(135deg, var(--primary), var(--secondary)); border-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(255,133,161,0.3); }
 
 .admin-tab-content { display: none; }
+.records-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 20px 0 12px; padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.records-section-header h3 {
+  margin: 0; font-size: 1rem; font-weight: 700;
+}
+.records-section-refresh {
+  background: rgba(255,255,255,0.07); border: none; border-radius: 8px;
+  padding: 5px 12px; color: var(--text-muted); font-size: 0.8rem; cursor: pointer;
+}
+.records-section-refresh:active { opacity: 0.7; }
 .admin-tab-content.active { display: block; animation: fadeIn 0.2s ease; }
 
 /* Records table */
@@ -1411,7 +1424,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.0.1</span>
+        <span id="version-badge">v4.0.2</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1524,10 +1537,10 @@ body::before {
         </div>
         <div id="adminRecordsContent"><div class="loading-spin"></div></div>
 
-        <div style="margin-top: 24px; padding-bottom: 8px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <h3 style="color:#8b5cf6; margin:0; font-size:1rem;">📝 主動回報記錄</h3>
-            <button onclick="loadAdminRecords()" style="background:rgba(255,255,255,0.07);border:none;border-radius:8px;padding:5px 12px;color:#aaa;font-size:0.8rem;cursor:pointer;">🔄 刷新</button>
+        <div>
+          <div class="records-section-header">
+            <h3 style="color:#8b5cf6;">📝 主動回報記錄</h3>
+            <button class="records-section-refresh" onclick="loadAdminRecords()">🔄 刷新</button>
           </div>
           <div id="adminSelfReportsList">
             <p style="color:#666;text-align:center;padding:20px 0;">載入中...</p>
@@ -1535,9 +1548,9 @@ body::before {
         </div>
 
         <!-- Special Tasks Records Section -->
-        <div style="margin-top: 24px; padding-bottom: 8px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <h3 style="color:var(--primary); margin:0; font-size:1rem;">✨ 特殊任務紀錄</h3>
+        <div>
+          <div class="records-section-header">
+            <h3 style="color:var(--primary);">✨ 特殊任務紀錄</h3>
           </div>
           <div id="adminSpecialTaskRecords">
             <p style="color:#666;text-align:center;padding:20px 0;">載入中...</p>
@@ -1545,10 +1558,10 @@ body::before {
         </div>
       
         <!-- Incidents Section -->
-        <div style="margin-top: 24px; padding-bottom: 20px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-            <h3 style="color:#f87171; margin:0; font-size:1rem;">🆘 異常上報記錄</h3>
-            <button onclick="loadAdminIncidents()" style="background:rgba(255,255,255,0.07);border:none;border-radius:8px;padding:5px 12px;color:#aaa;font-size:0.8rem;cursor:pointer;">🔄 刷新</button>
+        <div>
+          <div class="records-section-header">
+            <h3 style="color:#f87171;">🆘 異常上報記錄</h3>
+            <button class="records-section-refresh" onclick="loadAdminIncidents()">🔄 刷新</button>
           </div>
           <div id="adminIncidentList">
             <p style="color:#666;text-align:center;padding:20px 0;">載入中...</p>
@@ -3133,7 +3146,7 @@ async function loadAdminOverview() {
           return calDate.toISOString().slice(0,10) === date;
         });
         if (!dateDone.length) {
-          stRecordsContainer.innerHTML = '<div class="text-muted" style="padding:12px;text-align:center;font-size:0.85rem;">當日沒有特殊任務完成紀錄</div>';
+          stRecordsContainer.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">當日沒有特殊任務完成紀錄</div>';
         } else {
           const doneDiv = document.createElement('div');
           doneDiv.className = 'log-list';
@@ -3841,7 +3854,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.1
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.2
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [
@@ -4641,7 +4654,7 @@ async function checkPushStatus() {
     if (!container) return;
     const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❓ 其他' };
     if (!list || list.length === 0) {
-      container.innerHTML = '<p style="color:#666;text-align:center;padding:20px 0;">目前沒有異常通報紀錄</p>';
+      container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">目前沒有異常通報紀錄</div>';
       return;
     }
     const div = document.createElement('div');
