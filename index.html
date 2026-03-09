@@ -448,6 +448,7 @@ body::before {
   box-shadow: 0 2px 12px rgba(255,133,161,0.1), 0 1px 4px rgba(0,0,0,0.04);
 }
 .task-card.done { border-color: rgba(82,199,126,0.4); background: rgba(82,199,126,0.06); }
+.task-card.skip { border-color: rgba(255,133,161,0.35); background: rgba(255,218,230,0.08); }
 .task-card.expanded { border-color: rgba(102,126,234,0.4); }
 
 .task-header {
@@ -466,15 +467,15 @@ body::before {
 .task-name { font-size: 0.95rem; font-weight: 600; }
 .task-time { font-size: 0.75rem; color: var(--text-muted); font-family: var(--mono); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .checkin-time { font-size: 0.72rem; color: #4ade80; font-weight: 600; letter-spacing: 0.01em; }
-.task-card.skip .checkin-time { color: #fb923c; }
+.task-card.skip .checkin-time { color: #e8679a; }
 .task-status {
   padding: 4px 10px; border-radius: 20px;
   font-size: 0.75rem; font-weight: 600;
 }
 .status-pending { background: rgba(255,255,255,0.08); color: var(--text-muted); }
 .status-done { background: rgba(74,222,128,0.2); color: #4ade80; }
-.status-skip { background: rgba(251,146,60,0.2); color: #fb923c; }
-.status-overdue { background: rgba(248,113,113,0.2); color: #f87171; animation: pulse 2s infinite; }
+.status-skip { background: rgba(255,182,210,0.3); color: #e8679a; }
+.status-overdue { background: rgba(255,160,195,0.25); color: #d44a8a; animation: pulse 2s infinite; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
 
 /* ─── TASK EXPAND PANEL ─── */
@@ -959,6 +960,15 @@ body::before {
 .inc-pin-title { font-size: 0.88rem; font-weight: 700; color: #991b1b; }
 .inc-pin-meta { font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono); margin-top: 2px; }
 .inc-pin-resolved { font-size: 0.68rem; color: #3aaa63; font-weight: 600; margin-top: 2px; }
+.inc-photo-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 6px; padding: 4px 10px;
+  background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 20px; font-size: 0.73rem; font-weight: 700;
+  color: #991b1b; cursor: pointer; font-family: var(--font);
+  transition: background 0.15s;
+}
+.inc-photo-btn:active { background: rgba(239,68,68,0.22); }
 .inc-pin-ack {
   display: block; width: 100%; padding: 10px;
   background: rgba(239,68,68,0.08);
@@ -1095,7 +1105,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.5</span>
+        <span id="version-badge">v3.9.7</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1271,8 +1281,8 @@ body::before {
             <input type="text" id="catFormBreed" placeholder="例：英短、波斯貓、混種" class="cat-input">
           </div>
           <div class="form-field">
-            <label>生日</label>
-            <input type="date" id="catFormBday" class="cat-input">
+            <label>生日 <span id="catBdayAge" style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:6px"></span></label>
+            <input type="date" id="catFormBday" class="cat-input" onchange="updateCatBdayAge()">
           </div>
           <div class="form-field">
             <label>備註</label>
@@ -1319,6 +1329,8 @@ body::before {
 const API = '';
 
 // ─── STATE ─────────────────────────────────────────────────────
+// Track acknowledged pins so 30s interval doesn't re-show them
+const _pinAcked = { inc: false, sr: false, date: null };
 let state = {
   tasks: [],
   checkins: [],
@@ -2529,6 +2541,8 @@ async function loadAdminOverview() {
   container.innerHTML = '<div class="loading-spin"></div>';
   try {
     const date = state.currentDate;
+    // Reset acked flags when the date changes (new day)
+    if (_pinAcked.date !== date) { _pinAcked.inc = false; _pinAcked.sr = false; _pinAcked.date = date; }
     const catName = state.cat?.name || state.catName || '屋咪';
     const now = getCalgaryDate();
     const nowMins = now.getUTCHours() * 60 + now.getUTCMinutes();
@@ -2562,20 +2576,24 @@ async function loadAdminOverview() {
     const unresolvedInc = todayIncidents.filter(i => !i.resolved);
     const resolvedInc   = todayIncidents.filter(i =>  i.resolved);
 
-    // Incident pin (red)
+    // Incident pin (red) – skip if already acked (unless new unresolved appeared)
+    if (_pinAcked.inc) {
+      // If new unresolved incidents appeared since ack, reset the flag
+      if (unresolvedInc.length > 0) { _pinAcked.inc = false; }
+    }
     let incPinnedHtml = '';
-    if (todayIncidents.length) {
+    if (todayIncidents.length && !_pinAcked.inc) {
       const buildIncItem = (inc, dimmed) => {
         const timeStr = utcToCalgaryClock(inc.reportedAt) || '';
-        const photoTag = inc.hasPhoto ? ' 📷' : '';
         const resolvedTag = inc.resolved
           ? `<div class="inc-pin-resolved">✅ 已處理 ${inc.resolvedAt ? utcToCalgaryClock(inc.resolvedAt) : ''}</div>` : '';
         return `<div class="inc-pin-item" style="${dimmed ? 'opacity:0.55' : ''}">
           <div class="inc-pin-icon">${typeLabels[inc.type]?.split(' ')[0] || '🆘'}</div>
           <div class="inc-pin-body">
-            <div class="inc-pin-title">${typeLabels[inc.type] || inc.type}${photoTag}</div>
+            <div class="inc-pin-title">${typeLabels[inc.type] || inc.type}</div>
             <div class="inc-pin-meta">${timeStr}${inc.note ? ' — ' + inc.note : ''}</div>
             ${resolvedTag}
+            ${inc.hasPhoto ? `<button class="inc-photo-btn" onclick="viewIncidentPhotoFromPin('${inc.id}')">📷 查看照片</button>` : ''}
           </div>
         </div>`;
       };
@@ -2598,9 +2616,9 @@ async function loadAdminOverview() {
         </div>`;
     }
 
-    // Self-report pin (amber)
+    // Self-report pin (amber) – skip if already acked
     let pinnedHtml = '';
-    if (selfReports.length) {
+    if (selfReports.length && !_pinAcked.sr) {
       const srItems = selfReports.map(sr => {
         const timeStr = utcToCalgaryClock(sr.reportedAt) || '';
         const qtyStr = sr.quantity > 1 ? ` ×${sr.quantity}${sr.unit || ''}` : (sr.unit ? ` ${sr.unit}` : '');
@@ -2623,10 +2641,12 @@ async function loadAdminOverview() {
         </div>`;
     }
 
-    // All-clear banner (only when BOTH empty)
+    // All-clear banner: show when both sections are suppressed (acked or empty)
+    const incSuppressed = !todayIncidents.length || _pinAcked.inc;
+    const srSuppressed  = !selfReports.length   || _pinAcked.sr;
     let clearHtml = '';
-    if (!todayIncidents.length && !selfReports.length) {
-      clearHtml = `<div class="alert-panel-clear"><span class="apc-icon">✅</span>今日無異常上報，亦無主動回報</div>`;
+    if (incSuppressed && srSuppressed) {
+      clearHtml = `<div class="alert-panel-clear"><span class="apc-icon">✅</span>今日無待確認事項</div>`;
     }
 
     // ── SECTION 2: TASK TIMELINE ──
@@ -2688,25 +2708,51 @@ async function loadAdminOverview() {
   }
 }
 
-function acknowledgeSelfReports() {
-  const section = document.getElementById('srPinSection');
-  const badge   = document.getElementById('srPinBadge');
-  const btn     = document.getElementById('srPinAck');
-  if (!section) return;
-  section.classList.add('acked');
-  if (badge) badge.textContent = '✓ 已確認';
-  if (btn) { btn.textContent = '✓ 已確認閱讀'; btn.onclick = null; }
+function _collapsePin(sectionId) {
+  // Mark as acknowledged FIRST so the 30s refresh won't re-show it
+  if (sectionId === 'incPinSection') _pinAcked.inc = true;
+  if (sectionId === 'srPinSection')  _pinAcked.sr  = true;
+
+  const section = document.getElementById(sectionId);
+  if (!section) {
+    // Section already gone (e.g. called twice) – just ensure clear banner
+    _ensureAlertClear();
+    return;
+  }
+
+  // Animate collapse: snapshot current height, then slide to 0
+  const h = section.offsetHeight;
+  section.style.transition = 'none';
+  section.style.overflow = 'hidden';
+  section.style.maxHeight = h + 'px';
+  section.style.opacity = '1';
+  // Force reflow so the browser registers the explicit maxHeight before transitioning
+  section.getBoundingClientRect();
+  section.style.transition = 'max-height 0.32s ease, opacity 0.22s ease, margin-bottom 0.28s ease';
+  section.style.maxHeight = '0';
+  section.style.opacity = '0';
+  section.style.marginBottom = '0';
+
+  setTimeout(() => {
+    section.remove();
+    _ensureAlertClear();
+  }, 350);
 }
 
-function acknowledgeIncidents() {
-  const section = document.getElementById('incPinSection');
-  const badge   = document.getElementById('incPinBadge');
-  const btn     = document.getElementById('incPinAck');
-  if (!section) return;
-  section.classList.add('acked');
-  if (badge) badge.textContent = '✓ 已確認';
-  if (btn) { btn.textContent = '✓ 已確認閱讀'; btn.onclick = null; }
+function _ensureAlertClear() {
+  const hasInc = !!document.getElementById('incPinSection');
+  const hasSR  = !!document.getElementById('srPinSection');
+  const panel  = document.querySelector('.alert-panel');
+  if (!hasInc && !hasSR && panel && !panel.querySelector('.alert-panel-clear')) {
+    const clr = document.createElement('div');
+    clr.className = 'alert-panel-clear';
+    clr.textContent = '\u2705 \u4eca\u65e5\u7121\u5f85\u78ba\u8a8d\u4e8b\u9805';
+    panel.appendChild(clr);
+  }
 }
+
+function acknowledgeSelfReports() { _collapsePin('srPinSection'); }
+function acknowledgeIncidents()   { _collapsePin('incPinSection'); }
 
 async function loadAdminRecords() {
   const date = document.getElementById('recordsDatePicker').value || state.currentDate;
@@ -3089,6 +3135,22 @@ async function markPeriodic(id) {
   loadAdminPeriodic();
 }
 
+function updateCatBdayAge() {
+  const bday = document.getElementById('catFormBday') && document.getElementById('catFormBday').value;
+  const span = document.getElementById('catBdayAge');
+  if (!span) return;
+  if (!bday) { span.textContent = ''; return; }
+  const birth = new Date(bday);
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  if (months < 0) { years--; months += 12; }
+  if (years < 0) { span.textContent = ''; return; }
+  if (years === 0) span.textContent = '(' + months + ' 個月大)';
+  else if (months === 0) span.textContent = '(' + years + ' 歲)';
+  else span.textContent = '(' + years + ' 歲 ' + months + ' 個月)';
+}
+
 async function loadAdminCat() {
   try {
     const cat = await api('/api/cat');
@@ -3096,6 +3158,7 @@ async function loadAdminCat() {
       document.getElementById('catFormName').value = cat.name || '';
       document.getElementById('catFormBreed').value = cat.breed || '';
       document.getElementById('catFormBday').value = cat.birthdate || '';
+      updateCatBdayAge();
       document.getElementById('catFormNotes').value = cat.notes || '';
     }
   } catch(e) { showToast('⚠️ 載入貓咪資訊失敗'); }
@@ -3663,6 +3726,16 @@ async function checkPushStatus() {
     loadAdminIncidents();
   }
 
+  async function viewIncidentPhotoFromPin(id) {
+    try {
+      const data = await api('/api/incidents/' + id + '/photo');
+      if (data.photo) {
+        const w = window.open('', '_blank');
+        w.document.write('<body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="' + data.photo + '" style="max-width:100%;max-height:100vh;object-fit:contain;border-radius:8px"></body>');
+      } else { showToast('⚠️ 照片不存在'); }
+    } catch(e) { showToast('⚠️ 載入照片失敗'); }
+  }
+
   async function loadIncidentPhoto(id) {
     const imgEl = document.getElementById('inc-photo-' + id);
     try {
@@ -3853,8 +3926,8 @@ async function checkPushStatus() {
   transition: background 0.2s;
 }
 .tl-item.tl-done::before { background: #4ade80; }
-.tl-item.tl-skip::before { background: #fb923c; }
-.tl-item.tl-overdue::before { background: #f87171; }
+.tl-item.tl-skip::before { background: #f0a0c0; }
+.tl-item.tl-overdue::before { background: #e8679a; }
 .tl-item.tl-pending::before { background: #d1d5db; }
 
 .tl-card {
@@ -3865,8 +3938,8 @@ async function checkPushStatus() {
 }
 .tl-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 .tl-item.tl-done .tl-card { border-left: 3px solid #4ade80; }
-.tl-item.tl-skip .tl-card { border-left: 3px solid #fb923c; }
-.tl-item.tl-overdue .tl-card { border-left: 3px solid #f87171; }
+.tl-item.tl-skip .tl-card { border-left: 3px solid #f0a0c0; }
+.tl-item.tl-overdue .tl-card { border-left: 3px solid #e8679a; }
 
 .tl-icon { font-size: 1.2rem; margin-right: 10px; }
 .tl-name { font-weight: 600; font-size: 0.9rem; }
@@ -3877,8 +3950,8 @@ async function checkPushStatus() {
   font-size: 0.72rem; font-weight: 600;
 }
 .badge-tl-done  { background: #dcfce7; color: #16a34a; }
-.badge-tl-skip  { background: #fff7ed; color: #c2410c; }
-.badge-tl-over  { background: #fef2f2; color: #dc2626; }
+.badge-tl-skip  { background: #fce4ef; color: #be185d; }
+.badge-tl-over  { background: #fde8f0; color: #9d174d; }
 .badge-tl-pend  { background: #f3f4f6; color: #6b7280; }
 .tl-time { font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono); margin-top: 3px; }
 
