@@ -1424,7 +1424,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.0.4</span>
+        <span id="version-badge">v4.0.5</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -3880,7 +3880,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.4
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.5
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [
@@ -4711,8 +4711,22 @@ async function checkPushStatus() {
 
   async function deleteIncident(id) {
     if (!confirm('確認刪除此上報記錄？')) return;
-    await api('/api/incidents/' + id, { method: 'DELETE' });
-    showToast('🗑️ 已刪除');
+    // Optimistic: instantly remove the pin item from overview UI
+    const pinItem = document.querySelector(`.inc-pin-item[data-inc-id="${id}"]`);
+    if (pinItem) pinItem.remove();
+    // If the entire pin section is now empty (no more rows), remove it too
+    const pinSection = document.getElementById('incPinSection');
+    if (pinSection && !pinSection.querySelector('.inc-pin-item')) {
+      pinSection.remove();
+    }
+    try {
+      await api('/api/incidents/' + id, { method: 'DELETE' });
+      showToast('🗑️ 已刪除');
+    } catch(e) {
+      showToast('❌ 刪除失敗');
+    }
+    // Fix: refresh both Overview and Records tab so stale pin/list disappear
+    loadAdminOverview();
     loadAdminIncidents();
   }
 
