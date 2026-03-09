@@ -1186,7 +1186,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.10</span>
+        <span id="version-badge">v3.9.15</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2860,10 +2860,15 @@ async function loadAdminRecords() {
   container.innerHTML = '<div class="loading-spin"></div>';
   if (selfReportContainer) selfReportContainer.innerHTML = '<div class="loading-spin"></div>';
   try {
-    const [checkins, selfReports] = await Promise.all([
+    const [checkins, selfReports, allTasks] = await Promise.all([
       api('/api/checkins?date=' + date),
       api('/api/selfreports?date=' + date).catch(() => []),
+      api('/api/tasks').catch(() => state.tasks || []),
     ]);
+    // Build a fresh taskMap from the latest tasks list (not stale state.tasks)
+    const _taskMap = {};
+    const _taskArr = Array.isArray(allTasks) ? allTasks : (state.tasks || []);
+    _taskArr.forEach(t => { if (t && t.id) _taskMap[t.id] = t; });
 
     // ── Task checkin rows ──
     if (!checkins.length) {
@@ -2872,7 +2877,9 @@ async function loadAdminRecords() {
       const div = document.createElement('div');
       div.className = 'log-list';
       checkins.forEach(c => {
-        const task    = state.tasks.find(t => t.id === c.taskId);
+        const task    = _taskMap[c.taskId];
+        const taskName = task?.name || (c.taskId || '?');
+        const taskIcon = task?.icon || '📋';
         const timeStr = c.time ? utcToCalgaryClock(c.time) : '--:--';
         const pill    = c.isDone
           ? '<span class="log-pill log-pill-done">✅ 完成</span>'
@@ -2885,14 +2892,14 @@ async function loadAdminRecords() {
         const row = document.createElement('div');
         row.className = 'log-row';
         row.innerHTML =
-          `<span class="log-row-icon">${task?.icon || '📋'}</span>` +
-          `<span class="log-row-name">${task?.name || c.taskId}</span>` +
+          `<span class="log-row-icon">${taskIcon}</span>` +
+          `<span class="log-row-name">${taskName}</span>` +
           `<div class="log-row-chips">${noteChip}${pill}</div>` +
           `<span class="log-row-time">${timeStr}</span>`;
 
         // Store data safely on the element (no JSON-in-attribute)
         row._logData = { type:'checkin', taskId:c.taskId,
-          name:(task?.name||c.taskId), icon:(task?.icon||'📋'),
+          name: taskName, icon: taskIcon,
           time:c.time, isDone:c.isDone, result:c.result||'', note:c.note||'', date };
         row.addEventListener('click', () => openLogDetailFromData(row._logData));
 
