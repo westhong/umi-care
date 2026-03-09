@@ -893,6 +893,77 @@ body::before {
     font-size: 0.8rem; cursor: pointer; margin-left: 6px;
   }
 
+
+/* ── PINNED SELF-REPORTS (admin overview) ──────────────── */
+.sr-pin-section {
+  background: linear-gradient(135deg, rgba(245,158,11,0.09), rgba(251,191,36,0.06));
+  border: 1.5px solid rgba(245,158,11,0.30);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.sr-pin-section.acked {
+  background: rgba(82,199,126,0.05);
+  border-color: rgba(82,199,126,0.25);
+}
+.sr-pin-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(245,158,11,0.15);
+}
+.sr-pin-label {
+  font-size: 0.85rem; font-weight: 700; color: #92400e;
+  display: flex; align-items: center; gap: 7px;
+}
+.sr-pin-section.acked .sr-pin-label { color: #3aaa63; }
+.sr-pin-badge {
+  font-size: 0.68rem; font-weight: 700;
+  background: rgba(245,158,11,0.18); color: #d97706;
+  padding: 2px 8px; border-radius: 8px;
+  border: 1px solid rgba(245,158,11,0.28);
+}
+.sr-pin-section.acked .sr-pin-badge {
+  background: rgba(82,199,126,0.15); color: #3aaa63;
+  border-color: rgba(82,199,126,0.28);
+}
+.sr-pin-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(245,158,11,0.09);
+}
+.sr-pin-item:last-of-type { border-bottom: none; }
+.sr-pin-icon {
+  width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0;
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 6px rgba(245,158,11,0.15);
+}
+.sr-pin-body { flex: 1; min-width: 0; }
+.sr-pin-title { font-size: 0.88rem; font-weight: 600; }
+.sr-pin-meta { font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono); margin-top: 1px; }
+.sr-pin-ack {
+  display: block; width: 100%; padding: 10px;
+  background: rgba(245,158,11,0.10);
+  border: none; border-top: 1px solid rgba(245,158,11,0.18);
+  font-family: var(--font); font-size: 0.82rem; font-weight: 700;
+  color: #92400e; cursor: pointer; text-align: center;
+  transition: background 0.15s;
+}
+.sr-pin-ack:active { background: rgba(245,158,11,0.20); }
+.sr-pin-section.acked .sr-pin-ack {
+  background: rgba(82,199,126,0.08);
+  border-top-color: rgba(82,199,126,0.20);
+  color: #3aaa63; cursor: default;
+}
+
+/* ── SELF-REPORT TYPE TAG (records tab) ─────────────────── */
+.self-rep-type-tag {
+  display: inline-block; padding: 2px 8px;
+  border-radius: 8px; font-size: 0.68rem; font-weight: 700;
+  background: rgba(245,158,11,0.13); color: #d97706;
+  flex-shrink: 0;
+}
   </style>
 </head>
 <body>
@@ -939,7 +1010,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.8.0</span>
+        <span id="version-badge">v3.9.1</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1034,8 +1105,7 @@ body::before {
         <button class="admin-tab" onclick="switchAdminTab('weights')">⚖️ 體重</button>
         <button class="admin-tab" onclick="switchAdminTab('tasks')">✏️ 任務排程</button>
         <button class="admin-tab" onclick="switchAdminTab('periodic')">🔄 不定期</button>
-        <button class="admin-tab" onclick="switchAdminTab('cat')">🐾 貓咪</button>
-        <button class="admin-tab" onclick="switchAdminTab('settings')">⚙️ 設定</button>
+        <button class="admin-tab" onclick="switchAdminTab('cat')">🐾 貓咪&設定</button>
       </div>
 
       <!-- Overview Tab (default) -->
@@ -1125,22 +1195,23 @@ body::before {
           </div>
           <button class="btn btn-primary cat-save-btn" onclick="saveCatProfile()">💾 儲存貓咪資料</button>
         </div>
-      </div>
 
-      <!-- Settings Tab -->
-      <div id="adminTabSettings" class="admin-tab-content">
+        <!-- ── Settings merged below cat form ── -->
+        <div style="height:1px;background:var(--glass-border);margin:20px 0 16px"></div>
+        <div class="section-title" style="padding:0 4px">⚙️ 系統設定</div>
         <div class="card mt-16">
           <div style="font-weight:600;margin-bottom:10px">🔐 更改 PIN</div>
           <div class="form-field"><label>現有 PIN</label><input type="password" id="oldPin" placeholder="輸入現有 PIN" inputmode="numeric"></div>
           <div class="form-field"><label>新 PIN</label><input type="password" id="newPin" placeholder="輸入新 PIN" inputmode="numeric"></div>
           <button class="btn btn-primary" onclick="changePin()">更改 PIN</button>
         </div>
-        
         <div class="card mt-16">
           <div style="font-weight:600;margin-bottom:10px">📥 匯出資料</div>
           <button class="btn btn-secondary" onclick="exportData()">下載 JSON</button>
         </div>
       </div>
+      <!-- Settings Tab stub (kept for JS redirect compatibility) -->
+      <div id="adminTabSettings" class="admin-tab-content"></div>
     </div>
   </div>
 
@@ -2376,7 +2447,8 @@ function calNextMonth() {
 // ─── ADMIN ─────────────────────────────────────────────────────
 function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab').forEach((t,i) => {
-    const tabs = ['overview','records','weights','tasks','periodic','cat','settings'];
+    const tabs = ['overview','records','weights','tasks','periodic','cat'];
+  if (tab === 'settings') tab = 'cat';  // settings merged into cat
     t.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
@@ -2461,7 +2533,35 @@ async function loadAdminOverview() {
       const mStr = String(now2.getUTCMinutes()).padStart(2,'0');
       subRow.textContent = `${date} · ${hStr}:${mStr} Calgary · ${catName}: ${done}/${total} 完成 (${pct}%)`;
     }
-    container.innerHTML = `
+    // ── Fetch self-reports first so we can pin them at top ──
+    const selfReports = await api('/api/selfreports?date=' + date).catch(() => []);
+
+    // Build pinned self-reports HTML (amber card, acknowledgeable)
+    let pinnedHtml = '';
+    if (selfReports.length) {
+      const srItems = selfReports.map(sr => {
+        const timeStr = utcToCalgaryClock(sr.reportedAt) || '';
+        const qtyStr = sr.quantity > 1 ? ` ×${sr.quantity}${sr.unit || ''}` : (sr.unit ? ` ${sr.unit}` : '');
+        return `<div class="sr-pin-item">
+          <div class="sr-pin-icon">${sr.icon || '📝'}</div>
+          <div class="sr-pin-body">
+            <div class="sr-pin-title">${sr.title}${qtyStr}</div>
+            <div class="sr-pin-meta">${timeStr} · 飼養者回報</div>
+          </div>
+        </div>`;
+      }).join('');
+      pinnedHtml = `
+        <div class="sr-pin-section" id="srPinSection">
+          <div class="sr-pin-header">
+            <div class="sr-pin-label">📝 飼養者回報 <span class="sr-pin-badge" id="srPinBadge">${selfReports.length} 則未確認</span></div>
+            <span class="sr-pin-date" style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
+          </div>
+          ${srItems}
+          <button class="sr-pin-ack" id="srPinAck" onclick="acknowledgeSelfReports()">✓ 已確認閱讀，收起</button>
+        </div>`;
+    }
+
+    container.innerHTML = pinnedHtml + `
       <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">📅 ${date} · ${catName} 的照護紀錄</div>
       <div class="overview-summary">
         <div class="ov-stat"><div class="ov-stat-num">${done}</div><div class="ov-stat-label">已完成</div></div>
@@ -2472,28 +2572,19 @@ async function loadAdminOverview() {
       ${doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 略過</div><div class="timeline">${doneItems.join('')}</div>` : ''}
       ${(!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : ''}
     `;
-
-    // ── Append self-reports section below task timeline ──
-    const selfReports = await api('/api/selfreports?date=' + date).catch(() => []);
-    if (selfReports.length) {
-      const srHtml = selfReports.map(sr => {
-        const t = new Date(sr.reportedAt);
-        const timeStr = utcToCalgaryClock(sr.reportedAt) || '';
-        const qtyStr = sr.quantity > 1 ? ` ×${sr.quantity}${sr.unit}` : (sr.unit ? ` ${sr.unit}` : '');
-        return `<div class="sr-ov-card">
-          <span class="sr-ov-icon">${sr.icon}</span>
-          <div class="sr-ov-body">
-            <div class="sr-ov-title">${sr.title}${qtyStr}</div>
-            ${sr.note ? `<div class="sr-ov-note">${sr.note}</div>` : ''}
-          </div>
-          <div class="sr-ov-time">${timeStr}</div>
-        </div>`;
-      }).join('');
-      container.innerHTML += `<div class="ov-section-title" style="margin-top:16px">📝 照顧者今日回報 (${selfReports.length})</div><div class="sr-ov-list">${srHtml}</div>`;
-    }
   } catch(e) {
     container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
   }
+}
+
+function acknowledgeSelfReports() {
+  const section = document.getElementById('srPinSection');
+  const badge   = document.getElementById('srPinBadge');
+  const btn     = document.getElementById('srPinAck');
+  if (!section) return;
+  section.classList.add('acked');
+  if (badge) badge.textContent = '✓ 已確認';
+  if (btn) { btn.textContent = '✓ 已確認閱讀'; btn.onclick = null; }
 }
 
 async function loadAdminRecords() {
@@ -2543,11 +2634,12 @@ async function loadAdminRecords() {
           const meta = labels[item.type] || { icon: item.icon || '📝', title: item.title || item.type || '主動回報', unit: item.unit || '' };
           const timeStr = item.reportedAt ? utcToCalgaryClock(item.reportedAt) : '-';
           const qtyText = item.quantity ? ` · ${item.quantity}${item.unit || meta.unit || ''}` : '';
-          return `<div class="incident-card" style="border-left-color:#8b5cf6;">
+          return `<div class="incident-card self-report-record-card" style="border-left-color:rgba(245,158,11,0.75);background:rgba(245,158,11,0.05);">
             <div class="incident-card-header">
               <span class="incident-card-type">${meta.icon} ${item.title || meta.title}${qtyText}</span>
-              <span class="incident-card-time">${date} ${timeStr}</span>
+              <span class="self-rep-type-tag">飼養者回報</span>
             </div>
+            <div class="incident-card-time" style="margin-bottom:4px">${date} ${timeStr}</div>
             ${item.note ? `<div class="incident-card-note">📝 ${item.note}</div>` : '<div class="incident-card-note" style="color:var(--text-muted)">沒有備註</div>'}
             <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
               <button class="incident-delete-btn" onclick="deleteSelfReport('${item.id}')">🗑️ 刪除</button>
