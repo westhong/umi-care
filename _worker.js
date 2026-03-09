@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.9.23', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.9.24', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -278,6 +278,20 @@ async function handleApi(request, env, url) {
       });
     }
 
+
+    // ── AD-HOC PRESETS ───────────────────────────────────────────────────
+    if (path === '/adhoc/presets') {
+      if (method === 'GET') {
+        const raw = await KV.get('adhoc:presets');
+        return json(raw ? JSON.parse(raw) : []);
+      }
+      if (method === 'POST') {
+        const body = await request.json();
+        if (!Array.isArray(body)) return json({ error: 'array required' }, 400);
+        await KV.put('adhoc:presets', JSON.stringify(body));
+        return json({ ok: true });
+      }
+    }
 
     // ── AD-HOC REQUESTS ──────────────────────────────────────────────────
     if (path === '/adhoc') {

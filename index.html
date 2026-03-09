@@ -1101,6 +1101,149 @@ body::before {
   transition: background 0.15s;
 }
 .inc-photo-btn:active { background: rgba(239,68,68,0.22); }
+  /* ── Special Task Dispatch (✨ 特殊任務 tab) ── */
+  .st-dispatch-card {
+    background: var(--bg-card2);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--glass-border);
+  }
+  .st-section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .st-preset-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .st-preset-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 13px;
+    border-radius: 20px;
+    border: 1.5px solid var(--glass-border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .st-preset-chip:active { transform: scale(0.95); }
+  .st-preset-chip.selected {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-color: transparent;
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 3px 10px rgba(255,133,161,0.35);
+  }
+  .st-custom-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .st-icon-input {
+    width: 50px;
+    text-align: center;
+    font-size: 1.3rem;
+    padding: 8px 4px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    flex-shrink: 0;
+  }
+  .st-name-input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.92rem;
+  }
+  .st-note-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+  }
+  .st-dispatch-btn {
+    width: 100%;
+    padding: 13px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    box-shadow: 0 4px 14px rgba(255,133,161,0.4);
+  }
+  .st-dispatch-btn:active { transform: scale(0.97); opacity: 0.9; }
+  /* Task list */
+  .st-task-list { display: flex; flex-direction: column; gap: 10px; }
+  .st-task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    border: 1px solid var(--glass-border);
+    position: relative;
+  }
+  .st-task-item.done { opacity: 0.5; }
+  .st-task-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+  .st-task-body { flex: 1; min-width: 0; }
+  .st-task-name { font-size: 0.92rem; font-weight: 700; color: var(--text-primary); }
+  .st-task-name.done { text-decoration: line-through; }
+  .st-task-note { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+  .st-task-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; font-family: var(--mono); }
+  .st-task-status-pending {
+    font-size: 0.72rem; font-weight: 700;
+    color: #fb923c; background: rgba(251,146,60,0.12);
+    padding: 2px 8px; border-radius: 10px;
+    white-space: nowrap; margin-top: 4px; display: inline-block;
+  }
+  .st-task-status-done {
+    font-size: 0.72rem; font-weight: 700;
+    color: #4ade80; background: rgba(74,222,128,0.12);
+    padding: 2px 8px; border-radius: 10px;
+    white-space: nowrap; margin-top: 4px; display: inline-block;
+  }
+  .st-del-btn {
+    background: none; border: none;
+    color: var(--text-muted); cursor: pointer;
+    font-size: 1rem; padding: 4px 6px;
+    border-radius: 8px; flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+  }
+  .st-del-btn:hover { color: #f87171; background: rgba(248,113,113,0.1); }
+  /* Preset manager */
+  .st-preset-mgr-btn {
+    background: none; border: none;
+    font-size: 0.78rem; color: var(--text-muted);
+    cursor: pointer; padding: 3px 6px;
+    border-radius: 6px; text-decoration: underline;
+  }
+  .st-preset-mgr-btn:hover { color: var(--text-secondary); }
+
   /* ── Periodic card actions ── */
   .periodic-card-actions {
     display: flex; gap: 8px; margin-top: 10px;
@@ -1268,7 +1411,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.23</span>
+        <span id="version-badge">v3.9.24</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1370,20 +1513,7 @@ body::before {
       <div id="adminTabOverview" class="admin-tab-content active">
         <div id="adminOverviewContent"><div class="loading-spin"></div></div>
 
-        <!-- Admin: send adhoc request to caregiver -->
-        <div class="adhoc-admin-section">
-          <div class="adhoc-admin-title">📌 發送特別請求給照顧者</div>
-          <div class="adhoc-admin-row">
-            <input type="text" id="adhocIcon" placeholder="🐱" maxlength="2"
-              style="width:48px;text-align:center;font-size:1.3rem;padding:8px;border-radius:10px;border:1px solid var(--glass-border);background:var(--glass);color:var(--text);">
-            <input type="text" id="adhocName" placeholder="任務名稱（例：換新鮮水）" maxlength="40"
-              style="flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--glass-border);background:var(--glass);color:var(--text);font-size:0.92rem;">
-          </div>
-          <input type="text" id="adhocNote" placeholder="備註（選填，例：使用過濾水）" maxlength="80"
-            style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:10px;border:1px solid var(--glass-border);background:var(--glass);color:var(--text);font-size:0.88rem;margin-top:6px;">
-          <button class="adhoc-send-btn" onclick="createAdhocRequest()">📌 發送請求</button>
-          <div id="adhocPendingList" style="margin-top:12px;"></div>
-        </div>
+        
       </div>
 
       <!-- Records Tab -->
@@ -1426,13 +1556,31 @@ body::before {
         <button class="btn btn-primary mt-16" onclick="openTaskModal(null)">＋ 新增任務</button>
       </div>
 
-      <!-- Periodic Tab -->
+      <!-- Special Task Tab -->
       <div id="adminTabPeriodic" class="admin-tab-content">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div style="font-size:0.82rem;color:var(--text-muted);">追蹤週期性護理任務的完成狀態</div>
-          <button class="btn btn-primary" style="padding:8px 14px;font-size:0.82rem;margin:0;" onclick="openPeriodicModal(null)">＋ 新增</button>
+
+        <!-- Dispatch Card -->
+        <div class="st-dispatch-card">
+          <div class="st-section-label">快速選擇</div>
+          <div class="st-preset-chips" id="stPresetChips"><!-- rendered by JS --></div>
+
+          <div class="st-section-label" style="margin-top:4px;">自訂任務</div>
+          <div class="st-custom-row">
+            <input type="text" id="stIcon" class="st-icon-input" maxlength="2" placeholder="✨">
+            <input type="text" id="stName" class="st-name-input" maxlength="40" placeholder="任務名稱（例：換貓砂）">
+          </div>
+          <input type="text" id="stNote" class="st-note-input" maxlength="80" placeholder="備註（選填，例：豆腐砂 3–4cm 深度）">
+          <button class="st-dispatch-btn" onclick="dispatchSpecialTask()">📌 立即派發給飼養員</button>
         </div>
-        <div id="adminPeriodicContent"><div class="loading-spin"></div></div>
+
+        <!-- Preset manager link -->
+        <div style="text-align:right;margin-bottom:10px;">
+          <button class="st-preset-mgr-btn" onclick="openPresetManager()">⚙️ 管理快速選擇清單</button>
+        </div>
+
+        <!-- Task list -->
+        <div class="st-section-label">目前任務（持續存在直至完成或刪除）</div>
+        <div id="stTaskList"><div class="loading-spin"></div></div>
       </div>
 
       <!-- Cat Profile Tab -->
@@ -2687,6 +2835,7 @@ function switchAdminTab(tab) {
   });
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('adminTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+  if (tab === 'periodic') loadSpecialTaskAdmin();
   if (tab === 'cat') loadAdminCat();
   if (tab === 'records') { loadAdminRecords(); loadAdminIncidents(); }
   if (tab === 'weights') loadAdminWeights();
@@ -2696,9 +2845,9 @@ function switchAdminTab(tab) {
 async function loadAdminData() {
   document.getElementById('recordsDatePicker').value = state.currentDate;
   loadAdminOverview();
-  loadAdhocPendingList();   // default tab
+  // Special task tab loaded on demand via switchAdminTab
   loadAdminTasks();
-  loadAdminPeriodic();
+  
   loadAdminCat();
   loadAdminSettings();
 }
@@ -3572,145 +3721,183 @@ function closeTaskDetailModal() {
   document.getElementById('taskDetailModal').classList.add('hidden');
 }
 
-async function loadAdminPeriodic() {
-  const container = document.getElementById('adminPeriodicContent');
-  container.innerHTML = '<div class="loading-spin"></div>';
+// ══════════════════════════════════════════════════════════════════
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)
+// ══════════════════════════════════════════════════════════════════
+
+const DEFAULT_ST_PRESETS = [
+  { id: 'stp1', icon: '🪣', name: '換貓砂',   note: '豆腐砂，3–4cm 深度' },
+  { id: 'stp2', icon: '✂️', name: '剪指甲',   note: '' },
+  { id: 'stp3', icon: '👂', name: '清耳朵',   note: '' },
+  { id: 'stp4', icon: '🛁', name: '洗澡',     note: '抗菌洗劑×2、低速風筒' },
+  { id: 'stp5', icon: '💧', name: '罐頭加水', note: '偏好過濾水' },
+  { id: 'stp6', icon: '🏥', name: '健康檢查', note: '血檢、X-ray、牙科' },
+];
+
+let _stPresets   = [];   // loaded from KV or default
+let _stSelected  = null; // { icon, name, note } of selected preset chip
+
+async function loadStPresets() {
   try {
-    const periodic = await api('/api/periodic');
-    if (!periodic.length) {
-      container.innerHTML = '<div class="text-muted" style="text-align:center;padding:32px 20px;">尚未新增任何特殊任務<br><span style="font-size:0.78rem;margin-top:6px;display:block;">點擊右上角「＋ 新增」開始新增</span></div>';
+    const raw = await api('/api/adhoc/presets').catch(() => null);
+    _stPresets = (raw && Array.isArray(raw) && raw.length) ? raw : DEFAULT_ST_PRESETS;
+  } catch(_) { _stPresets = DEFAULT_ST_PRESETS; }
+}
+
+function renderStPresetChips() {
+  const container = document.getElementById('stPresetChips');
+  if (!container) return;
+  container.innerHTML = _stPresets.map(p => `
+    <button class="st-preset-chip${_stSelected && _stSelected.id === p.id ? ' selected' : ''}"
+      onclick="selectStPreset('${p.id}')">
+      ${p.icon} ${p.name}
+    </button>`).join('');
+}
+
+function selectStPreset(id) {
+  const p = _stPresets.find(x => x.id === id);
+  if (!p) return;
+  if (_stSelected && _stSelected.id === id) {
+    // toggle off
+    _stSelected = null;
+    document.getElementById('stIcon').value  = '';
+    document.getElementById('stName').value  = '';
+    document.getElementById('stNote').value  = '';
+  } else {
+    _stSelected = p;
+    document.getElementById('stIcon').value  = p.icon;
+    document.getElementById('stName').value  = p.name;
+    document.getElementById('stNote').value  = p.note || '';
+  }
+  renderStPresetChips();
+}
+
+async function loadSpecialTaskAdmin() {
+  await loadStPresets();
+  renderStPresetChips();
+  const container = document.getElementById('stTaskList');
+  if (!container) return;
+  try {
+    const list = await api('/api/adhoc');
+    if (!list.length) {
+      container.innerHTML = `<div style="text-align:center;padding:28px 20px;color:var(--text-muted);font-size:0.88rem;">
+        目前沒有任何特殊任務<br>
+        <span style="font-size:0.78rem;margin-top:4px;display:block;">點上方快速選擇或填寫自訂任務後按「立即派發」</span>
+      </div>`;
       return;
     }
-    const now = new Date();
-    container.innerHTML = periodic.map(p => {
-      let dueInfo = '', badgeClass = 'badge-ok', dueText = '正常 ✅';
-      if (p.intervalDays && p.lastDoneAt) {
-        const due = new Date(p.lastDoneAt);
-        due.setDate(due.getDate() + p.intervalDays);
-        const diffDays = Math.ceil((due - now) / 86400000);
-        if (diffDays < 0)      { badgeClass = 'badge-overdue';  dueText = `逾期 ${-diffDays} 天`; }
-        else if (diffDays <= 3){ badgeClass = 'badge-due-soon'; dueText = `${diffDays} 天後到期`; }
-        else                   { dueText = `${diffDays} 天後到期`; }
-        const lastDate = new Date(p.lastDoneAt).toLocaleDateString('zh-HK');
-        dueInfo = `<div class="card-sub" style="margin-top:4px;">上次完成：${lastDate} · 每 ${p.intervalDays} 天</div>`;
-      } else if (p.intervalDays && !p.lastDoneAt) {
-        badgeClass = 'badge-overdue'; dueText = '未記錄';
-        dueInfo = `<div class="card-sub" style="margin-top:4px;">週期：每 ${p.intervalDays} 天</div>`;
-      }
-      const iconPart = p.icon || '✨';
-      const noteHtml = p.note ? `<div class="card-sub" style="margin-top:3px;font-style:italic;">${p.note}</div>` : '';
-      return `<div class="card" style="margin-bottom:12px;">
-        <div class="flex-between" style="align-items:flex-start;">
-          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
-            <div style="width:40px;height:40px;border-radius:12px;background:var(--bg-card2);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">${iconPart}</div>
-            <div style="min-width:0;">
-              <div class="card-title" style="font-size:0.95rem;">${p.name}</div>
-              ${dueInfo}${noteHtml}
-            </div>
-          </div>
-          <span class="card-badge ${badgeClass}" style="flex-shrink:0;margin-left:8px;">${dueText}</span>
+    // Sort: pending first, done last
+    const sorted = [...list].sort((a,b) => {
+      if (a.done === b.done) return new Date(b.createdAt) - new Date(a.createdAt);
+      return a.done ? 1 : -1;
+    });
+    container.innerHTML = `<div class="st-task-list">${sorted.map(t => {
+      const timeStr = t.createdAt ? new Date(t.createdAt).toLocaleString('zh-HK', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+      const doneStr = t.doneAt   ? new Date(t.doneAt).toLocaleString('zh-HK',   { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+      return `
+      <div class="st-task-item${t.done ? ' done' : ''}">
+        <div class="st-task-icon">${t.icon || '📌'}</div>
+        <div class="st-task-body">
+          <div class="st-task-name${t.done ? ' done' : ''}">${t.name}</div>
+          ${t.note ? `<div class="st-task-note">📝 ${t.note}</div>` : ''}
+          <div class="st-task-meta">派發時間：${timeStr}</div>
+          ${t.done
+            ? `<span class="st-task-status-done">✅ 已完成${doneStr ? '  ' + doneStr : ''}</span>`
+            : `<span class="st-task-status-pending">⏳ 待飼養員完成</span>`}
         </div>
-        <div class="periodic-card-actions">
-          <button class="periodic-done-btn" onclick="markPeriodic('${p.id}')">✅ 標記完成</button>
-          <button class="periodic-edit-btn" onclick="openPeriodicModal('${p.id}')">✏️ 編輯</button>
-          <button class="periodic-del-btn" onclick="deletePeriodic('${p.id}')">🗑</button>
-        </div>
+        <button class="st-del-btn" onclick="deleteSpecialTask('${t.id}')" title="刪除">🗑</button>
       </div>`;
-    }).join('');
+    }).join('')}</div>`;
   } catch(e) {
-    container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
+    container.innerHTML = '<div style="color:#f87171;text-align:center;padding:20px;">載入失敗</div>';
   }
 }
 
-async function markPeriodic(id) {
+async function dispatchSpecialTask() {
+  const icon = (document.getElementById('stIcon')?.value || '').trim() || '📌';
+  const name = (document.getElementById('stName')?.value || '').trim();
+  const note = (document.getElementById('stNote')?.value || '').trim();
+  if (!name) { showToast('⚠️ 請輸入任務名稱或選擇快速選項'); return; }
   try {
-    const periodic = await api('/api/periodic');
-    const item = periodic.find(p => p.id === id);
-    if (!item) return;
-    item.lastDoneAt = new Date().toISOString();
-    if (item.weeklyCount !== undefined) item.weeklyCount = (item.weeklyCount || 0) + 1;
-    await api('/api/periodic', { method: 'POST', body: JSON.stringify(periodic) });
-    showToast('✅ 已記錄完成');
-    loadAdminPeriodic();
-  } catch(e) { showToast('⚠️ 記錄失敗: ' + e.message); }
+    await api('/api/adhoc', { method: 'POST', body: JSON.stringify({ icon, name, note }) });
+    // Reset form
+    document.getElementById('stIcon').value  = '';
+    document.getElementById('stName').value  = '';
+    document.getElementById('stNote').value  = '';
+    _stSelected = null;
+    renderStPresetChips();
+    showToast('✅ 已派發特殊任務給飼養員');
+    loadSpecialTaskAdmin();
+    // Refresh caretaker task list too
+    state.adhocRequests = await api('/api/adhoc').catch(() => []);
+    state.adhocRequests = state.adhocRequests.filter(a => !a.done);
+    renderTaskList();
+  } catch(e) { showToast('❌ 派發失敗：' + e.message); }
 }
 
-async function deletePeriodic(id) {
+async function deleteSpecialTask(id) {
   if (!confirm('確認刪除此特殊任務？')) return;
   try {
-    const periodic = await api('/api/periodic');
-    const updated = periodic.filter(p => p.id !== id);
-    await api('/api/periodic', { method: 'POST', body: JSON.stringify(updated) });
+    await api('/api/adhoc/' + id, { method: 'DELETE' });
     showToast('🗑️ 已刪除');
-    loadAdminPeriodic();
-  } catch(e) { showToast('⚠️ 刪除失敗: ' + e.message); }
+    loadSpecialTaskAdmin();
+    state.adhocRequests = await api('/api/adhoc').catch(() => []);
+    state.adhocRequests = state.adhocRequests.filter(a => !a.done);
+    renderTaskList();
+  } catch(e) { showToast('❌ 刪除失敗'); }
 }
 
-// ── Periodic add/edit modal ──────────────────────────────────────
-let _periodicEditId = null;
-
-function openPeriodicModal(id) {
-  _periodicEditId = id;
-  const modal = document.getElementById('periodicModal');
-  const title = document.getElementById('periodicModalTitle');
-  // Reset fields
-  document.getElementById('pmIcon').value = '✨';
-  document.getElementById('pmName').value = '';
-  document.getElementById('pmDays').value = '';
-  document.getElementById('pmNote').value = '';
-
-  if (id) {
-    // Edit mode – fetch from API then populate
-    api('/api/periodic').then(list => {
-      const item = list.find(p => p.id === id);
-      if (!item) return;
-      document.getElementById('pmIcon').value = item.icon || '✨';
-      document.getElementById('pmName').value = item.name || '';
-      document.getElementById('pmDays').value = item.intervalDays || '';
-      document.getElementById('pmNote').value = item.note || '';
-    });
-    title.textContent = '✏️ 編輯特殊任務';
-  } else {
-    title.textContent = '＋ 新增特殊任務';
-  }
-  modal.classList.remove('hidden');
+// ── Preset Manager Modal ─────────────────────────────────────────
+function openPresetManager() {
+  const overlay = document.getElementById('presetMgrOverlay');
+  if (!overlay) return;
+  renderPresetMgrList();
+  overlay.classList.remove('hidden');
 }
-
-function closePeriodicModal() {
-  document.getElementById('periodicModal').classList.add('hidden');
-  _periodicEditId = null;
+function closePresetManager() {
+  const overlay = document.getElementById('presetMgrOverlay');
+  if (overlay) overlay.classList.add('hidden');
 }
-
-async function savePeriodicModal() {
-  const icon = (document.getElementById('pmIcon').value.trim() || '✨');
-  const name = document.getElementById('pmName').value.trim();
-  const days = parseInt(document.getElementById('pmDays').value) || null;
-  const note = document.getElementById('pmNote').value.trim();
-
-  if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
-
+function renderPresetMgrList() {
+  const c = document.getElementById('presetMgrList');
+  if (!c) return;
+  c.innerHTML = _stPresets.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--glass-border);">
+      <span style="font-size:1.1rem;width:28px;text-align:center;">${p.icon}</span>
+      <span style="flex:1;font-size:0.88rem;font-weight:600;">${p.name}</span>
+      <span style="font-size:0.75rem;color:var(--text-muted);flex:1;">${p.note || ''}</span>
+      <button onclick="removePreset('${p.id}')" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:1rem;padding:2px 6px;border-radius:6px;">✕</button>
+    </div>`).join('') || '<div style="color:var(--text-muted);text-align:center;padding:16px;">清單為空，請新增</div>';
+}
+async function removePreset(id) {
+  _stPresets = _stPresets.filter(p => p.id !== id);
+  await saveStPresets();
+  renderPresetMgrList();
+  renderStPresetChips();
+}
+async function addPresetFromMgr() {
+  const icon = (document.getElementById('pmgrIcon')?.value || '').trim() || '✨';
+  const name = (document.getElementById('pmgrName')?.value || '').trim();
+  const note = (document.getElementById('pmgrNote')?.value || '').trim();
+  if (!name) { showToast('⚠️ 請輸入名稱'); return; }
+  _stPresets.push({ id: 'stp_' + Date.now(), icon, name, note });
+  await saveStPresets();
+  document.getElementById('pmgrIcon').value = '';
+  document.getElementById('pmgrName').value = '';
+  document.getElementById('pmgrNote').value = '';
+  renderPresetMgrList();
+  renderStPresetChips();
+  showToast('✅ 已新增');
+}
+async function saveStPresets() {
   try {
-    const periodic = await api('/api/periodic');
-    if (_periodicEditId) {
-      // Edit existing
-      const item = periodic.find(p => p.id === _periodicEditId);
-      if (item) {
-        item.icon = icon;
-        item.name = name;
-        if (days) item.intervalDays = days; else delete item.intervalDays;
-        item.note = note;
-      }
-    } else {
-      // Add new
-      const newId = 'p' + Date.now();
-      periodic.push({ id: newId, icon, name, intervalDays: days || undefined, note: note || undefined, lastDoneAt: null });
-    }
-    await api('/api/periodic', { method: 'POST', body: JSON.stringify(periodic) });
-    showToast(_periodicEditId ? '✅ 已更新特殊任務' : '✅ 已新增特殊任務');
-    closePeriodicModal();
-    loadAdminPeriodic();
-  } catch(e) { showToast('⚠️ 儲存失敗: ' + e.message); }
+    await api('/api/adhoc/presets', { method: 'POST', body: JSON.stringify(_stPresets) });
+  } catch(_) { /* silently ignore – presets will revert on reload */ }
 }
+
+// ── keep old createAdhocRequest for backward compat (caretaker side) ─────
+async function createAdhocRequest() { return dispatchSpecialTask(); }
+async function loadAdhocPendingList() { return loadSpecialTaskAdmin(); }
 
 function updateCatBdayAge() {
   const bday = document.getElementById('catFormBday') && document.getElementById('catFormBday').value;
@@ -4878,6 +5065,29 @@ async function checkPushStatus() {
           <button class="btn btn-primary" style="flex:2;margin:0;" onclick="savePeriodicModal()">💾 儲存</button>
           <button class="btn" style="flex:1;margin:0;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-secondary);" onclick="closePeriodicModal()">取消</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preset Manager Modal -->
+  <div id="presetMgrOverlay" class="modal-overlay hidden" onclick="if(event.target===this)closePresetManager()">
+    <div class="modal-box" style="max-width:400px;">
+      <div class="modal-header">
+        <span style="font-size:1rem;font-weight:700;">⚙️ 管理快速選擇清單</span>
+        <button class="modal-close" onclick="closePresetManager()">✕</button>
+      </div>
+      <div style="padding:14px 18px 18px;">
+        <div id="presetMgrList" style="max-height:260px;overflow-y:auto;margin-bottom:14px;"></div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;">新增項目</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="text" id="pmgrIcon" maxlength="2" placeholder="✨"
+            style="width:46px;text-align:center;font-size:1.2rem;padding:7px 4px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-primary);">
+          <input type="text" id="pmgrName" maxlength="30" placeholder="任務名稱"
+            style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-primary);font-size:0.88rem;">
+        </div>
+        <input type="text" id="pmgrNote" maxlength="60" placeholder="備註（選填）"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid var(--glass-border);background:var(--bg-card2);color:var(--text-primary);font-size:0.82rem;margin-bottom:12px;">
+        <button class="btn btn-primary" style="width:100%;margin:0;" onclick="addPresetFromMgr()">＋ 新增至快速清單</button>
       </div>
     </div>
   </div>
