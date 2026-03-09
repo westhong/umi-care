@@ -888,13 +888,14 @@ body::before {
     position: relative; z-index: 1;
     display: flex; align-items: center; gap: 8px;
     padding: 9px 12px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.07);
+    /* MUST be opaque – covers the red delete reveal behind it */
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
     border-radius: 10px;
     transition: transform 0.25s ease;
     cursor: pointer;
     user-select: none; -webkit-user-select: none;
-  }
+}
   .log-row:active { opacity: 0.85; }
   .log-row.swiped { transform: translateX(-72px); }
 
@@ -1190,7 +1191,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.8</span>
+        <span id="version-badge">v3.9.9</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2672,14 +2673,23 @@ async function loadAdminOverview() {
         const timeStr = utcToCalgaryClock(inc.reportedAt) || '';
         const resolvedTag = inc.resolved
           ? `<div class="inc-pin-resolved">✅ 已處理 ${inc.resolvedAt ? utcToCalgaryClock(inc.resolvedAt) : ''}</div>` : '';
-        return `<div class="inc-pin-item" style="${dimmed ? 'opacity:0.55' : ''}">
-          <div class="inc-pin-icon">${typeLabels[inc.type]?.split(' ')[0] || '🆘'}</div>
+        const label = typeLabels[inc.type] || ('❗ ' + inc.type);
+        // Build detailData for logDetail modal (same as records tab)
+        const dd = JSON.stringify({
+          type:'incident', id:inc.id, name:label, icon:label.split(' ')[0],
+          time:inc.reportedAt, note:inc.note||'', hasPhoto:!!inc.hasPhoto,
+          resolved:!!inc.resolved, resolvedAt:inc.resolvedAt||''
+        }).replace(/'/g,"&#39;");
+        return `<div class="inc-pin-item" style="${dimmed ? 'opacity:0.55;cursor:pointer' : 'cursor:pointer'}"
+          onclick="openLogDetail('${dd}')">
+          <div class="inc-pin-icon">${label.split(' ')[0] || '🆘'}</div>
           <div class="inc-pin-body">
-            <div class="inc-pin-title">${typeLabels[inc.type] || inc.type}</div>
+            <div class="inc-pin-title">${label.split(' ').slice(1).join(' ') || label}</div>
             <div class="inc-pin-meta">${timeStr}${inc.note ? ' — ' + inc.note : ''}</div>
             ${resolvedTag}
-            ${inc.hasPhoto ? `<button class="inc-photo-btn" onclick="viewIncidentPhotoFromPin('${inc.id}')">📷 查看照片</button>` : ''}
+            ${inc.hasPhoto ? '<span class="log-chip-btn" style="margin-top:5px;display:inline-block">📷 點擊查看照片</span>' : ''}
           </div>
+          <span style="color:var(--text-muted);font-size:0.8rem;flex-shrink:0">›</span>
         </div>`;
       };
       const allIncItems = [
@@ -3051,15 +3061,15 @@ async function logDetailLoadPhoto() {
   if (!id) return;
   const btn = document.getElementById('logDetailPhotoBtn');
   const img = document.getElementById('logDetailPhotoImg');
-  btn.textContent = '⏳ 載入中...';
+  if (btn) btn.textContent = '⏳ 載入中...';
   try {
     const data = await api('/api/incidents/' + id + '/photo');
     if (data.photo) {
-      img.src = data.photo;
-      img.style.display = '';
-      btn.style.display = 'none';
-    } else { btn.textContent = '⚠️ 照片不存在'; }
-  } catch(e) { btn.textContent = '⚠️ 載入失敗'; }
+      // Show in the sheet's img element AND make it tappable for full-screen
+      if (img) { img.src = data.photo; img.style.display = ''; }
+      if (btn) btn.style.display = 'none';
+    } else { if (btn) btn.textContent = '⚠️ 照片不存在'; }
+  } catch(e) { if (btn) btn.textContent = '⚠️ 載入失敗'; }
 }
 
 function logDetailViewPhoto() {
@@ -3076,6 +3086,28 @@ async function confirmDeleteCheckin(taskId, date) {
     showToast('🗑️ 已刪除打卡記錄');
     loadAdminRecords();
   } catch(e) { showToast('⚠️ 刪除失敗: ' + e.message); }
+}
+
+function openPhotoOverlay(src) {
+  const ov = document.getElementById('photoOverlay');
+  const img = document.getElementById('photoOverlayImg');
+  if (!ov || !img) return;
+  img.src = src;
+  ov.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closePhotoOverlay() {
+  const ov = document.getElementById('photoOverlay');
+  if (ov) ov.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// Also fix logDetailViewPhoto to use overlay instead of window.open
+function logDetailViewPhoto() {
+  const img = document.getElementById('logDetailPhotoImg');
+  if (img && img.src && img.src.length > 10) {
+    openPhotoOverlay(img.src);
+  }
 }
 
 async function loadAdminWeights() {
@@ -3981,13 +4013,19 @@ async function checkPushStatus() {
   }
 
   async function viewIncidentPhotoFromPin(id) {
+    // Use in-app overlay (window.open is blocked by iOS after async)
+    const btn = event?.target;
+    if (btn) btn.textContent = '⏳ 載入中...';
     try {
       const data = await api('/api/incidents/' + id + '/photo');
+      if (btn) btn.textContent = '📷 查看照片';
       if (data.photo) {
-        const w = window.open('', '_blank');
-        w.document.write('<body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="' + data.photo + '" style="max-width:100%;max-height:100vh;object-fit:contain;border-radius:8px"></body>');
+        openPhotoOverlay(data.photo);
       } else { showToast('⚠️ 照片不存在'); }
-    } catch(e) { showToast('⚠️ 載入照片失敗'); }
+    } catch(e) {
+      if (btn) btn.textContent = '📷 查看照片';
+      showToast('⚠️ 載入照片失敗');
+    }
   }
 
   async function loadIncidentPhoto(id) {
@@ -4376,6 +4414,16 @@ async function checkPushStatus() {
 .sr-ov-time { font-size:0.75rem;color:var(--text-muted);flex-shrink:0; }
 </style>
 
+
+  <!-- Full-screen photo overlay (avoids iOS window.open block) -->
+  <div id="photoOverlay" style="
+    display:none;position:fixed;inset:0;z-index:2000;
+    background:rgba(0,0,0,0.92);align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;"
+    onclick="closePhotoOverlay()">
+    <img id="photoOverlayImg" style="max-width:96vw;max-height:82vh;object-fit:contain;border-radius:10px;">
+    <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;">點任意處關閉</div>
+  </div>
 
   <!-- Log detail bottom-sheet modal -->
   <div class="log-detail-overlay" id="logDetailOverlay" onclick="closeLogDetail(event)">
