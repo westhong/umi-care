@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  UmiCare v4.1.2 — Long-Term Support Series
+  UmiCare v4.1.3 — Long-Term Support Series
   ================================================
   v4.0  feat: 特殊任務 tab, full UmiCare icon
   v4.0.1  fix: switchAdminTab crash (regex → string match)
@@ -17,6 +17,8 @@
               saveTaskModal missing try/catch (silent API failures)
   v4.1.2  feat: 新增「檢查飼料機」任務 (週日 12:00, weekly migration),
               auto-migration system in _worker.js GET /api/tasks
+  v4.1.3  fix: saveTaskModal silently fails when time not clicked into chip
+              (auto-add pending time input before validation)
 -->
 <html lang="zh-HK">
 <head>
@@ -25,9 +27,9 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <meta name="theme-color" content="#ff85a1">
 <meta charset="UTF-8">
-<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.1.2">
+<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.1.3">
   <meta name="application-name" content="UmiCare">
-  <meta name="version" content="4.1.2">
+  <meta name="version" content="4.1.3">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>UmiCare 🐱 屋咪照護</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1446,7 +1448,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.1.2 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">LTS</span></span>
+        <span id="version-badge">v4.1.3 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">LTS</span></span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -3807,6 +3809,14 @@ async function saveTaskModal() {
   const scheduleType = document.getElementById('temScheduleType').value;
   const requireNote = document.getElementById('temRequireNote').value !== 'false';
 
+  // Auto-add whatever is in the time input (avoid confusion from not clicking ＋)
+  const _pendingTime = document.getElementById('temNewTime').value;
+  if (_pendingTime && !_temTimes.includes(_pendingTime)) {
+    _temTimes.push(_pendingTime);
+    _temTimes.sort();
+    renderTemTimes();
+  }
+
   if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
   if (_temTimes.length === 0) { showToast('⚠️ 請至少新增一個時間'); return; }
 
@@ -3916,7 +3926,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.1.2
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.1.3
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [

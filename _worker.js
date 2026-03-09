@@ -43,12 +43,6 @@ const DEFAULT_TASKS = [
   { id: 't12', name: '刷牙', icon: '🦷', type: 'groom', scheduleType: 'daily', scheduledTimes: ['22:00'], resultOptions: [{ label: '完成 ✅', value: 'done' }, { label: '部分完成', value: 'partial' }, { label: '略過', value: 'skip' }] },
 ];
 
-// Tasks added after initial deploy — auto-migrated into KV on first load
-const TASK_MIGRATIONS = [
-  { id: 'tm01', name: '檢查飼料機', icon: '🤖', type: 'other',
-    scheduleType: 'weekly', weekDays: [0], scheduledTimes: ['12:00'],
-    resultOptions: [], requireNote: false },
-];
 
 const DEFAULT_PERIODIC = [
   { id: 'p1', icon: '💧', name: '罐頭加水', intervalDays: 3, lastDoneAt: null, note: '不含鮪魚，偏好泥狀' },
@@ -71,7 +65,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '4.1.2', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '4.1.3', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -150,23 +144,10 @@ async function handleApi(request, env, url) {
         const raw = await KV.get('tasks:list');
         if (!raw) {
           // First time: initialize KV with default tasks so cron can find them
-          const initTasks = [...DEFAULT_TASKS, ...TASK_MIGRATIONS.filter(
-            m => !DEFAULT_TASKS.find(t => t.id === m.id)
-          )];
-          await KV.put('tasks:list', JSON.stringify(initTasks));
-          return json(initTasks);
+          await KV.put('tasks:list', JSON.stringify(DEFAULT_TASKS));
+          return json(DEFAULT_TASKS);
         }
-        // ── Migration: add new tasks that were added after initial deploy ──
-        const tasks = JSON.parse(raw);
-        let migrated = false;
-        for (const m of TASK_MIGRATIONS) {
-          if (!tasks.find(t => t.id === m.id || t.name === m.name)) {
-            tasks.push(m);
-            migrated = true;
-          }
-        }
-        if (migrated) await KV.put('tasks:list', JSON.stringify(tasks));
-        return json(tasks);
+        return json(JSON.parse(raw));
       }
       if (method === 'POST') {
         const newTasks = await request.json();
