@@ -1411,7 +1411,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.25</span>
+        <span id="version-badge">v3.9.26</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -3155,7 +3155,7 @@ async function loadAdminOverview() {
             delBtn.title = '刪除（管理員）';
             delBtn.addEventListener('click', e => {
               e.stopPropagation();
-              deleteSpecialTask(t.id);
+              deleteSpecialTask(t.id, e.currentTarget);
             });
             row.appendChild(delBtn);
             wrap.appendChild(row);
@@ -3840,7 +3840,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v3.9.25
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v3.9.26
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [
@@ -3922,7 +3922,7 @@ async function loadSpecialTaskAdmin() {
             ? `<span class="st-task-status-done">✅ 已完成${doneStr ? '  ' + doneStr : ''}</span>`
             : `<span class="st-task-status-pending">⏳ 待飼養員完成</span>`}
         </div>
-        <button class="st-del-btn" onclick="deleteSpecialTask('${t.id}')" title="刪除">🗑</button>
+        <button class="st-del-btn" onclick="deleteSpecialTask('${t.id}', this)" title="刪除">🗑</button>
       </div>`;
     }).join('')}</div>`;
   } catch(e) {
@@ -3956,12 +3956,22 @@ async function dispatchSpecialTask() {
   } catch(e) { showToast('❌ 派發失敗：' + e.message); }
 }
 
-async function deleteSpecialTask(id) {
+async function deleteSpecialTask(id, triggerEl) {
   if (!confirm('確認刪除此特殊任務？')) return;
+  // Optimistic UI: immediately hide the card/row so user sees instant feedback
+  let hiddenEl = null;
+  if (triggerEl) {
+    hiddenEl = triggerEl.closest('.log-row-wrap, .st-task-card');
+    if (hiddenEl) hiddenEl.style.display = 'none';
+  }
   try {
     await api('/api/adhoc/' + id, { method: 'DELETE' });
     showToast('🗑️ 已刪除');
     loadSpecialTaskAdmin();
+    // Also refresh history records if that tab is currently active
+    if (document.getElementById('adminTabRecords')?.classList.contains('active')) {
+      loadAdminRecords();
+    }
     const fresh2 = await api('/api/adhoc').catch(() => []);
     state.adhocRequests = fresh2.filter(a => !a.done);
     state.adhocDoneToday = fresh2.filter(a => {
@@ -3969,7 +3979,11 @@ async function deleteSpecialTask(id) {
       try { return getCalgaryDate(new Date(a.doneAt)).toISOString().slice(0,10) === state.currentDate; } catch(_) { return false; }
     });
     renderTaskList();
-  } catch(e) { showToast('❌ 刪除失敗'); }
+  } catch(e) {
+    showToast('❌ 刪除失敗');
+    // Restore visibility on failure
+    if (hiddenEl) hiddenEl.style.display = '';
+  }
 }
 
 // ── Preset Manager Modal ─────────────────────────────────────────
@@ -4167,20 +4181,37 @@ async function refreshAdhocForCaregiver(showIndicator) {
   }
 }
 
-// ── Pull-to-refresh (mobile swipe down on tasks page) ────────────────────
+// ── Pull-to-refresh (caregiver tasks page + admin page) ─────────────────
 (function() {
   let touchStartY = 0;
   let pulling = false;
-  const page = () => document.getElementById('pageTasks');
+
+  function activePage() {
+    const tasks = document.getElementById('pageTasks');
+    const admin = document.getElementById('pageAdmin');
+    if (tasks && !tasks.classList.contains('hidden')) return 'tasks';
+    if (admin && !admin.classList.contains('hidden')) return 'admin';
+    return null;
+  }
+
+  function activePageEl() {
+    const p = activePage();
+    if (p === 'tasks') return document.getElementById('pageTasks');
+    if (p === 'admin') return document.getElementById('pageAdmin');
+    return null;
+  }
+
   document.addEventListener('touchstart', e => {
-    if (!page() || page().classList.contains('hidden')) return;
+    if (!activePage()) return;
     touchStartY = e.touches[0].clientY;
     pulling = false;
   }, { passive: true });
+
   document.addEventListener('touchmove', e => {
-    if (!page() || page().classList.contains('hidden')) return;
+    const el = activePageEl();
+    if (!el) return;
     const dy = e.touches[0].clientY - touchStartY;
-    if (dy > 60 && page().scrollTop <= 0 && !pulling) {
+    if (dy > 60 && el.scrollTop <= 0 && !pulling) {
       pulling = true;
       const indicator = document.getElementById('pullRefreshIndicator');
       if (indicator) {
@@ -4190,13 +4221,53 @@ async function refreshAdhocForCaregiver(showIndicator) {
       }
     }
   }, { passive: true });
+
   document.addEventListener('touchend', () => {
-    if (pulling) {
-      pulling = false;
+    if (!pulling) return;
+    pulling = false;
+    const p = activePage();
+    if (p === 'tasks') {
       refreshAdhocForCaregiver(true);
+    } else if (p === 'admin') {
+      refreshAdmin(true);
     }
   }, { passive: true });
 })();
+
+// ── Admin pull-to-refresh handler ─────────────────────────────────────────
+async function refreshAdmin(showIndicator) {
+  const indicator = document.getElementById('pullRefreshIndicator');
+  if (showIndicator && indicator) {
+    indicator.textContent = '🔄 更新中…';
+    indicator.style.opacity = '1';
+    indicator.style.transform = 'translateX(-50%) translateY(0)';
+  }
+  try {
+    // Detect which admin tab-content is currently active
+    const isActive = id => document.getElementById(id)?.classList.contains('active');
+    if (isActive('adminTabRecords')) {
+      await loadAdminRecords(); await loadAdminIncidents();
+    } else if (isActive('adminTabWeights')) {
+      if (typeof loadAdminWeights === 'function') await loadAdminWeights();
+    } else if (isActive('adminTabTasks')) {
+      if (typeof loadAdminTasks === 'function') await loadAdminTasks();
+    } else if (isActive('adminTabPeriodic')) {
+      await loadSpecialTaskAdmin();
+    } else {
+      // Default: overview tab (or cat/settings – just reload overview)
+      await loadAdminOverview();
+    }
+  } catch(e) { /* keep state on error */ }
+  finally {
+    if (showIndicator && indicator) {
+      indicator.textContent = '✅ 已更新';
+      setTimeout(() => {
+        indicator.style.opacity = '0';
+        indicator.style.transform = 'translateX(-50%) translateY(-40px)';
+      }, 800);
+    }
+  }
+}
 
 // Auto-refresh adhoc when app comes back to foreground
 document.addEventListener('visibilitychange', () => {
