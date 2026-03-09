@@ -1424,7 +1424,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.0.2</span>
+        <span id="version-badge">v4.0.3</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1577,6 +1577,14 @@ body::before {
       <div id="adminTabTasks" class="admin-tab-content">
         <div id="adminTasksList"></div>
         <button class="btn btn-primary mt-16" onclick="openTaskModal(null)">＋ 新增任務</button>
+
+        <!-- Periodic / recurring tasks ──────────────────────────── -->
+        <div style="height:1px;background:var(--glass-border);margin:20px 0 14px;"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div class="records-section-header">🔁 定期任務</div>
+          <button class="btn btn-primary" style="padding:5px 14px;font-size:0.82rem;margin:0;" onclick="openPeriodicModal(null)">＋ 新增</button>
+        </div>
+        <div id="periodicTaskList"><div class="loading-spin"></div></div>
       </div>
 
       <!-- Special Task Tab -->
@@ -2891,6 +2899,7 @@ function switchAdminTab(tab) {
   if (tab === 'records') { loadAdminRecords(); loadAdminIncidents(); }
   if (tab === 'weights') loadAdminWeights();
   if (tab === 'overview') loadAdminOverview();
+  if (tab === 'tasks') { loadAdminTasks(); loadPeriodicTasksAdmin(); }
 }
 
 async function loadAdminData() {
@@ -2898,7 +2907,7 @@ async function loadAdminData() {
   loadAdminOverview();
   // Special task tab loaded on demand via switchAdminTab
   loadAdminTasks();
-  
+  loadPeriodicTasksAdmin();
   loadAdminCat();
   loadAdminSettings();
 }
@@ -3854,7 +3863,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.2
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.3
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [
@@ -3975,7 +3984,7 @@ async function deleteSpecialTask(id, triggerEl) {
   // Optimistic UI: immediately hide the card/row so user sees instant feedback
   let hiddenEl = null;
   if (triggerEl) {
-    hiddenEl = triggerEl.closest('.log-row-wrap, .st-task-card');
+    hiddenEl = triggerEl.closest('.log-row-wrap, .st-task-card, .st-task-item');
     if (hiddenEl) hiddenEl.style.display = 'none';
   }
   try {
@@ -4315,45 +4324,8 @@ setInterval(async () => {
 }, 30 * 1000);
 
 
-async function createAdhocRequest() {
-  const icon = (document.getElementById('adhocIcon')?.value || '📌').trim() || '📌';
-  const name = (document.getElementById('adhocName')?.value || '').trim();
-  const note = (document.getElementById('adhocNote')?.value || '').trim();
-  if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
-  try {
-    await api('/api/adhoc', {
-      method: 'POST',
-      body: JSON.stringify({ icon, name, note }),
-    });
-    document.getElementById('adhocName').value = '';
-    document.getElementById('adhocNote').value = '';
-    showToast('✅ 請求已發送給照顧者');
-    loadAdhocPendingList();
-    // Refresh caregiver view too
-    state.adhocRequests = await api('/api/adhoc').catch(() => []);
-    state.adhocRequests = state.adhocRequests.filter(a => !a.done);
-    renderTaskList();
-  } catch(e) { showToast('❌ 發送失敗'); }
-}
-
-async function loadAdhocPendingList() {
-  const container = document.getElementById('adhocPendingList');
-  if (!container) return;
-  try {
-    const list = await api('/api/adhoc');
-    if (!list.length) { container.innerHTML = '<div style="text-align:center;padding:8px;color:var(--text-muted);font-size:0.82rem">目前沒有待辦請求</div>'; return; }
-    container.innerHTML = list.map(a => `
-      <div class="adhoc-pending-item">
-        <div class="item-icon">${a.icon || '📌'}</div>
-        <div class="item-info">
-          <div class="item-name">${a.name}</div>
-          ${a.note ? `<div class="item-note">${a.note}</div>` : ''}
-          ${a.done ? `<div class="item-status">✅ 已完成 ${a.doneNote ? '· ' + a.doneNote : ''}</div>` : '<div style="font-size:0.75rem;color:var(--text-muted)">⏳ 待照護者處理</div>'}
-        </div>
-        <button class="adhoc-dismiss-btn" onclick="dismissAdhoc('${a.id}')">✕</button>
-      </div>`).join('');
-  } catch(e) {}
-}
+// createAdhocRequest and loadAdhocPendingList are defined above as
+// backward-compat aliases → dispatchSpecialTask / loadSpecialTaskAdmin
 
 async function dismissAdhoc(id) {
   try {
@@ -4741,20 +4713,165 @@ async function checkPushStatus() {
     } catch(e) { if (imgEl) imgEl.style.display = 'none'; }
   }
   function viewIncidentPhoto(id) {
-    // View full-screen photo — load from API if not inline
+    // View full-screen photo — use openPhotoOverlay (window.open is blocked on iOS after async)
     const inc = (state.incidents || []).find(i => i.id === id);
     const imgEl = document.getElementById('inc-photo-' + id);
     const src = inc?.photo || (imgEl?.src?.length > 10 ? imgEl.src : null);
     if (src) {
-      const w = window.open();
-      w.document.write('<img src="' + src + '" style="max-width:100%;display:block;margin:auto">');
+      openPhotoOverlay(src);
     } else {
       loadIncidentPhoto(id).then(() => {
         const inc2 = (state.incidents || []).find(i => i.id === id);
-        if (inc2?.photo) { const w = window.open(); w.document.write('<img src="' + inc2.photo + '" style="max-width:100%;display:block;margin:auto">'); }
+        if (inc2?.photo) openPhotoOverlay(inc2.photo);
       });
     }
   }
+
+// ── Periodic Task Modal ─────────────────────────────────────────────────────
+// These functions manage the periodic/recurring task list via /api/periodic
+let _periodicTasks = [];      // in-memory copy of the full list
+let _periodicEditId = null;   // null = new task, string = editing existing
+
+async function loadPeriodicTasksAdmin() {
+  try {
+    _periodicTasks = await api('/api/periodic');
+  } catch(e) { _periodicTasks = []; }
+  renderPeriodicTasksAdmin();
+}
+
+function renderPeriodicTasksAdmin() {
+  const container = document.getElementById('periodicTaskList');
+  if (!container) return;
+  if (!_periodicTasks.length) {
+    container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">尚未設定定期任務</div>';
+    return;
+  }
+  container.innerHTML = _periodicTasks.map(p => {
+    const lastStr = p.lastDoneAt
+      ? utcToCalgaryClock(p.lastDoneAt)
+      : '從未完成';
+    const dueStr = (p.intervalDays && p.lastDoneAt)
+      ? (() => {
+          const due = new Date(p.lastDoneAt);
+          due.setDate(due.getDate() + p.intervalDays);
+          const diff = Math.ceil((due - new Date()) / 86400000);
+          if (diff < 0) return `<span style="color:#f87171">逾期 ${-diff} 天</span>`;
+          if (diff === 0) return `<span style="color:#fb923c">今天到期</span>`;
+          return `<span style="color:var(--text-muted)">${diff} 天後</span>`;
+        })()
+      : (p.intervalDays ? `<span style="color:var(--text-muted)">每 ${p.intervalDays} 天</span>` : '<span style="color:var(--text-muted)">不定期</span>');
+    const noteChip = p.note
+      ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">📝 ${p.note}</div>`
+      : '';
+    return `
+      <div class="periodic-task-card" id="ptc-${p.id}">
+        <div class="periodic-task-main">
+          <span class="periodic-task-icon">${p.icon || '📋'}</span>
+          <div class="periodic-task-body">
+            <div class="periodic-task-name">${p.name}</div>
+            <div class="periodic-task-meta">上次：${lastStr} · ${dueStr}</div>
+            ${noteChip}
+          </div>
+        </div>
+        <div class="periodic-card-actions">
+          <button class="periodic-done-btn" onclick="markPeriodicDone('${p.id}')">✅ 完成</button>
+          <button class="periodic-edit-btn" onclick="openPeriodicModal('${p.id}')">✏️</button>
+          <button class="periodic-del-btn" onclick="deletePeriodicTask('${p.id}')">🗑</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openPeriodicModal(taskId) {
+  _periodicEditId = taskId || null;
+  const modal = document.getElementById('periodicModal');
+  const title = document.getElementById('periodicModalTitle');
+  title.textContent = taskId ? '✏️ 編輯定期任務' : '＋ 新增定期任務';
+  if (taskId) {
+    const t = _periodicTasks.find(p => p.id === taskId);
+    if (t) {
+      document.getElementById('pmIcon').value  = t.icon  || '';
+      document.getElementById('pmName').value  = t.name  || '';
+      document.getElementById('pmDays').value  = t.intervalDays || '';
+      document.getElementById('pmNote').value  = t.note  || '';
+    }
+  } else {
+    document.getElementById('pmIcon').value  = '';
+    document.getElementById('pmName').value  = '';
+    document.getElementById('pmDays').value  = '';
+    document.getElementById('pmNote').value  = '';
+  }
+  modal.classList.remove('hidden');
+}
+
+function closePeriodicModal() {
+  document.getElementById('periodicModal').classList.add('hidden');
+  _periodicEditId = null;
+}
+
+async function savePeriodicModal() {
+  const icon = (document.getElementById('pmIcon').value || '').trim() || '📋';
+  const name = (document.getElementById('pmName').value || '').trim();
+  const daysVal = document.getElementById('pmDays').value.trim();
+  const note = (document.getElementById('pmNote').value || '').trim();
+  if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
+  const intervalDays = daysVal ? parseInt(daysVal) : null;
+  if (daysVal && (isNaN(intervalDays) || intervalDays < 1)) {
+    showToast('⚠️ 週期天數必須為正整數'); return;
+  }
+  if (_periodicEditId) {
+    // Edit existing
+    const idx = _periodicTasks.findIndex(p => p.id === _periodicEditId);
+    if (idx >= 0) {
+      _periodicTasks[idx] = { ..._periodicTasks[idx], icon, name, intervalDays, note };
+    }
+  } else {
+    // New task
+    const newId = 'p' + Date.now();
+    _periodicTasks.push({ id: newId, icon, name, intervalDays, note, lastDoneAt: null });
+  }
+  try {
+    await api('/api/periodic', { method: 'POST', body: JSON.stringify(_periodicTasks) });
+    showToast('✅ 已儲存');
+    closePeriodicModal();
+    renderPeriodicTasksAdmin();
+  } catch(e) { showToast('❌ 儲存失敗'); }
+}
+
+async function markPeriodicDone(taskId) {
+  const t = _periodicTasks.find(p => p.id === taskId);
+  if (!t) return;
+  const card = document.getElementById('ptc-' + taskId);
+  if (card) card.style.opacity = '0.5';
+  t.lastDoneAt = new Date().toISOString();
+  try {
+    await api('/api/periodic', { method: 'POST', body: JSON.stringify(_periodicTasks) });
+    showToast(`✅ ${t.name} 已標記完成`);
+    renderPeriodicTasksAdmin();
+  } catch(e) {
+    t.lastDoneAt = null;
+    if (card) card.style.opacity = '';
+    showToast('❌ 更新失敗');
+  }
+}
+
+async function deletePeriodicTask(taskId) {
+  if (!confirm('確認刪除此定期任務？')) return;
+  const card = document.getElementById('ptc-' + taskId);
+  if (card) card.style.display = 'none';
+  _periodicTasks = _periodicTasks.filter(p => p.id !== taskId);
+  try {
+    await api('/api/periodic', { method: 'POST', body: JSON.stringify(_periodicTasks) });
+    showToast('🗑️ 已刪除');
+    renderPeriodicTasksAdmin();
+  } catch(e) {
+    showToast('❌ 刪除失敗');
+    if (card) card.style.display = '';
+    // reload to get correct state
+    loadPeriodicTasksAdmin();
+  }
+}
+
 
 </script>
 
