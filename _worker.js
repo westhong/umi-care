@@ -53,7 +53,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.9.3' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '3.9.4' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -64,7 +64,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '3.9.3', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '3.9.4', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -422,6 +422,25 @@ async function handleApi(request, env, url) {
       list.unshift(incident);
       if (list.length > 50) list.splice(50);
       await KV.put('incidents:list', JSON.stringify(list));
+
+      // Notify admin via push when caregiver submits an incident report
+      try {
+        const subRaw = await KV.get('push:subscription');
+        if (subRaw) {
+          const sub = JSON.parse(subRaw);
+          const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❗ 其他異常' };
+          const typeLabel = typeLabels[incident.type] || incident.type;
+          const noteStr = incident.note ? ` — ${incident.note}` : '';
+          const photoStr = incident.hasPhoto ? ' 📷' : '';
+          await sendWebPush(env, sub, {
+            title: `🆘 飼養員異常上報${photoStr}`,
+            body: `${typeLabel}${noteStr}`,
+            tag: 'umicare-incident',
+            icon: '/icon-192.png',
+          });
+        }
+      } catch (_) { /* push failure is non-fatal */ }
+
       return json({ ok: true, incident });
     }
     // GET /api/incidents/:id/photo

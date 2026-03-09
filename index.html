@@ -1010,7 +1010,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.3</span>
+        <span id="version-badge">v3.9.4</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2503,8 +2503,37 @@ async function loadAdminOverview() {
       const mStr = String(now2.getUTCMinutes()).padStart(2,'0');
       subRow.textContent = `${date} · ${hStr}:${mStr} Calgary · ${catName}: ${done}/${total} 完成 (${pct}%)`;
     }
-    // ── Fetch self-reports first so we can pin them at top ──
-    const selfReports = await api('/api/selfreports?date=' + date).catch(() => []);
+    // ── Fetch self-reports AND incidents to pin both at top ──
+    const [selfReports, todayIncidents] = await Promise.all([
+      api('/api/selfreports?date=' + date).catch(() => []),
+      api('/api/incidents?date=' + date).catch(() => []),
+    ]);
+
+    // Build pinned incidents HTML (red card, acknowledgeable) — shown ABOVE SR pin
+    let incPinnedHtml = '';
+    if (todayIncidents.length) {
+      const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❗ 其他異常' };
+      const incItems = todayIncidents.map(inc => {
+        const timeStr = utcToCalgaryClock(inc.reportedAt) || '';
+        const photoTag = inc.hasPhoto ? ' 📷' : '';
+        return `<div class="sr-pin-item">
+          <div class="sr-pin-icon" style="background:linear-gradient(135deg,#fef2f2,#fee2e2)">${typeLabels[inc.type]?.split(' ')[0] || '🆘'}</div>
+          <div class="sr-pin-body">
+            <div class="sr-pin-title">${typeLabels[inc.type] || inc.type}${photoTag}</div>
+            <div class="sr-pin-meta">${timeStr} · 飼養者異常上報${inc.note ? ' — ' + inc.note : ''}</div>
+          </div>
+        </div>`;
+      }).join('');
+      incPinnedHtml = `
+        <div class="sr-pin-section" id="incPinSection" style="border-color:rgba(239,68,68,0.35);background:rgba(239,68,68,0.04)">
+          <div class="sr-pin-header" style="border-bottom-color:rgba(239,68,68,0.15)">
+            <div class="sr-pin-label" style="color:#991b1b">🆘 異常上報 <span class="sr-pin-badge" id="incPinBadge" style="background:rgba(239,68,68,0.15);color:#dc2626;border-color:rgba(239,68,68,0.28)">${todayIncidents.length} 則待確認</span></div>
+            <span style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
+          </div>
+          ${incItems}
+          <button class="sr-pin-ack" id="incPinAck" onclick="acknowledgeIncidents()" style="color:#991b1b;background:rgba(239,68,68,0.08);border-top-color:rgba(239,68,68,0.18)">✓ 已確認閱讀，收起</button>
+        </div>`;
+    }
 
     // Build pinned self-reports HTML (amber card, acknowledgeable)
     let pinnedHtml = '';
@@ -2531,7 +2560,7 @@ async function loadAdminOverview() {
         </div>`;
     }
 
-    container.innerHTML = pinnedHtml + `
+    container.innerHTML = incPinnedHtml + pinnedHtml + `
       <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">📅 ${date} · ${catName} 的照護紀錄</div>
       <div class="overview-summary">
         <div class="ov-stat"><div class="ov-stat-num">${done}</div><div class="ov-stat-label">已完成</div></div>
@@ -2555,6 +2584,16 @@ function acknowledgeSelfReports() {
   section.classList.add('acked');
   if (badge) badge.textContent = '✓ 已確認';
   if (btn) { btn.textContent = '✓ 已確認閱讀'; btn.onclick = null; }
+}
+
+function acknowledgeIncidents() {
+  const section = document.getElementById('incPinSection');
+  const badge   = document.getElementById('incPinBadge');
+  const btn     = document.getElementById('incPinAck');
+  if (!section) return;
+  section.classList.add('acked');
+  if (badge) badge.textContent = '✓ 已確認';
+  if (btn) { btn.textContent = '✓ 已確認閱讀'; btn.onclick = null; btn.style.color = '#3aaa63'; }
 }
 
 async function loadAdminRecords() {
