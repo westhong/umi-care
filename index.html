@@ -894,6 +894,91 @@ body::before {
   }
 
 
+/* ── ADMIN ALERT PANEL (always-on top of overview) ────── */
+.alert-panel {
+  margin-bottom: 14px;
+}
+.alert-panel-clear {
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 14px;
+  background: linear-gradient(135deg,rgba(74,222,128,0.09),rgba(34,197,94,0.06));
+  border: 1.5px solid rgba(74,222,128,0.28);
+  border-radius: var(--radius);
+  font-size: 0.84rem; font-weight: 600; color: #166534;
+}
+.alert-panel-clear .apc-icon { font-size: 1.15rem; }
+
+/* incident pin: ALWAYS red top-border accent */
+.inc-pin-section {
+  background: linear-gradient(135deg,rgba(239,68,68,0.07),rgba(254,202,202,0.04));
+  border: 1.5px solid rgba(239,68,68,0.35);
+  border-top: 3px solid #ef4444;
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.inc-pin-section.acked {
+  background: rgba(82,199,126,0.05);
+  border-color: rgba(82,199,126,0.25);
+  border-top-color: rgba(82,199,126,0.40);
+}
+.inc-pin-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(239,68,68,0.15);
+}
+.inc-pin-label {
+  font-size: 0.85rem; font-weight: 700; color: #991b1b;
+  display: flex; align-items: center; gap: 7px;
+}
+.inc-pin-section.acked .inc-pin-label { color: #3aaa63; }
+.inc-pin-badge {
+  font-size: 0.68rem; font-weight: 700;
+  background: rgba(239,68,68,0.15); color: #dc2626;
+  padding: 2px 8px; border-radius: 8px;
+  border: 1px solid rgba(239,68,68,0.28);
+}
+.inc-pin-section.acked .inc-pin-badge {
+  background: rgba(82,199,126,0.15); color: #3aaa63;
+  border-color: rgba(82,199,126,0.28);
+}
+.inc-pin-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(239,68,68,0.09);
+}
+.inc-pin-item:last-of-type { border-bottom: none; }
+.inc-pin-icon {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: linear-gradient(135deg,#fef2f2,#fee2e2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: 0 2px 6px rgba(239,68,68,0.18);
+}
+.inc-pin-body { flex: 1; min-width: 0; }
+.inc-pin-title { font-size: 0.88rem; font-weight: 700; color: #991b1b; }
+.inc-pin-meta { font-size: 0.72rem; color: var(--text-muted); font-family: var(--mono); margin-top: 2px; }
+.inc-pin-resolved { font-size: 0.68rem; color: #3aaa63; font-weight: 600; margin-top: 2px; }
+.inc-pin-ack {
+  display: block; width: 100%; padding: 10px;
+  background: rgba(239,68,68,0.08);
+  border: none; border-top: 1px solid rgba(239,68,68,0.18);
+  font-family: var(--font); font-size: 0.82rem; font-weight: 700;
+  color: #991b1b; cursor: pointer; text-align: center;
+  transition: background 0.15s;
+}
+.inc-pin-ack:active { background: rgba(239,68,68,0.18); }
+.inc-pin-section.acked .inc-pin-ack {
+  background: rgba(82,199,126,0.08);
+  border-top-color: rgba(82,199,126,0.20);
+  color: #3aaa63; cursor: default;
+}
+
+/* sr pin: amber top-border accent */
+.sr-pin-section {
+  border-top: 3px solid #f59e0b;
+}
+
 /* ── PINNED SELF-REPORTS (admin overview) ──────────────── */
 .sr-pin-section {
   background: linear-gradient(135deg, rgba(245,158,11,0.09), rgba(251,191,36,0.06));
@@ -1010,7 +1095,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.4</span>
+        <span id="version-badge">v3.9.5</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2444,10 +2529,16 @@ async function loadAdminOverview() {
   container.innerHTML = '<div class="loading-spin"></div>';
   try {
     const date = state.currentDate;
-    const checkins = await api('/api/checkins?date=' + date).catch(() => []);
     const catName = state.cat?.name || state.catName || '屋咪';
     const now = getCalgaryDate();
     const nowMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+    // ── Load ALL data in parallel (checkins + alerts) ──
+    const [checkins, selfReports, todayIncidents] = await Promise.all([
+      api('/api/checkins?date=' + date).catch(() => []),
+      api('/api/selfreports?date=' + date).catch(() => []),
+      api('/api/incidents?date=' + date).catch(() => []),
+    ]);
 
     const visibleTasks = getVisibleTasks(date);
     const visibleIds = new Set(visibleTasks.map(t => t.id));
@@ -2456,7 +2547,89 @@ async function loadAdminOverview() {
     const skipped = checkins.filter(c => !c.isDone && visibleIds.has(c.taskId)).length;
     const pct = total ? Math.round((done / total) * 100) : 0;
 
-    // Build timeline items (sorted by scheduled time)
+    // Update admin header sub-row
+    const subRow = document.getElementById('adminSubRow');
+    if (subRow) {
+      const now2 = getCalgaryDate();
+      const hStr = String(now2.getUTCHours()).padStart(2,'0');
+      const mStr = String(now2.getUTCMinutes()).padStart(2,'0');
+      subRow.textContent = `${date} · ${hStr}:${mStr} Calgary · ${catName}: ${done}/${total} 完成 (${pct}%)`;
+    }
+
+    // ── SECTION 1: ALERT PANEL (always visible, top priority) ──
+    const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❗ 其他異常' };
+
+    const unresolvedInc = todayIncidents.filter(i => !i.resolved);
+    const resolvedInc   = todayIncidents.filter(i =>  i.resolved);
+
+    // Incident pin (red)
+    let incPinnedHtml = '';
+    if (todayIncidents.length) {
+      const buildIncItem = (inc, dimmed) => {
+        const timeStr = utcToCalgaryClock(inc.reportedAt) || '';
+        const photoTag = inc.hasPhoto ? ' 📷' : '';
+        const resolvedTag = inc.resolved
+          ? `<div class="inc-pin-resolved">✅ 已處理 ${inc.resolvedAt ? utcToCalgaryClock(inc.resolvedAt) : ''}</div>` : '';
+        return `<div class="inc-pin-item" style="${dimmed ? 'opacity:0.55' : ''}">
+          <div class="inc-pin-icon">${typeLabels[inc.type]?.split(' ')[0] || '🆘'}</div>
+          <div class="inc-pin-body">
+            <div class="inc-pin-title">${typeLabels[inc.type] || inc.type}${photoTag}</div>
+            <div class="inc-pin-meta">${timeStr}${inc.note ? ' — ' + inc.note : ''}</div>
+            ${resolvedTag}
+          </div>
+        </div>`;
+      };
+      const allIncItems = [
+        ...unresolvedInc.map(i => buildIncItem(i, false)),
+        ...resolvedInc.map(i => buildIncItem(i, true)),
+      ].join('');
+      const badgeText = unresolvedInc.length > 0
+        ? `<span class="inc-pin-badge">${unresolvedInc.length} 則待確認</span>` : '';
+      const ackBtn = unresolvedInc.length > 0
+        ? `<button class="inc-pin-ack" id="incPinAck" onclick="acknowledgeIncidents()">✓ 已確認閱讀，收起</button>` : '';
+      incPinnedHtml = `
+        <div class="inc-pin-section" id="incPinSection">
+          <div class="inc-pin-header">
+            <div class="inc-pin-label">🆘 異常上報 ${badgeText}</div>
+            <span style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
+          </div>
+          ${allIncItems}
+          ${ackBtn}
+        </div>`;
+    }
+
+    // Self-report pin (amber)
+    let pinnedHtml = '';
+    if (selfReports.length) {
+      const srItems = selfReports.map(sr => {
+        const timeStr = utcToCalgaryClock(sr.reportedAt) || '';
+        const qtyStr = sr.quantity > 1 ? ` ×${sr.quantity}${sr.unit || ''}` : (sr.unit ? ` ${sr.unit}` : '');
+        return `<div class="sr-pin-item">
+          <div class="sr-pin-icon">${sr.icon || '📝'}</div>
+          <div class="sr-pin-body">
+            <div class="sr-pin-title">${sr.title}${qtyStr}</div>
+            <div class="sr-pin-meta">${timeStr} · 飼養者回報</div>
+          </div>
+        </div>`;
+      }).join('');
+      pinnedHtml = `
+        <div class="sr-pin-section" id="srPinSection">
+          <div class="sr-pin-header">
+            <div class="sr-pin-label">📝 主動回報 <span class="sr-pin-badge" id="srPinBadge">${selfReports.length} 則未確認</span></div>
+            <span style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
+          </div>
+          ${srItems}
+          <button class="sr-pin-ack" id="srPinAck" onclick="acknowledgeSelfReports()">✓ 已確認閱讀，收起</button>
+        </div>`;
+    }
+
+    // All-clear banner (only when BOTH empty)
+    let clearHtml = '';
+    if (!todayIncidents.length && !selfReports.length) {
+      clearHtml = `<div class="alert-panel-clear"><span class="apc-icon">✅</span>今日無異常上報，亦無主動回報</div>`;
+    }
+
+    // ── SECTION 2: TASK TIMELINE ──
     const sorted = [...visibleTasks].sort((a,b) => {
       const ta = (a.scheduledTimes?.[0] || '99:99');
       const tb = (b.scheduledTimes?.[0] || '99:99');
@@ -2495,82 +2668,21 @@ async function loadAdminOverview() {
       else pendItems.push(card);
     });
 
-    // Update admin header sub-row
-    const subRow = document.getElementById('adminSubRow');
-    if (subRow) {
-      const now2 = getCalgaryDate();
-      const hStr = String(now2.getUTCHours()).padStart(2,'0');
-      const mStr = String(now2.getUTCMinutes()).padStart(2,'0');
-      subRow.textContent = `${date} · ${hStr}:${mStr} Calgary · ${catName}: ${done}/${total} 完成 (${pct}%)`;
-    }
-    // ── Fetch self-reports AND incidents to pin both at top ──
-    const [selfReports, todayIncidents] = await Promise.all([
-      api('/api/selfreports?date=' + date).catch(() => []),
-      api('/api/incidents?date=' + date).catch(() => []),
-    ]);
-
-    // Build pinned incidents HTML (red card, acknowledgeable) — shown ABOVE SR pin
-    let incPinnedHtml = '';
-    if (todayIncidents.length) {
-      const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❗ 其他異常' };
-      const incItems = todayIncidents.map(inc => {
-        const timeStr = utcToCalgaryClock(inc.reportedAt) || '';
-        const photoTag = inc.hasPhoto ? ' 📷' : '';
-        return `<div class="sr-pin-item">
-          <div class="sr-pin-icon" style="background:linear-gradient(135deg,#fef2f2,#fee2e2)">${typeLabels[inc.type]?.split(' ')[0] || '🆘'}</div>
-          <div class="sr-pin-body">
-            <div class="sr-pin-title">${typeLabels[inc.type] || inc.type}${photoTag}</div>
-            <div class="sr-pin-meta">${timeStr} · 飼養者異常上報${inc.note ? ' — ' + inc.note : ''}</div>
-          </div>
-        </div>`;
-      }).join('');
-      incPinnedHtml = `
-        <div class="sr-pin-section" id="incPinSection" style="border-color:rgba(239,68,68,0.35);background:rgba(239,68,68,0.04)">
-          <div class="sr-pin-header" style="border-bottom-color:rgba(239,68,68,0.15)">
-            <div class="sr-pin-label" style="color:#991b1b">🆘 異常上報 <span class="sr-pin-badge" id="incPinBadge" style="background:rgba(239,68,68,0.15);color:#dc2626;border-color:rgba(239,68,68,0.28)">${todayIncidents.length} 則待確認</span></div>
-            <span style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
-          </div>
-          ${incItems}
-          <button class="sr-pin-ack" id="incPinAck" onclick="acknowledgeIncidents()" style="color:#991b1b;background:rgba(239,68,68,0.08);border-top-color:rgba(239,68,68,0.18)">✓ 已確認閱讀，收起</button>
-        </div>`;
-    }
-
-    // Build pinned self-reports HTML (amber card, acknowledgeable)
-    let pinnedHtml = '';
-    if (selfReports.length) {
-      const srItems = selfReports.map(sr => {
-        const timeStr = utcToCalgaryClock(sr.reportedAt) || '';
-        const qtyStr = sr.quantity > 1 ? ` ×${sr.quantity}${sr.unit || ''}` : (sr.unit ? ` ${sr.unit}` : '');
-        return `<div class="sr-pin-item">
-          <div class="sr-pin-icon">${sr.icon || '📝'}</div>
-          <div class="sr-pin-body">
-            <div class="sr-pin-title">${sr.title}${qtyStr}</div>
-            <div class="sr-pin-meta">${timeStr} · 飼養者回報</div>
-          </div>
-        </div>`;
-      }).join('');
-      pinnedHtml = `
-        <div class="sr-pin-section" id="srPinSection">
-          <div class="sr-pin-header">
-            <div class="sr-pin-label">📝 飼養者回報 <span class="sr-pin-badge" id="srPinBadge">${selfReports.length} 則未確認</span></div>
-            <span class="sr-pin-date" style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
-          </div>
-          ${srItems}
-          <button class="sr-pin-ack" id="srPinAck" onclick="acknowledgeSelfReports()">✓ 已確認閱讀，收起</button>
-        </div>`;
-    }
-
-    container.innerHTML = incPinnedHtml + pinnedHtml + `
-      <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">📅 ${date} · ${catName} 的照護紀錄</div>
+    container.innerHTML =
+      // ① Alerts always first
+      `<div class="alert-panel">${incPinnedHtml}${pinnedHtml}${clearHtml}</div>` +
+      // ② Task progress stats
+      `<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">📅 ${date} · ${catName} 的照護紀錄</div>
       <div class="overview-summary">
         <div class="ov-stat"><div class="ov-stat-num">${done}</div><div class="ov-stat-label">已完成</div></div>
         <div class="ov-stat"><div class="ov-stat-num" style="color:${pct>=80?'#4ade80':pct>=50?'#fb923c':'#f87171'}">${pct}%</div><div class="ov-stat-label">完成率</div></div>
         <div class="ov-stat"><div class="ov-stat-num" style="color:#6b7280">${total - done - skipped}</div><div class="ov-stat-label">待完成</div></div>
-      </div>
-      ${pendItems.length ? `<div class="ov-section-title">⏳ 待完成 / 逾時</div><div class="timeline">${pendItems.join('')}</div>` : ''}
-      ${doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 略過</div><div class="timeline">${doneItems.join('')}</div>` : ''}
-      ${(!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : ''}
-    `;
+      </div>` +
+      // ③ Task timeline
+      (pendItems.length ? `<div class="ov-section-title">⏳ 待完成 / 逾時</div><div class="timeline">${pendItems.join('')}</div>` : '') +
+      (doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 略過</div><div class="timeline">${doneItems.join('')}</div>` : '') +
+      ((!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : '');
+
   } catch(e) {
     container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
   }
@@ -2593,7 +2705,7 @@ function acknowledgeIncidents() {
   if (!section) return;
   section.classList.add('acked');
   if (badge) badge.textContent = '✓ 已確認';
-  if (btn) { btn.textContent = '✓ 已確認閱讀'; btn.onclick = null; btn.style.color = '#3aaa63'; }
+  if (btn) { btn.textContent = '✓ 已確認閱讀'; btn.onclick = null; }
 }
 
 async function loadAdminRecords() {
