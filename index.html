@@ -4627,7 +4627,7 @@ async function checkPushStatus() {
 
   async function submitIncident() {
     const note = document.getElementById('incidentNoteInput').value.trim();
-    const typeLabels = { vomit:'嘔吐', no_eat:'拒食', lethargy:'精神差', diarrhea:'腹瀉', blood:'血跡', other:'其他' };
+    const typeLabels = { vomit:'嘔吐', no_eat:'拒食', lethargy:'精神差', diarrhea:'腹瀉', blood:'血跡', other:'其他異常' };
     try {
       const r = await api('/api/incidents', {
         method: 'POST',
@@ -4662,7 +4662,7 @@ async function checkPushStatus() {
   function renderAdminIncidents(list) {
     const container = document.getElementById('adminIncidentList');
     if (!container) return;
-    const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❓ 其他' };
+    const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❗ 其他異常' };
     if (!list || list.length === 0) {
       container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">目前沒有異常通報紀錄</div>';
       return;
@@ -5381,7 +5381,7 @@ async function deletePeriodicTask(taskId) {
           <span class="icon">🩸</span>血跡
         </button>
         <button class="incident-type-btn" data-type="other" onclick="selectIncidentType('other',this)">
-          <span class="icon">❓</span>其他
+          <span class="icon">❗</span>其他異常
         </button>
       </div>
       <img id="incidentPhotoPreview" class="incident-photo-preview" src="" alt="照片預覽">
