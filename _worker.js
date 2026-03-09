@@ -169,6 +169,16 @@ async function handleApi(request, env, url) {
       if (method === 'DELETE') {
         const date = url.searchParams.get('date');
         if (!date) return json({ error: 'date param required' }, 400);
+        const taskId = url.searchParams.get('taskId');
+        if (taskId) {
+          // Delete a single checkin entry by taskId
+          const key = `checkins:${date}`;
+          const raw = await KV.get(key);
+          const list = raw ? JSON.parse(raw) : [];
+          const updated = list.filter(c => c.taskId !== taskId);
+          await KV.put(key, JSON.stringify(updated));
+          return json({ ok: true, removed: taskId, remaining: updated.length });
+        }
         await KV.delete(`checkins:${date}`);
         return json({ ok: true, deleted: `checkins:${date}` });
       }

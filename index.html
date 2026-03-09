@@ -868,37 +868,122 @@ body::before {
     background: rgba(255,255,255,0.07); color: #aaa;
     font-size: 0.9rem; cursor: pointer; margin-top: 8px;
   }
-  /* Incident list in admin */
+  /* ── Compact log rows (records tab) ── */
+  .log-list { list-style: none; padding: 0; margin: 0; }
+
+  /* swipe wrapper */
+  .log-row-wrap {
+    position: relative; overflow: hidden;
+    border-radius: 10px; margin-bottom: 5px;
+  }
+  /* red delete reveal */
+  .log-row-del {
+    position: absolute; right: 0; top: 0; bottom: 0; width: 72px;
+    background: #ef4444; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 1.3rem; border-radius: 10px;
+    transition: width 0.2s;
+  }
+  /* the visible row */
+  .log-row {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    transition: transform 0.25s ease;
+    cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+  }
+  .log-row:active { opacity: 0.85; }
+  .log-row.swiped { transform: translateX(-72px); }
+
+  /* row segments */
+  .log-row-icon { font-size: 1.05rem; flex-shrink: 0; }
+  .log-row-name {
+    flex: 1; min-width: 0;
+    font-size: 0.85rem; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .log-row-chips { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+  .log-row-time {
+    font-size: 0.72rem; color: var(--text-muted);
+    font-family: var(--mono); flex-shrink: 0;
+  }
+  /* coloured status pill */
+  .log-pill {
+    font-size: 0.65rem; font-weight: 700; padding: 2px 7px;
+    border-radius: 8px; white-space: nowrap;
+  }
+  .log-pill-done  { background: rgba(74,222,128,0.15); color: #4ade80; }
+  .log-pill-skip  { background: rgba(251,146,60,0.15); color: #fb923c; }
+  .log-pill-over  { background: rgba(248,113,113,0.15); color: #f87171; }
+  .log-pill-inc   { background: rgba(239,68,68,0.12);  color: #f87171; }
+  .log-pill-sr    { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .log-pill-resolved { background: rgba(74,222,128,0.12); color: #4ade80; }
+
+  /* icon chips for photo / note hint */
+  .log-chip-btn {
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 2px 6px;
+    font-size: 0.72rem; cursor: pointer; color: var(--text-secondary);
+    font-family: var(--font);
+  }
+  .log-chip-btn:active { background: rgba(255,255,255,0.15); }
+
+  /* ── Log detail modal ── */
+  .log-detail-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1200;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+    align-items: flex-end; justify-content: center;
+  }
+  .log-detail-overlay.open { display: flex; }
+  .log-detail-sheet {
+    background: var(--card); border-radius: 20px 20px 0 0;
+    padding: 20px 20px 36px; width: 100%; max-width: 480px;
+    max-height: 80vh; overflow-y: auto;
+  }
+  .log-detail-handle {
+    width: 36px; height: 4px; background: rgba(255,255,255,0.18);
+    border-radius: 2px; margin: 0 auto 16px;
+  }
+  .log-detail-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+  .log-detail-meta  { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px; font-family: var(--mono); }
+  .log-detail-note  { font-size: 0.88rem; color: var(--text-secondary); background: rgba(255,255,255,0.04); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+  .log-detail-photo { width: 100%; border-radius: 12px; margin-bottom: 14px; cursor: pointer; }
+  .log-detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .log-detail-resolve-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: none;
+    background: rgba(74,222,128,0.15); color: #4ade80;
+    font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: var(--font);
+  }
+  .log-detail-delete-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: none;
+    background: rgba(239,68,68,0.12); color: #f87171;
+    font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: var(--font);
+  }
+
+  /* keep old incident-card for any legacy markup */
   .incident-card {
     background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
     border-left: 4px solid #ef4444; border-radius: 12px;
     padding: 12px 14px; margin-bottom: 10px;
   }
-  .incident-card.resolved {
-    border-left-color: #22c55e; background: rgba(34,197,94,0.05);
-    opacity: 0.7;
-  }
+  .incident-card.resolved { border-left-color: #22c55e; background: rgba(34,197,94,0.05); opacity: 0.7; }
   .incident-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .incident-card-type { color: #f87171; font-weight: 700; font-size: 0.95rem; }
   .incident-card-time { color: #888; font-size: 0.78rem; }
   .incident-card-note { color: #ccc; font-size: 0.85rem; margin: 4px 0; }
   .incident-card-photo { width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; margin: 8px 0; cursor: pointer; }
-  .incident-resolve-btn {
-    padding: 6px 14px; border-radius: 8px; border: none;
-    background: rgba(34,197,94,0.2); color: #4ade80;
-    font-size: 0.8rem; cursor: pointer; font-weight: 600;
-  }
-  .incident-delete-btn {
-    padding: 6px 12px; border-radius: 8px; border: none;
-    background: rgba(239,68,68,0.15); color: #f87171;
-    font-size: 0.8rem; cursor: pointer; margin-left: 6px;
-  }
+  .incident-resolve-btn { padding: 6px 14px; border-radius: 8px; border: none; background: rgba(34,197,94,0.2); color: #4ade80; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
+  .incident-delete-btn  { padding: 6px 12px; border-radius: 8px; border: none; background: rgba(239,68,68,0.15); color: #f87171; font-size: 0.8rem; cursor: pointer; margin-left: 6px; }
 
 
 /* ── ADMIN ALERT PANEL (always-on top of overview) ────── */
 .alert-panel {
   margin-bottom: 14px;
 }
+.opacity-55 { opacity: 0.55; }
 .alert-panel-clear {
   display: flex; align-items: center; gap: 9px;
   padding: 11px 14px;
@@ -1105,7 +1190,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v3.9.7</span>
+        <span id="version-badge">v3.9.8</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2766,59 +2851,231 @@ async function loadAdminRecords() {
       api('/api/selfreports?date=' + date).catch(() => []),
     ]);
 
+    // ── Task checkin rows (compact) ──
     if (!checkins.length) {
       container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日沒有打卡紀錄</div>';
     } else {
       const rows = checkins.map(c => {
-        const task = state.tasks.find(t => t.id === c.taskId);
-        const timeStr = c.time ? utcToCalgaryClock(c.time) : '-';
-        return `<tr>
-          <td>${task?.icon || ''} ${task?.name || c.taskId}</td>
-          <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅ 完成' : '⏭️ 略過'}</td>
-          <td>${c.result || '-'}</td>
-          <td>${c.note || '-'}</td>
-          <td style="font-family:var(--mono);font-size:0.75rem">${timeStr}</td>
-        </tr>`;
+        const task  = state.tasks.find(t => t.id === c.taskId);
+        const timeStr = c.time ? utcToCalgaryClock(c.time) : '--:--';
+        const isDone  = c.isDone;
+        const pill    = isDone ? '<span class="log-pill log-pill-done">✅ 完成</span>'
+                               : '<span class="log-pill log-pill-skip">⏭️ 略過</span>';
+        const noteChip = c.note ? '<span class="log-chip-btn">📝</span>' : '';
+        const detailData = JSON.stringify({ type:'checkin', taskId:c.taskId,
+          name:(task?.name||c.taskId), icon:(task?.icon||'📋'),
+          time:c.time, isDone:c.isDone, result:c.result, note:c.note,
+          date:date }).replace(/'/g,'&#39;');
+        return `<div class="log-row-wrap" data-swipe-id="ck-${c.taskId}-${date}">
+          <div class="log-row-del" onclick="confirmDeleteCheckin('${c.taskId}','${date}')">🗑️</div>
+          <div class="log-row" onclick="openLogDetail('${detailData}')">
+            <span class="log-row-icon">${task?.icon || '📋'}</span>
+            <span class="log-row-name">${task?.name || c.taskId}</span>
+            <div class="log-row-chips">${noteChip}${pill}</div>
+            <span class="log-row-time">${timeStr}</span>
+          </div>
+        </div>`;
       }).join('');
-      container.innerHTML = `<div style="overflow-x:auto">
-        <table class="records-table">
-          <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備註</th><th>時間</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>`;
+      container.innerHTML = `<div class="log-list">${rows}</div>`;
+      attachSwipeHandlers(container);
     }
 
+    // ── Self-report rows (compact) ──
     if (selfReportContainer) {
       const labels = {
-        self_feed: { icon: '🍽️', title: '主動餵糧', unit: '次' },
-        self_treat: { icon: '🐟', title: '主動餵貓條', unit: '條' },
-        self_paste: { icon: '🥣', title: '主動餵貓泥', unit: '罐' },
-        other: { icon: '📝', title: '其他回報', unit: '' },
+        self_feed:  { icon: '🍽️', title: '主動餵糧' },
+        self_treat: { icon: '🐟', title: '主動餵貓條' },
+        self_paste: { icon: '🥣', title: '主動餵貓泥' },
+        other:      { icon: '📝', title: '其他回報' },
       };
       if (!selfReports.length) {
         selfReportContainer.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">當日沒有主動回報</div>';
       } else {
-        selfReportContainer.innerHTML = selfReports.map(item => {
-          const meta = labels[item.type] || { icon: item.icon || '📝', title: item.title || item.type || '主動回報', unit: item.unit || '' };
-          const timeStr = item.reportedAt ? utcToCalgaryClock(item.reportedAt) : '-';
-          const qtyText = item.quantity ? ` · ${item.quantity}${item.unit || meta.unit || ''}` : '';
-          return `<div class="incident-card self-report-record-card" style="border-left-color:rgba(245,158,11,0.75);background:rgba(245,158,11,0.05);">
-            <div class="incident-card-header">
-              <span class="incident-card-type">${meta.icon} ${item.title || meta.title}${qtyText}</span>
-              <span class="self-rep-type-tag">飼養者回報</span>
-            </div>
-            <div class="incident-card-time" style="margin-bottom:4px">${date} ${timeStr}</div>
-            ${item.note ? `<div class="incident-card-note">📝 ${item.note}</div>` : '<div class="incident-card-note" style="color:var(--text-muted)">沒有備註</div>'}
-            <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
-              <button class="incident-delete-btn" onclick="deleteSelfReport('${item.id}')">🗑️ 刪除</button>
+        const rows = selfReports.map(item => {
+          const meta    = labels[item.type] || { icon: item.icon || '📝', title: item.title || '主動回報' };
+          const timeStr = item.reportedAt ? utcToCalgaryClock(item.reportedAt) : '--:--';
+          const qtyStr  = item.quantity ? ` ×${item.quantity}${item.unit||''}` : '';
+          const noteChip = item.note ? '<span class="log-chip-btn">📝</span>' : '';
+          const detailData = JSON.stringify({ type:'sr', id:item.id,
+            name:(item.title||meta.title)+qtyStr, icon:meta.icon,
+            time:item.reportedAt, note:item.note, date:date }).replace(/'/g,'&#39;');
+          return `<div class="log-row-wrap" data-swipe-id="sr-${item.id}">
+            <div class="log-row-del" onclick="deleteSelfReport('${item.id}')">🗑️</div>
+            <div class="log-row" onclick="openLogDetail('${detailData}')">
+              <span class="log-row-icon">${meta.icon}</span>
+              <span class="log-row-name">${item.title||meta.title}${qtyStr}</span>
+              <div class="log-row-chips">${noteChip}<span class="log-pill log-pill-sr">飼養者</span></div>
+              <span class="log-row-time">${timeStr}</span>
             </div>
           </div>`;
         }).join('');
+        selfReportContainer.innerHTML = `<div class="log-list">${rows}</div>`;
+        attachSwipeHandlers(selfReportContainer);
       }
     }
   } catch(e) {
     container.innerHTML = '<div class="text-muted">載入失敗</div>';
     if (selfReportContainer) selfReportContainer.innerHTML = '<div class="text-muted">載入失敗</div>';
   }
+}
+
+// ── Swipe-to-reveal-delete ───────────────────────────────────────
+function attachSwipeHandlers(container) {
+  container.querySelectorAll('.log-row-wrap').forEach(wrap => {
+    const row = wrap.querySelector('.log-row');
+    if (!row) return;
+    let startX = 0, startY = 0, dragging = false, swiped = false;
+
+    row.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dragging = true;
+    }, { passive: true });
+
+    row.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (Math.abs(dy) > Math.abs(dx)) { dragging = false; return; }
+      if (dx < -10) e.preventDefault();
+    }, { passive: false });
+
+    row.addEventListener('touchend', e => {
+      if (!dragging) return;
+      dragging = false;
+      const dx = e.changedTouches[0].clientX - startX;
+      if (dx < -40) {
+        // Swipe left: reveal delete
+        swiped = true;
+        row.classList.add('swiped');
+      } else if (dx > 20) {
+        // Swipe right: hide delete
+        swiped = false;
+        row.classList.remove('swiped');
+      }
+    });
+  });
+
+  // Tap elsewhere to close any open swipe
+  container.addEventListener('touchstart', e => {
+    if (!e.target.closest('.log-row')) {
+      container.querySelectorAll('.log-row.swiped').forEach(r => r.classList.remove('swiped'));
+    }
+  }, { passive: true });
+}
+
+// ── Log detail bottom-sheet modal ────────────────────────────────
+let _logDetailCurrent = null;
+
+function openLogDetail(dataStr) {
+  // If row is swiped open, close it instead of opening detail
+  const activeSwipe = document.querySelector('.log-row.swiped');
+  if (activeSwipe) { activeSwipe.classList.remove('swiped'); return; }
+
+  const data = JSON.parse(dataStr);
+  _logDetailCurrent = data;
+
+  document.getElementById('logDetailTitle').textContent = (data.icon || '') + ' ' + (data.name || '');
+  const timeStr = data.time ? utcToCalgaryClock(data.time) : '';
+  document.getElementById('logDetailMeta').textContent = (data.date||'') + ' ' + timeStr;
+
+  // Note
+  const noteEl = document.getElementById('logDetailNote');
+  if (data.note) {
+    noteEl.textContent = data.note;
+    noteEl.style.display = '';
+  } else {
+    noteEl.style.display = 'none';
+  }
+
+  // Photo (incidents only)
+  const photoWrap = document.getElementById('logDetailPhotoWrap');
+  const photoBtn  = document.getElementById('logDetailPhotoBtn');
+  const photoImg  = document.getElementById('logDetailPhotoImg');
+  if (data.hasPhoto) {
+    photoWrap.style.display = '';
+    photoBtn.style.display  = '';
+    photoImg.style.display  = 'none';
+    photoImg.src = '';
+  } else {
+    photoWrap.style.display = 'none';
+  }
+
+  // Action buttons
+  const actEl = document.getElementById('logDetailActions');
+  actEl.innerHTML = '';
+  if (data.type === 'incident') {
+    if (!data.resolved) {
+      const rb = document.createElement('button');
+      rb.className = 'log-detail-resolve-btn';
+      rb.textContent = '✅ 標記為已處理';
+      rb.onclick = () => { closeLogDetail(); resolveIncident(data.id); };
+      actEl.appendChild(rb);
+    } else {
+      const resolvedTime = data.resolvedAt ? utcToCalgaryClock(data.resolvedAt) : '';
+      const rb = document.createElement('span');
+      rb.style.cssText = 'color:#4ade80;font-size:0.82rem;padding:10px 0;';
+      rb.textContent = '✅ 已處理 ' + resolvedTime;
+      actEl.appendChild(rb);
+    }
+    const db = document.createElement('button');
+    db.className = 'log-detail-delete-btn';
+    db.textContent = '🗑️ 刪除此記錄';
+    db.onclick = () => { closeLogDetail(); deleteIncident(data.id); };
+    actEl.appendChild(db);
+  } else if (data.type === 'sr') {
+    const db = document.createElement('button');
+    db.className = 'log-detail-delete-btn';
+    db.textContent = '🗑️ 刪除此記錄';
+    db.onclick = () => { closeLogDetail(); deleteSelfReport(data.id); };
+    actEl.appendChild(db);
+  } else if (data.type === 'checkin') {
+    const db = document.createElement('button');
+    db.className = 'log-detail-delete-btn';
+    db.textContent = '🗑️ 刪除此打卡';
+    db.onclick = () => { closeLogDetail(); confirmDeleteCheckin(data.taskId, data.date); };
+    actEl.appendChild(db);
+  }
+
+  document.getElementById('logDetailOverlay').classList.add('open');
+}
+
+function closeLogDetail(e) {
+  if (e && e.target !== document.getElementById('logDetailOverlay')) return;
+  document.getElementById('logDetailOverlay').classList.remove('open');
+  _logDetailCurrent = null;
+}
+
+async function logDetailLoadPhoto() {
+  const id = _logDetailCurrent?.id;
+  if (!id) return;
+  const btn = document.getElementById('logDetailPhotoBtn');
+  const img = document.getElementById('logDetailPhotoImg');
+  btn.textContent = '⏳ 載入中...';
+  try {
+    const data = await api('/api/incidents/' + id + '/photo');
+    if (data.photo) {
+      img.src = data.photo;
+      img.style.display = '';
+      btn.style.display = 'none';
+    } else { btn.textContent = '⚠️ 照片不存在'; }
+  } catch(e) { btn.textContent = '⚠️ 載入失敗'; }
+}
+
+function logDetailViewPhoto() {
+  const img = document.getElementById('logDetailPhotoImg');
+  if (!img.src) return;
+  const w = window.open('', '_blank');
+  w.document.write('<body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="' + img.src + '" style="max-width:100%;max-height:100vh;object-fit:contain;border-radius:8px"></body>');
+}
+
+async function confirmDeleteCheckin(taskId, date) {
+  if (!confirm('確認刪除此打卡記錄？此操作無法撤銷。')) return;
+  try {
+    await api('/api/checkins?date=' + date + '&taskId=' + encodeURIComponent(taskId), { method: 'DELETE' });
+    showToast('🗑️ 已刪除打卡記錄');
+    loadAdminRecords();
+  } catch(e) { showToast('⚠️ 刪除失敗: ' + e.message); }
 }
 
 async function loadAdminWeights() {
@@ -3683,34 +3940,31 @@ async function checkPushStatus() {
       container.innerHTML = '<p style="color:#666;text-align:center;padding:20px 0;">目前沒有異常通報紀錄</p>';
       return;
     }
-    container.innerHTML = list.map(inc => {
-      const dt = utcToCalgaryClock(inc.reportedAt);
-      // Derive Calgary date string from the ISO timestamp without a missing helper
-      const _incDate = (() => {
-        try {
-          const d = new Date(inc.reportedAt);
-          const yr = d.getUTCFullYear();
-          // DST start: 2nd Sunday March 09:00 UTC / end: 1st Sunday Nov 08:00 UTC
-          const ds = (() => { const x=new Date(Date.UTC(yr,2,1)); let n=0; while(n<2){if(x.getUTCDay()===0)n++; if(n<2)x.setUTCDate(x.getUTCDate()+1);} x.setUTCHours(9,0,0,0); return x; })();
-          const de = (() => { const x=new Date(Date.UTC(yr,10,1)); while(x.getUTCDay()!==0)x.setUTCDate(x.getUTCDate()+1); x.setUTCHours(8,0,0,0); return x; })();
-          const off = (d>=ds && d<de) ? -6 : -7;
-          const c = new Date(d.getTime()+off*3600000);
-          return c.getUTCFullYear()+'-'+String(c.getUTCMonth()+1).padStart(2,'0')+'-'+String(c.getUTCDate()).padStart(2,'0');
-        } catch(_){ return (inc.reportedAt||'').slice(0,10); }
-      })();
-      return `<div class="incident-card ${inc.resolved ? 'resolved' : ''}">
-        <div class="incident-card-header">
-          <span class="incident-card-type">${typeLabels[inc.type] || inc.type}</span>
-          <span class="incident-card-time">${_incDate} ${dt}</span>
-        </div>
-        ${inc.note ? `<div class="incident-card-note">📝 ${inc.note}</div>` : ''}
-        ${inc.hasPhoto ? `<img class="incident-card-photo" id="inc-photo-${inc.id}" src="${inc.photo || ''}" alt="事發照片" style="${inc.photo ? '' : 'display:none'}" onclick="viewIncidentPhoto('${inc.id}')"><button class="btn btn-secondary" style="font-size:0.78rem;padding:4px 10px;margin-top:4px" onclick="loadIncidentPhoto('${inc.id}')">🖼️ 載入照片</button>` : ''}
-        <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
-          ${!inc.resolved ? `<button class="incident-resolve-btn" onclick="resolveIncident('${inc.id}')">✅ 標記處理</button>` : `<span style="color:#4ade80;font-size:0.8rem">✅ 已處理 ${utcToCalgaryClock(inc.resolvedAt||'')}</span>`}
-          <button class="incident-delete-btn" onclick="deleteIncident('${inc.id}')">🗑️ 刪除</button>
+    const rows = list.map(inc => {
+      const timeStr  = utcToCalgaryClock(inc.reportedAt);
+      const label    = typeLabels[inc.type] || ('❗ ' + inc.type);
+      const resolved = !!inc.resolved;
+      const photoChip = inc.hasPhoto ? '<span class="log-chip-btn">📷</span>' : '';
+      const noteChip  = inc.note     ? '<span class="log-chip-btn">📝</span>' : '';
+      const statusPill = resolved
+        ? '<span class="log-pill log-pill-resolved">✅ 已處理</span>'
+        : '<span class="log-pill log-pill-inc">待處理</span>';
+      const detailData = JSON.stringify({ type:'incident', id:inc.id,
+        name:label, icon:label.split(' ')[0],
+        time:inc.reportedAt, note:inc.note, hasPhoto:inc.hasPhoto,
+        resolved:inc.resolved, resolvedAt:inc.resolvedAt }).replace(/'/g,'&#39;');
+      return `<div class="log-row-wrap" data-swipe-id="inc-${inc.id}">
+        <div class="log-row-del" onclick="deleteIncident('${inc.id}')">🗑️</div>
+        <div class="log-row${resolved ? ' opacity-55' : ''}" onclick="openLogDetail('${detailData}')">
+          <span class="log-row-icon">${label.split(' ')[0]}</span>
+          <span class="log-row-name">${label.split(' ').slice(1).join(' ')}</span>
+          <div class="log-row-chips">${noteChip}${photoChip}${statusPill}</div>
+          <span class="log-row-time">${timeStr}</span>
         </div>
       </div>`;
     }).join('');
+    container.innerHTML = `<div class="log-list">${rows}</div>`;
+    attachSwipeHandlers(container);
   }
 
   async function resolveIncident(id) {
@@ -4122,6 +4376,21 @@ async function checkPushStatus() {
 .sr-ov-time { font-size:0.75rem;color:var(--text-muted);flex-shrink:0; }
 </style>
 
+
+  <!-- Log detail bottom-sheet modal -->
+  <div class="log-detail-overlay" id="logDetailOverlay" onclick="closeLogDetail(event)">
+    <div class="log-detail-sheet" id="logDetailSheet">
+      <div class="log-detail-handle"></div>
+      <div class="log-detail-title" id="logDetailTitle"></div>
+      <div class="log-detail-meta"  id="logDetailMeta"></div>
+      <div class="log-detail-note"  id="logDetailNote" style="display:none"></div>
+      <div id="logDetailPhotoWrap" style="display:none">
+        <button class="log-chip-btn" id="logDetailPhotoBtn" style="width:100%;padding:10px;font-size:0.85rem;margin-bottom:12px" onclick="logDetailLoadPhoto()">🖼️ 載入照片</button>
+        <img class="log-detail-photo" id="logDetailPhotoImg" style="display:none" onclick="logDetailViewPhoto()">
+      </div>
+      <div class="log-detail-actions" id="logDetailActions"></div>
+    </div>
+  </div>
 
   <!-- Pull-to-refresh indicator -->
   <div id="pullRefreshIndicator" style="
