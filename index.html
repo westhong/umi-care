@@ -1411,7 +1411,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.0</span>
+        <span id="version-badge">v4.0.1</span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -2866,9 +2866,10 @@ function calNextMonth() {
 // ─── ADMIN ─────────────────────────────────────────────────────
 function switchAdminTab(tab) {
   if (tab === 'settings') tab = 'cat';  // settings merged into cat
-  const tabs = ['overview','records','weights','tasks','periodic','cat'];
-  document.querySelectorAll('.admin-tab').forEach((t, i) => {
-    t.classList.toggle('active', tabs[i] === tab);
+  // Read tab name directly from onclick attribute – order-independent
+  document.querySelectorAll('.admin-tab').forEach(t => {
+    const m = t.getAttribute('onclick')?.match(/switchAdminTab\('(\w+)'\)/);
+    t.classList.toggle('active', m ? m[1] === tab : false);
   });
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('adminTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
@@ -3840,7 +3841,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.0.1
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [
