@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  UmiCare v4.1.3 — Long-Term Support Series
+  UmiCare v4.1.4 — Long-Term Support Series
   ================================================
   v4.0  feat: 特殊任務 tab, full UmiCare icon
   v4.0.1  fix: switchAdminTab crash (regex → string match)
@@ -15,10 +15,11 @@
   v4.1.0  LTS: Long-Term Support release, meta tags, export metadata
   v4.1.1  fix: .hidden CSS rule missing (temWeekdaysRow never hides),
               saveTaskModal missing try/catch (silent API failures)
-  v4.1.2  feat: 新增「檢查飼料機」任務 (週日 12:00, weekly migration),
-              auto-migration system in _worker.js GET /api/tasks
+  v4.1.2  feat: 新增「檢查飼料機」任務（歷史性一次性資料 rollout）
   v4.1.3  fix: saveTaskModal silently fails when time not clicked into chip
-              (auto-add pending time input before validation)
+              (auto-add pending time input before validation),
+              removed temporary task migration logic after KV rollout complete
+  v4.1.4  feat: 飼養者可補做昨日未完成任務（明確 yesterday backlog 模式）
 -->
 <html lang="zh-HK">
 <head>
@@ -27,9 +28,9 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <meta name="theme-color" content="#ff85a1">
 <meta charset="UTF-8">
-<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.1.3">
+<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.1.4">
   <meta name="application-name" content="UmiCare">
-  <meta name="version" content="4.1.3">
+  <meta name="version" content="4.1.4">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>UmiCare 🐱 屋咪照護</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -680,7 +681,7 @@ body::before {
   border-radius: 30px; padding: 10px 20px;
   font-size: 0.9rem; font-weight: 600;
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-  opacity: 0; transition: all 0.3s; z-index: 200; white-space: nowrap;
+  opacity: 0; transition: all 0.3s; z-index: 10050; white-space: nowrap;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -1448,7 +1449,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.1.3 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">LTS</span></span>
+        <span id="version-badge">v4.1.4 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">LTS</span></span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1480,8 +1481,9 @@ body::before {
     </div>
 
     <div class="alerts" id="alertsContainer"></div>
+    <div id="caregiverBacklogBanner"></div>
 
-    <div class="task-section" style="margin-top:14px;">
+    <div class="task-section" id="caregiverQuickReportSection" style="margin-top:14px;">
       <div class="section-title">⚡ 主動回報</div>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
         <button class="btn btn-secondary" style="margin-top:0;padding:12px 10px;" onclick="openIncidentModal()">🤢 嘔吐 / 異常狀況</button>
@@ -1491,7 +1493,7 @@ body::before {
     </div>
 
     <div class="task-section">
-      <div class="section-title">📋 今日任務</div>
+      <div class="section-title" id="caregiverTaskSectionTitle">📋 今日任務</div>
       <div id="taskList"><div style="text-align:center;padding:40px"><div class="loading-spin"></div></div></div>
     </div>
   </div>
@@ -1710,6 +1712,12 @@ let state = {
   weightsList: [],
   adminMode: false,
   currentDate: todayStr(),
+  caregiverDate: todayStr(),
+  caregiverMode: 'today',
+  yesterdayCheckins: [],
+  yesterdayBacklog: [],
+  backlogOriginalIds: [],
+  backlogSourceDate: null,
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
   expandedTask: null,
@@ -1838,7 +1846,9 @@ async function loadApp() {
   document.getElementById('pinSetupOverlay').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   try {
-    const [tasks, checkins, settings, cat, weights, adhoc, selfReports] = await Promise.all([
+    const yesterdayDate = getYesterdayDateStr(state.currentDate);
+    state.backlogSourceDate = yesterdayDate;
+    const [tasks, checkins, settings, cat, weights, adhoc, selfReports, yesterdayCheckins] = await Promise.all([
       api('/api/tasks'),
       api('/api/checkins?date=' + state.currentDate),
       api('/api/settings'),
@@ -1846,9 +1856,13 @@ async function loadApp() {
       api('/api/weights').catch(() => []),
       api('/api/adhoc').catch(() => []),
       api('/api/selfreports?date=' + state.currentDate).catch(() => []),
+      api('/api/checkins?date=' + yesterdayDate).catch(() => []),
     ]);
     state.tasks = tasks;
     state.checkins = checkins;
+    state.caregiverDate = state.currentDate;
+    state.caregiverMode = 'today';
+    state.yesterdayCheckins = yesterdayCheckins || [];
     state.settings = settings;
     state.weightsList = weights || [];
     state.adhocRequests = (adhoc || []).filter(a => !a.done);
@@ -1868,16 +1882,14 @@ async function loadApp() {
     } else {
       state.catName = settings.catName || '屋咪';
     }
-    document.getElementById('catNameDisplay').textContent = '今日照護';
+    updateYesterdayBacklogFromCheckins(state.yesterdayCheckins);
     updateCatProfileCard();
     // Also load latest weight
     loadLatestWeight();
   } catch(e) {
     showToast('⚠️ 載入資料失敗');
   }
-  renderTaskList();
-  renderProgress();
-  checkAlerts();
+  renderCaregiverView();
 }
 
 async function loadLatestWeight() {
@@ -1942,6 +1954,130 @@ function isTaskScheduledForDate(task, dateStr = state.currentDate) {
 
 function getVisibleTasks(dateStr = state.currentDate) {
   return (state.tasks || []).filter(task => isTaskScheduledForDate(task, dateStr));
+}
+
+function shiftDateStr(dateStr, deltaDays) {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  return dt.toISOString().slice(0, 10);
+}
+
+function getYesterdayDateStr(baseDateStr = state.currentDate) {
+  return shiftDateStr(baseDateStr, -1);
+}
+
+function getCaregiverDate() {
+  return state.caregiverDate || state.currentDate;
+}
+
+function isCaregiverBacklogMode() {
+  return state.caregiverMode === 'backlog';
+}
+
+function updateYesterdayBacklogFromCheckins(checkins = state.yesterdayCheckins) {
+  const yesterday = state.backlogSourceDate || getYesterdayDateStr(state.currentDate);
+  const resolvedIds = new Set((checkins || []).map(c => c.taskId));
+  state.yesterdayBacklog = getVisibleTasks(yesterday).filter(task => !resolvedIds.has(task.id));
+  return state.yesterdayBacklog;
+}
+
+function getCaregiverVisibleTasks() {
+  if (isCaregiverBacklogMode()) {
+    const checkins = Array.isArray(state.checkins) ? state.checkins : [];
+    const resolvedIds = new Set(checkins.map(c => c.taskId));
+    return getVisibleTasks(getCaregiverDate()).filter(task => !resolvedIds.has(task.id));
+  }
+  return getVisibleTasks(getCaregiverDate());
+}
+
+function renderCaregiverChrome() {
+  const banner = document.getElementById('caregiverBacklogBanner');
+  const quick = document.getElementById('caregiverQuickReportSection');
+  const title = document.getElementById('caregiverTaskSectionTitle');
+  const header = document.getElementById('catNameDisplay');
+  const sourceDate = state.backlogSourceDate || getYesterdayDateStr(state.currentDate);
+  if (isCaregiverBacklogMode()) {
+    if (header) header.textContent = '補做昨日任務';
+    if (title) title.textContent = '📋 昨日未完成任務';
+    if (quick) quick.style.display = 'none';
+    if (banner) {
+      banner.innerHTML = `
+        <div class="card" style="margin:0 16px 14px;border:1px solid rgba(251,146,60,0.3);background:linear-gradient(135deg, rgba(251,146,60,0.12), rgba(255,133,161,0.08));">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:700;margin-bottom:4px">🕘 正在補做 ${sourceDate} 未完成任務</div>
+              <div style="font-size:0.82rem;color:var(--text-secondary)">只顯示昨天尚未完成或略過記錄的排程任務；完成後會自動回到今日。</div>
+            </div>
+            <button class="btn btn-secondary" style="width:auto;min-width:120px;margin-top:0" onclick="exitCaregiverBacklogMode()">↩️ 返回今日</button>
+          </div>
+        </div>`;
+    }
+    return;
+  }
+
+  if (header) header.textContent = '今日照護';
+  if (title) title.textContent = '📋 今日任務';
+  if (quick) quick.style.display = '';
+  if (!banner) return;
+  const backlogCount = (state.yesterdayBacklog || []).length;
+  if (backlogCount > 0) {
+    banner.innerHTML = `
+      <div class="card" style="margin:0 16px 14px;border:1px solid rgba(251,146,60,0.3);background:linear-gradient(135deg, rgba(251,146,60,0.12), rgba(255,133,161,0.08));">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700;margin-bottom:4px">🕘 昨日尚有 ${backlogCount} 項未完成任務</div>
+            <div style="font-size:0.82rem;color:var(--text-secondary)">你可以先補做昨天未完成的項目，再返回今天的任務清單。</div>
+          </div>
+          <button class="btn btn-secondary" style="width:auto;min-width:140px;margin-top:0" onclick="enterYesterdayBacklogMode()">補做昨日任務</button>
+        </div>
+      </div>`;
+  } else {
+    banner.innerHTML = '';
+  }
+}
+
+function renderCaregiverView() {
+  renderCaregiverChrome();
+  renderTaskList();
+  renderProgress();
+  checkAlerts();
+}
+
+async function enterYesterdayBacklogMode() {
+  if (!(state.yesterdayBacklog || []).length) {
+    showToast('✅ 昨日沒有未完成任務');
+    return;
+  }
+  const date = state.backlogSourceDate || getYesterdayDateStr(state.currentDate);
+  state.caregiverMode = 'backlog';
+  state.caregiverDate = date;
+  state.backlogOriginalIds = (state.yesterdayBacklog || []).map(t => t.id);
+  try {
+    state.checkins = await api('/api/checkins?date=' + date);
+  } catch (e) {
+    state.checkins = [];
+  }
+  state.yesterdayCheckins = [...state.checkins];
+  updateYesterdayBacklogFromCheckins(state.yesterdayCheckins);
+  renderCaregiverView();
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(_) {}
+  showToast('🕘 已切換到昨日未完成任務');
+}
+
+async function exitCaregiverBacklogMode(silent) {
+  state.caregiverMode = 'today';
+  state.caregiverDate = state.currentDate;
+  state.backlogOriginalIds = [];
+  try {
+    state.checkins = await api('/api/checkins?date=' + state.currentDate);
+  } catch (e) {
+    state.checkins = [];
+  }
+  updateYesterdayBacklogFromCheckins(state.yesterdayCheckins);
+  renderCaregiverView();
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(_) {}
+  if (!silent) showToast('↩️ 已返回今日任務');
 }
 
 function updateDateDisplay() {
@@ -2167,12 +2303,19 @@ function utcToCalgaryClock(isoStr) {
 }
 
 function renderTaskCard(task, checkin) {
-  const status = checkin ? (checkin.isDone ? 'done' : 'skip') : getOverdueStatus(task);
-  const statusLabel = { done: '✅ 完成', skip: '⏭️ 略過', pending: '待完成', overdue: '⚠️ 逾時' }[status];
+  const backlogMode = isCaregiverBacklogMode();
+  const status = checkin ? (checkin.isDone ? 'done' : 'skip') : (backlogMode ? 'pending' : getOverdueStatus(task));
+  const statusLabel = checkin
+    ? (checkin.isDone ? '✅ 完成' : '⏭️ 略過')
+    : (backlogMode ? '🕘 待補做' : ({ pending: '待完成', overdue: '⚠️ 逾時' }[status] || '待完成'));
   const statusClass = 'status-' + status;
 
   // Show completion time for done/skip tasks
   let timeDisplay = task.scheduledTimes?.[0] || '';
+  if (backlogMode && !checkin) {
+    const targetDate = getCaregiverDate();
+    timeDisplay = `${task.scheduledTimes?.[0] || ''}<span class="checkin-time">🕘 ${targetDate}</span>`;
+  }
   if (checkin && checkin.time) {
     const doneTime = utcToCalgaryClock(checkin.time);
     if (doneTime) {
@@ -2198,9 +2341,12 @@ function renderTaskCard(task, checkin) {
 
 function renderTaskList() {
   const container = document.getElementById('taskList');
-  const visibleTasks = getVisibleTasks();
+  const backlogMode = isCaregiverBacklogMode();
+  const visibleTasks = getCaregiverVisibleTasks();
   if (!visibleTasks.length) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">目前沒有任務</div>';
+    container.innerHTML = backlogMode
+      ? '<div style="text-align:center;padding:40px;color:var(--text-muted)">🎉 昨日未完成任務已全部補做</div>'
+      : '<div style="text-align:center;padding:40px;color:var(--text-muted)">目前沒有任務</div>';
     return;
   }
 
@@ -2216,10 +2362,10 @@ function renderTaskList() {
   });
 
   // Adhoc request cards from admin (pending only – at top)
-  const adhocCards = (state.adhocRequests || []).map(a => renderAdhocCard(a)).join('');
+  const adhocCards = backlogMode ? '' : (state.adhocRequests || []).map(a => renderAdhocCard(a)).join('');
 
   // Completed special tasks for today (dimmed, read-only)
-  const todayDoneAdhoc = (state.adhocDoneToday || []);
+  const todayDoneAdhoc = backlogMode ? [] : (state.adhocDoneToday || []);
   const adhocDoneCards = todayDoneAdhoc.map(a => `
     <div class="task-card" style="opacity:0.5;pointer-events:none;">
       <div class="task-header">
@@ -2479,6 +2625,7 @@ function getOverdueStatus(task) {
 
 function renderTaskPanel(task, checkin) {
   const isWeight = task.type === 'weight';
+  const actionDayLabel = isCaregiverBacklogMode() ? '補做記錄' : '今日記錄';
   const isDone = checkin?.isDone;
   const isSkip = checkin && !checkin.isDone;
   const selectedResult = checkin?.result || '';
@@ -2507,7 +2654,7 @@ function renderTaskPanel(task, checkin) {
 
       return `
         <div class="weight-recorded-view mt-8">
-          <div class="weight-recorded-title">📊 今日記錄 ${doneTimeStr ? '<span class="weight-recorded-time">(' + doneTimeStr + ')</span>' : ''}</div>
+          <div class="weight-recorded-title">📊 ${actionDayLabel} ${doneTimeStr ? '<span class="weight-recorded-time">(' + doneTimeStr + ')</span>' : ''}</div>
           <div class="weight-recorded-row">
             <div class="weight-rec-item"><div class="weight-rec-label">人重</div><div class="weight-rec-val">${personW} kg</div></div>
             <div class="weight-rec-item"><div class="weight-rec-label">抱貓重</div><div class="weight-rec-val">${carryW} kg</div></div>
@@ -2526,7 +2673,7 @@ function renderTaskPanel(task, checkin) {
       const skipTimeStr = utcToCalgaryClock(checkin.time) || '';
       return `
         <div class="weight-recorded-view mt-8" style="border-left:3px solid #f59e0b;background:rgba(245,158,11,0.06)">
-          <div class="weight-recorded-title" style="color:#f59e0b">⏭️ 今日已略過 ${skipTimeStr ? '<span class="weight-recorded-time">('+skipTimeStr+')</span>' : ''}</div>
+          <div class="weight-recorded-title" style="color:#f59e0b">⏭️ ${isCaregiverBacklogMode() ? '已標記略過' : '今日已略過'} ${skipTimeStr ? '<span class="weight-recorded-time">('+skipTimeStr+')</span>' : ''}</div>
           ${checkin.note && checkin.note !== '略過' ? '<div class="weight-rec-note" style="margin-top:6px">備註: ' + checkin.note + '</div>' : ''}
         </div>
         <div class="confirm-row mt-8">
@@ -2558,7 +2705,7 @@ function renderTaskPanel(task, checkin) {
       <textarea class="note-input" id="note-${task.id}" placeholder="備註（選填）" rows="2">${note}</textarea>
       <div class="confirm-row">
         <button class="btn btn-success" onclick="submitWeight('${task.id}')">✅ 確認記錄</button>
-        <button class="btn btn-warning" onclick="skipWeightTask('${task.id}')">⏭️ 今日略過</button>
+        <button class="btn btn-warning" onclick="skipWeightTask('${task.id}')">${isCaregiverBacklogMode() ? '⏭️ 標記略過' : '⏭️ 今日略過'}</button>
         <button class="btn btn-secondary" onclick="cancelReRecord('${task.id}')">關閉</button>
       </div>`;
   }
@@ -2674,7 +2821,7 @@ async function skipWeightTask(taskId) {
   try {
     await api('/api/checkins', {
       method: 'POST',
-      body: JSON.stringify({ taskId, isDone: false, result: null, note: '略過', date: state.currentDate, time: new Date().toISOString() }),
+      body: JSON.stringify({ taskId, isDone: false, result: null, note: '略過', date: getCaregiverDate(), time: new Date().toISOString() }),
     });
     delete _savedWeightCheckins[taskId];
     showToast('⏭️ 量體重已略過');
@@ -2728,7 +2875,7 @@ async function submitWeight(taskId) {
     });
     await api('/api/checkins', {
       method: 'POST',
-      body: JSON.stringify({ taskId, isDone: true, result: `${(carryW-personW).toFixed(2)}kg`, note, date: state.currentDate, time: new Date().toISOString() }),
+      body: JSON.stringify({ taskId, isDone: true, result: `${(carryW-personW).toFixed(2)}kg`, note, date: getCaregiverDate(), time: new Date().toISOString() }),
     });
     state.settings.lastPersonWeight = personW;
     const catW = (carryW - personW).toFixed(2);
@@ -2760,7 +2907,7 @@ async function submitCheckin(taskId) {
   try {
     await api('/api/checkins', {
       method: 'POST',
-      body: JSON.stringify({ taskId, isDone, result, note, date: state.currentDate, time: new Date().toISOString() }),
+      body: JSON.stringify({ taskId, isDone, result, note, date: getCaregiverDate(), time: new Date().toISOString() }),
     });
     if (isDone) { showToast('✅ 打卡成功！'); confetti(); }
     else showToast('📝 已記錄');
@@ -2776,7 +2923,11 @@ async function submitCheckin(taskId) {
 
 async function reloadCheckins(justCompletedId) {
   try {
-    state.checkins = await api('/api/checkins?date=' + state.currentDate);
+    state.checkins = await api('/api/checkins?date=' + getCaregiverDate());
+    if (isCaregiverBacklogMode()) {
+      state.yesterdayCheckins = [...state.checkins];
+      updateYesterdayBacklogFromCheckins(state.yesterdayCheckins);
+    }
   } catch(e) {}
   if (justCompletedId) {
     // Animate the card sliding down before re-render
@@ -2786,9 +2937,12 @@ async function reloadCheckins(justCompletedId) {
       await new Promise(r => setTimeout(r, 450));
     }
   }
-  renderTaskList();
-  renderProgress();
-  checkAlerts();
+  renderCaregiverView();
+  if (isCaregiverBacklogMode() && (state.yesterdayBacklog || []).length === 0 && (state.backlogOriginalIds || []).length) {
+    showToast('🎉 昨日未完成任務已全部補做');
+    await exitCaregiverBacklogMode(true);
+    return;
+  }
   // Fade in newly-rendered done card
   if (justCompletedId) {
     const newCard = document.getElementById('card-' + justCompletedId);
@@ -2801,9 +2955,12 @@ async function reloadCheckins(justCompletedId) {
 
 // ─── PROGRESS ──────────────────────────────────────────────────
 function renderProgress() {
-  const visibleTasks = getVisibleTasks();
-  const visibleIds = new Set(visibleTasks.map(t => t.id));
-  const total = visibleTasks.length;
+  const backlogMode = isCaregiverBacklogMode();
+  const visibleTasks = backlogMode ? [] : getVisibleTasks(getCaregiverDate());
+  const visibleIds = backlogMode
+    ? new Set(state.backlogOriginalIds || [])
+    : new Set(visibleTasks.map(t => t.id));
+  const total = backlogMode ? visibleIds.size : visibleTasks.length;
   // Count both done (isDone=true) and skipped (isDone=false but checkin exists) as resolved
   const resolved = state.checkins.filter(c => visibleIds.has(c.taskId)).length; // done + skipped
   const done = state.checkins.filter(c => c.isDone && visibleIds.has(c.taskId)).length;
@@ -2815,13 +2972,16 @@ function renderProgress() {
   document.getElementById('progressCount').textContent = `${done} / ${total} 完成${resolved > done ? '（' + (resolved - done) + ' 略過）' : ''}`;
   const msgs = ['今日任務','加油！繼續努力 💪','快到了！','差不多啦 🎉','全部完成！🎊'];
   const idx = pct === 100 ? 4 : pct >= 75 ? 3 : pct >= 50 ? 2 : pct > 0 ? 1 : 0;
-  document.getElementById('progressSub').textContent = msgs[idx];
+  document.getElementById('progressSub').textContent = backlogMode
+    ? `補做 ${state.backlogSourceDate || getCaregiverDate()}`
+    : msgs[idx];
 }
 
 // ─── ALERTS ────────────────────────────────────────────────────
 async function checkAlerts() {
   const container = document.getElementById('alertsContainer');
   container.innerHTML = '';
+  if (isCaregiverBacklogMode()) return;
   const now = getCalgaryDate();
   const hour = now.getUTCHours();
   if (state.checkins.length === 0 && hour >= 14) {
@@ -3695,6 +3855,11 @@ let _temTimes = [];   // working copy of scheduled times
 function openTaskModal(taskId) {
   const modal = document.getElementById('taskEditModal');
   const isNew = !taskId;
+  const saveBtn = document.getElementById('temSaveBtn');
+  if (saveBtn) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '💾 儲存任務';
+  }
   document.getElementById('temTitle').textContent = isNew ? '＋ 新增任務' : '✏️ 編輯任務';
   document.getElementById('temTaskId').value = taskId || '';
   document.getElementById('temDeleteRow').style.display = isNew ? 'none' : 'block';
@@ -3802,6 +3967,9 @@ function getResultOptionsForPreset(preset) {
 }
 
 async function saveTaskModal() {
+  const saveBtn = document.getElementById('temSaveBtn');
+  if (saveBtn?.disabled) return;
+
   const taskId = document.getElementById('temTaskId').value;
   const name = document.getElementById('temName').value.trim();
   const icon = document.getElementById('temIcon').value.trim() || '📌';
@@ -3842,28 +4010,37 @@ async function saveTaskModal() {
   }
 
   const isNew = !taskId;
-  if (isNew) {
-    // auto result options by type if not set
-    if (resultOptions === null) {
-      resultOptions = getResultOptionsForPreset(type) || [];
-    }
-    const newTask = { id:'t'+Date.now(), name, icon, type, scheduleType, scheduledTimes: _temTimes, weekDays, resultOptions, requireNote };
-    state.tasks.push(newTask);
-  } else {
-    const idx = state.tasks.findIndex(t => t.id === taskId);
-    if (idx < 0) return;
-    const existing = state.tasks[idx];
-    state.tasks[idx] = {
-      ...existing,
-      name, icon, type, scheduleType,
-      scheduledTimes: _temTimes,
-      weekDays,
-      requireNote,
-      resultOptions: resultOptions !== null ? resultOptions : existing.resultOptions,
-    };
+  const prevTasks = state.tasks.map(t => ({ ...t, scheduledTimes: [...(t.scheduledTimes || [])], weekDays: Array.isArray(t.weekDays) ? [...t.weekDays] : t.weekDays, resultOptions: Array.isArray(t.resultOptions) ? t.resultOptions.map(o => ({ ...o })) : t.resultOptions }));
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳ 儲存中...';
   }
 
   try {
+    if (isNew) {
+      if (resultOptions === null) {
+        resultOptions = getResultOptionsForPreset(type) || [];
+      }
+      const newTask = { id:'t'+Date.now(), name, icon, type, scheduleType, scheduledTimes: _temTimes, weekDays, resultOptions, requireNote };
+      state.tasks.push(newTask);
+    } else {
+      const idx = state.tasks.findIndex(t => t.id === taskId);
+      if (idx < 0) {
+        showToast('❌ 找不到要更新的任務');
+        return;
+      }
+      const existing = state.tasks[idx];
+      state.tasks[idx] = {
+        ...existing,
+        name, icon, type, scheduleType,
+        scheduledTimes: _temTimes,
+        weekDays,
+        requireNote,
+        resultOptions: resultOptions !== null ? resultOptions : existing.resultOptions,
+      };
+    }
+
     await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
     showToast(isNew ? '✅ 任務已新增' : '✅ 任務已更新');
     closeTaskModal();
@@ -3871,9 +4048,14 @@ async function saveTaskModal() {
     renderTaskList();
   } catch (e) {
     console.error('saveTaskModal error:', e);
-    showToast('❌ 儲存失敗，請重試');
-    // rollback optimistic push
-    if (isNew) state.tasks.pop();
+    state.tasks = prevTasks;
+    const detail = e && e.message ? '：' + e.message : '';
+    showToast('❌ 儲存失敗，請重試' + detail);
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 儲存任務';
+    }
   }
 }
 
@@ -3926,7 +4108,7 @@ function closeTaskDetailModal() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.1.3
+// SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.1.4
 // ══════════════════════════════════════════════════════════════════
 
 const DEFAULT_ST_PRESETS = [
@@ -4256,7 +4438,7 @@ async function refreshAdhocForCaregiver(showIndicator) {
   try {
     const fresh = await api('/api/adhoc');
     state.adhocRequests = (fresh || []).filter(a => !a.done);
-    renderTaskList();
+    renderCaregiverView();
   } catch(e) { /* keep current state on network error */ }
   finally {
     _adhocRefreshing = false;
@@ -5065,7 +5247,7 @@ async function deletePeriodicTask(taskId) {
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px">
-        <button class="btn btn-success" onclick="saveTaskModal()">💾 儲存任務</button>
+        <button class="btn btn-success" id="temSaveBtn" onclick="saveTaskModal()">💾 儲存任務</button>
         <button class="btn btn-secondary" onclick="closeTaskModal()">取消</button>
       </div>
       <div id="temDeleteRow" style="margin-top:12px;text-align:center;display:none">
