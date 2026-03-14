@@ -54,7 +54,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', icon: '🏥', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '4.1.4' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '4.1.5' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
