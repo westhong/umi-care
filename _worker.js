@@ -386,7 +386,7 @@ async function handleApi(request, env, url) {
         const subRaw = await KV.get('push:subscription');
         if (subRaw) {
           const sub = JSON.parse(subRaw);
-          const qtyStr = item.quantity > 1 ? ` ×${item.quantity}${item.unit}` : (item.unit ? ` ${item.unit}` : '');
+          const qtyStr = item.unit ? ` ×${item.quantity}${item.unit}` : (item.quantity > 1 ? ` ×${item.quantity}` : '');
           const noteStr = item.note ? ` — ${item.note}` : '';
           await sendWebPush(env, sub, {
             title: `${item.icon} 照顧者回報`,
