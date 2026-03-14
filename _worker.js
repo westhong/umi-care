@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v4.1.4 – Cloudflare Worker with Static Assets
+// UmiCare v4.1.5 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -65,7 +65,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '4.1.4', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '4.1.5', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
