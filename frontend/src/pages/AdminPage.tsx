@@ -1,4 +1,4 @@
-// AdminPage — placeholder for v5.0.7
+// AdminPage — placeholder for v5.0.8
 // Full admin panel implementation coming in v5.1
 
 import { useAppStore } from '../store/useAppStore';
@@ -28,7 +28,7 @@ export function AdminPage() {
           </button>
         </div>
         <div style={{ fontSize: '0.78rem', opacity: 0.88 }}>
-          UmiCare v5.0.7 · {cat?.name || '屋咪'} 照護系統
+          UmiCare v5.0.8 · {cat?.name || '屋咪'} 照護系統
         </div>
       </div>
 

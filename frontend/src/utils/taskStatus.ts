@@ -2,12 +2,10 @@
 
 export type TaskStatus = 'done' | 'skip' | 'overdue' | 'pending';
 
-const CALGARY_OFFSET_MS = -7 * 3600 * 1000; // MST (close enough; ±1h DST fine for "overdue")
-
+// Use device local time directly — device is in Calgary, handles DST automatically
 function nowCalgaryMinutes(): number {
   const now = new Date();
-  const calgary = new Date(now.getTime() + CALGARY_OFFSET_MS);
-  return calgary.getUTCHours() * 60 + calgary.getUTCMinutes();
+  return now.getHours() * 60 + now.getMinutes();
 }
 
 export function getTaskStatus(
