@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  UmiCare v4.2.0 — i18n zh/en bilingual support
+  UmiCare v4.2.1 — i18n zh/en bilingual support
   ================================================
   v4.0  feat: 特殊任務 tab, full UmiCare icon
   v4.0.1  fix: switchAdminTab crash (regex → string match)
@@ -29,9 +29,9 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <meta name="theme-color" content="#ff85a1">
 <meta charset="UTF-8">
-<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.2.0">
+<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.2.1">
   <meta name="application-name" content="UmiCare">
-  <meta name="version" content="4.2.0">
+  <meta name="version" content="4.2.1">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>UmiCare 🐱 屋咪照護</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1450,7 +1450,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.2.0 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">i18n</span></span>
+        <span id="version-badge">v4.2.1 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">i18n</span></span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1559,7 +1559,7 @@ body::before {
       <!-- Records Tab -->
       <div id="adminTabRecords" class="admin-tab-content">
         <div class="form-field">
-          <label>選擇日期</label>
+          <label id='recordsDateLabel'>選擇日期</label>
           <input type="date" id="recordsDatePicker" onchange="loadAdminRecords();loadAdminIncidents()">
         </div>
         <div id="adminRecordsContent"><div class="loading-spin"></div></div>
@@ -1744,6 +1744,258 @@ const T = {
     languageLabel: '語言',
     personWeightLabel: '個人體重', carryWeightLabel: '抱貓體重',
     catWeightLabel: '貓咪體重', addWeightBtn: '➕ 新增體重紀錄',
+    // Backlog mode
+    backlogHeader: '補做昨日任務',
+    backlogTitle: '📋 昨日未完成任務',
+    backlogBannerTitle: (date) => `🕘 正在補做 ${date} 未完成任務`,
+    backlogBannerSub: '只顯示昨天尚未完成或略過記錄的排程任務；完成後會自動回到今日。',
+    backlogBtn: '↩️ 返回今日',
+    backlogBannerYesterday: (count) => `🕘 昨日尚有 ${count} 項未完成任務`,
+    backlogBannerYesterdaySub: '你可以先補做昨天未完成的項目，再返回今天的任務清單。',
+    enterBacklogBtn: '補做昨日任務',
+    noBacklog: '✅ 昨日沒有未完成任務',
+    switchedToBacklog: '🕘 已切換到昨日未完成任務',
+    returnedToday: '↩️ 已返回今日任務',
+    allBacklogDone: '🎉 昨日未完成任務已全部補做',
+    todayCareHeader: '今日照護',
+    noTasks: '目前沒有任務',
+    // Weight task
+    weightHeader: (date) => `📊 ${date}記錄`,
+    weightPerson: '人重',
+    weightCarry: '抱貓重',
+    weightSkipped: (date) => `⏭️ ${date}已略過`,
+    reRecord: '🔄 重新記錄',
+    recordWeight: '🔄 改為記錄體重',
+    closeBtn: '關閉',
+    personWeightInput: '人重（今次）kg',
+    submitWeightBtn: '✅ 確認記錄',
+    skipWeightBtn: '⏭️ 今日略過',
+    skipWeightBacklog: '⏭️ 標記略過',
+    // Task checkin
+    selectResult: '選擇結果',
+    doneBtn: '✅ 完成',
+    skipBtn: '⏭️ 略過',
+    notePlaceholder: '備註（選填）',
+    submitBtn: '✅ 確認提交',
+    cancelBtn2: '取消',
+    reRecordClose: '關閉',
+    // Task status
+    statusDone: '✅ 完成',
+    statusSkip: '⏭️ 略過',
+    statusBacklog: '🕘 待補做',
+    statusPending: '待完成',
+    statusOverdue: '⚠️ 逾時',
+    allDoneMsg: '🎉 所有任務已完成！',
+    regularDoneMsg: '✅ 一般任務已完成',
+    doneDivider: (count) => `✅ 已完成 (${count})`,
+    // Adhoc tasks
+    adhocTag: '📌 特殊任務',
+    adhocAdminTag: '📌 管理員',
+    adhocPending: '待完成',
+    adhocNotePlaceholder: '備註（選填）',
+    adhocSubmitBtn: '✅ 確認提交',
+    adhocCancelBtn: '取消',
+    adhocDoneMsg: '✅ 已回報完成！',
+    adhocSkipMsg: '⏭️ 已標記略過',
+    adhocFailMsg: '⚠️ 更新失敗，請重試',
+    adhocSelectFirst: '⚠️ 請先選擇完成 / 略過',
+    // Self-report
+    selfFeedTitle: '主動餵糧',
+    selfTreatTitle: '主動餵貓條',
+    selfPasteTitle: '主動餵貓泥',
+    selfOtherTitle: '主動回報',
+    selfReportTitle: '主動回報',
+    selfReportSuccess: (title, qty, unit) => `${title} 已回報（${qty}${unit}）`,
+    selfReportSelectType: '⚠️ 請先選擇餵食類型',
+    selfReportUnknown: '⚠️ 未知餵食類型',
+    selfReportFail: '❌ 回報失敗，請重試',
+    selfReportNetErr: '❌ 網路錯誤，請重試',
+    selfReportDelConfirm: '確認刪除此主動回報記錄？',
+    selfReportDelDone: '🗑️ 已刪除主動回報',
+    selfReportDelFail: '❌ 刪除失敗，請重試',
+    // Alerts
+    alertNoCheckin: '💡 今天還沒有打卡記錄',
+    alertNoEat: (catName) => `⚠️ ${catName} 今天多次未進食，請留意健康狀況`,
+    // Calendar
+    calMonthLabel: (y, m) => `${y} 年 ${m} 月`,
+    calNoRecord: (date) => `${date} 沒有打卡紀錄`,
+    calTaskHeader: (date) => `${date} 打卡記錄`,
+    calLoadFail: '載入失敗',
+    calThTask: '任務', calThStatus: '狀態', calThResult: '結果', calThNote: '備註', calThTime: '時間',
+    // Admin overview
+    adminDateLine: (date, catName, done, total, pct) => `${date} · ${catName} 的照護紀錄`,
+    statDone: '已完成', statRate: '完成率', statPending: '待完成',
+    pendingSection: '⏳ 待完成 / 逾時',
+    doneSection: '✅ 已完成 / 略過',
+    noRecords: '今日尚無任務記錄',
+    specialDoneSection: '✨ 今日完成的特殊任務',
+    specialDoneTime: (time) => `完成時間：${time}`,
+    specialDoneTag: '✅ 已完成',
+    incidentSection: '🆘 異常上報',
+    incidentPending: (count) => `${count} 則待處理`,
+    incidentAck: '⬇ 暫時收起',
+    incidentAckHint: (count) => `⚠ 以上 ${count} 筆未處理案件，下次登入仍會提醒`,
+    selfReportSection: '📝 主動回報',
+    selfReportUnconfirmed: (count) => `${count} 則未確認`,
+    selfReportAck: '✓ 確認已閱讀，今日不再顯示',
+    caregiverLabel: '飼養者回報',
+    noPending: '今日無待確認事項',
+    // Records tab
+    recordNoCheckin: '該日沒有打卡紀錄',
+    recordNoSpecial: '當日沒有特殊任務完成紀錄',
+    recordNoSelfReport: '當日沒有主動回報',
+    recordLoadFail: '載入失敗: ',
+    recordSelfFeed: '主動餵糧', recordSelfTreat: '主動餵貓條', recordSelfPaste: '主動餵貓泥', recordSelfOther: '其他回報',
+    // Delete
+    deleteCheckinConfirm: '確認刪除此打卡記錄？此操作無法撤銷。',
+    deleteCheckinDone: '🗑️ 已刪除打卡記錄',
+    deleteCheckinFail: '⚠️ 刪除失敗: ',
+    // Weights tab
+    weightNoRecord: '目前沒有體重紀錄',
+    weightTableCatHeader: '貓咪體重',
+    weightThDate: '日期', weightThPerson: '人重', weightThCarry: '抱貓重', weightThNote: '備註',
+    weightLoadFail: '載入失敗',
+    // Tasks tab (admin)
+    schedLabels: { daily: '每天', weekly: '每週指定日', weekdays: '平日', weekends: '週末' },
+    schedDays: ['日','一','二','三','四','五','六'],
+    temTitleNew: '＋ 新增任務',
+    temTitleEdit: '✏️ 編輯任務',
+    temSaveBtn: '💾 儲存任務',
+    temSaving: '⏳ 儲存中...',
+    temNoResult: '(沒有結果選項)',
+    temTimeWarn: '⚠️ 請選擇時間',
+    temTimeExists: '⚠️ 該時間已存在',
+    temNoName: '⚠️ 請輸入任務名稱',
+    temNoTime: '⚠️ 請至少新增一個時間',
+    temNoWeekday: '⚠️ 請選擇重複日',
+    temSavedNew: '✅ 任務已新增',
+    temSavedEdit: '✅ 任務已更新',
+    temSaveFail: '❌ 儲存失敗，請重試',
+    temDeleteConfirm: (name) => `確定刪除「${name}」？`,
+    temDeleted: '🗑️ 任務已刪除',
+    resultPresets: {
+      meal: '🍽️ 餐食: 正常 / 少量 / 完全不吃',
+      litter: '🪣 貓砂: 💩有便便 / 💦有尿尿 / 都有 / 都沒有',
+      water: '💧 飲水: 完成 / 加水',
+    },
+    resultOptions: {
+      meal: [{label:'正常進食 ✅',value:'normal'},{label:'少量進食',value:'little'},{label:'完全不吃',value:'none'}],
+      litter: [{label:'💩 有便便',value:'poop'},{label:'💦 有尿尿',value:'urine'},{label:'💩💦 都有',value:'both'},{label:'✨ 都沒有',value:'none'}],
+      water: [{label:'✅ 完成',value:'done'},{label:'💧 加水',value:'topped'}],
+    },
+    // Special task dispatch
+    stpPresets: [
+      { id: 'stp1', icon: '🪣', name: '換貓砂',   note: '木薯砂，一包' },
+      { id: 'stp2', icon: '✂️', name: '剪指甲',   note: '' },
+      { id: 'stp3', icon: '👂', name: '清耳朵',   note: '' },
+      { id: 'stp4', icon: '🛁', name: '洗澡',     note: '抗菌洗劑×2、低速風筒' },
+      { id: 'stp5', icon: '💧', name: '罐頭加水', note: '偏好過濾水' },
+      { id: 'stp6', icon: '🏥', name: '健康檢查', note: '血檢、X-ray、牙科' },
+    ],
+    stpNoPending: '目前沒有待完成的特殊任務',
+    stpNoPendingSub: '點上方快速選擇或填寫自訂任務後按「立即派發」',
+    stpDispatchTime: (time) => `派發時間：${time}`,
+    stpDone: (time) => `✅ 已完成  ${time}`,
+    stpPending: '⏳ 待飼養員完成',
+    stpDispatchDone: '✅ 已派發特殊任務給飼養員',
+    stpDispatchFail: (msg) => `❌ 派發失敗：${msg}`,
+    stpDeleteConfirm: '確認刪除此特殊任務？',
+    stpDeleteDone: '🗑️ 已刪除',
+    stpDeleteFail: '❌ 刪除失敗',
+    stpNoName: '⚠️ 請輸入任務名稱或選擇快速選項',
+    stpLoadFail: '載入失敗',
+    // Preset manager
+    pmgrNoPresets: '清單為空，請新增',
+    pmgrNoName: '⚠️ 請輸入名稱',
+    pmgrAdded: '✅ 已新增',
+    // Cat tab
+    catLoadFail: '⚠️ 載入貓咪資訊失敗',
+    catNoName: '⚠️ 請輸入貓咪名字',
+    catSaved: '✅ 貓咪資料已儲存',
+    catSaveFail: '❌ 儲存失敗',
+    catAgeMonths: (m) => `(${m} 個月大)`,
+    catAgeYears: (y) => `(${y} 歲)`,
+    catAgeYearsMonths: (y, m) => `(${y} 歲 ${m} 個月)`,
+    // PIN
+    pinConfirmMsg: '請再次輸入確認 PIN',
+    pinSetupSuccess: '✅ 設定中...',
+    pinSetupSaved: '✅ PIN 設定成功！',
+    pinSetupFail: '❌ 設定失敗，請重試',
+    pinMismatch: '❌ PIN 不一致，請重新輸入',
+    pinLockSecs: (s) => `🔒 太多錯誤，請等 ${s} 秒`,
+    pinAdminMode: '✅ 管理員模式',
+    pinTooMany: '🔒 錯誤次數過多，請稍後再試',
+    pinLocked60: '🔒 錯誤次數過多，鎖定 60 秒',
+    pinWrong: (n) => `❌ PIN 不正確（${n}/5 次）`,
+    pinVerifyFail: '❌ 驗證失敗',
+    adminLogout: '👋 已登出管理員模式',
+    // PIN change
+    pinChangeRequiredFields: '⚠️ 請填寫所有欄位',
+    // Weight toast
+    weightCarryErr: '⚠️ 應大於人重',
+    weightCatDisplay: (name, w) => `🐱 ${name}體重：${w} kg ✅`,
+    weightRecordFail: '❌ 記錄失敗，請重試',
+    weightCarryInput: '⚠️ 請輸入抱貓重量',
+    weightCarryGtPerson: '⚠️ 抱貓重應大於人重',
+    weightSkipDone: '⏭️ 量體重已略過',
+    weightSkipFail: '❌ 略過失敗，請重試',
+    // Checkin
+    selectFirst: '⚠️ 請先選擇完成 / 略過',
+    checkinDone: '✅ 打卡成功！',
+    checkinRecorded: '📝 已記錄',
+    checkinFail: '❌ 提交失敗，請重試',
+    // Load fail
+    loadFail: '⚠️ 載入資料失敗',
+    // Pull to refresh
+    refreshing: '🔄 更新中…',
+    refreshDone: '✅ 已更新',
+    releaseToRefresh: '↓ 放開即更新',
+    // Push notifications
+    pushEnabled: '✅ 推播通知已啟用！',
+    pushDisabled: '🔕 推播通知已關閉',
+    pushCancelFail: (msg) => `❌ 取消失敗：${msg}`,
+    pushNoSW: '❌ 此裝置不支援 ServiceWorker（請使用 Chrome 或已加入主畫面的 Safari）',
+    pushNoPush: '❌ 此裝置不支援 Web Push（iOS 請先加入主畫面）',
+    pushBlocked: '❌ 通知已被封鎖，請在瀏覽器設定 → 此網站 → 通知 → 允許',
+    pushFail: (msg) => `❌ 通知啟用失敗：${msg}`,
+    pushFixed: '✅ 已自動修復推播設定',
+    pushTitleEnabled: '通知已啟用 ✅（點擊關閉）',
+    pushTitleDisabled: '啟用通知',
+    pushTitleBlocked: '通知已封鎖',
+    // Incident
+    incidentUploaded: '🆘 異常狀況已上報！管理員將收到通知。',
+    incidentFail: '❌ 上報失敗，請重試',
+    incidentNetErr: '❌ 網路錯誤，請重試',
+    photoTooLarge: '⚠️ 照片過大（上限 8 MB），請選擇較小的圖片',
+    // Log detail
+    photoNotExist: '⚠️ 照片不存在',
+    photoLoadFail: '⚠️ 照片載入失敗',
+    markResolved: '✅ 標記為已處理',
+    alreadyResolved: (time) => `✅ 已處理${time ? ' ' + time : ''}`,
+    deleteRecord: '🗑️ 刪除此記錄',
+    deleteCheckin2: '🗑️ 刪除此打卡',
+    // Task detail modal
+    tdStatus: '狀態', tdDoneTime: '完成時間', tdResult: '結果', tdNote: '備註',
+    tdSchedTime: '排程時間', tdRepeat: '重複規則', tdRepeatDays: '重複日', tdType: '類型',
+    tdStatusDone: '✅ 完成', tdStatusSkip: '⏭️ 略過', tdStatusPending: '⏳ 待完成',
+    tdCalgary: ' (Calgary)',
+    // Admin overview sub row
+    adminSubRowFmt: (date, h, m, catName, done, total, pct) => `${date} · ${h}:${m} Calgary · ${catName}: ${done}/${total} 完成 (${pct}%)`,
+    adminSubRowLoading: (date, h, m, catName) => `${date} · ${h}:${m} Calgary · ${catName} 照護狀態`,
+    // Date display
+    weekdays: ['日','一','二','三','四','五','六'],
+    dateFormat: (y, mo, d, wd) => `${y}/${mo}/${d} 星期${wd}`,
+    // Weight task UI
+    weightLastPerson: (w) => `上次: ${w} kg`,
+    weightCatLabel: (name) => `🐱 ${name}體重`,
+    weightCarryLabel: (name) => `抱著${name}量 kg`,
+    weightNotePlaceholder: '備註（選填）',
+    weightReRecordNote: '備註: ',
+    // ServiceWorker
+    swNotSupported: '此裝置不支援 ServiceWorker',
+    // Remove request
+    removeReqDone: '🗑️ 已移除請求',
+    removeReqFail: '❌ 移除失敗',
     taskName: (task) => task.name,
     periodicName: (item) => item.name,
   },
@@ -1780,6 +2032,258 @@ const T = {
     languageLabel: 'Language',
     personWeightLabel: 'Your weight', carryWeightLabel: 'Weight holding cat',
     catWeightLabel: "Cat's weight", addWeightBtn: '➕ Add Weight Record',
+    // Backlog mode
+    backlogHeader: 'Make Up Yesterday',
+    backlogTitle: "📋 Yesterday's Incomplete Tasks",
+    backlogBannerTitle: (date) => `🕘 Making up tasks from ${date}`,
+    backlogBannerSub: "Showing yesterday's incomplete/skipped tasks. You'll return to today automatically.",
+    backlogBtn: '↩️ Back to Today',
+    backlogBannerYesterday: (count) => `🕘 ${count} tasks from yesterday are incomplete`,
+    backlogBannerYesterdaySub: "You can make up yesterday's tasks before returning to today.",
+    enterBacklogBtn: "Make Up Yesterday's Tasks",
+    noBacklog: "✅ No incomplete tasks from yesterday",
+    switchedToBacklog: '🕘 Switched to yesterday tasks',
+    returnedToday: '↩️ Returned to today',
+    allBacklogDone: "🎉 All yesterday's tasks completed",
+    todayCareHeader: "Today's Care",
+    noTasks: 'No tasks',
+    // Weight task
+    weightHeader: (date) => `📊 ${date} Record`,
+    weightPerson: 'Person',
+    weightCarry: 'Holding cat',
+    weightSkipped: (date) => `⏭️ Skipped ${date}`,
+    reRecord: '🔄 Re-record',
+    recordWeight: '🔄 Record Weight Instead',
+    closeBtn: 'Close',
+    personWeightInput: 'Your weight (kg)',
+    submitWeightBtn: '✅ Confirm Record',
+    skipWeightBtn: '⏭️ Skip Today',
+    skipWeightBacklog: '⏭️ Mark as Skipped',
+    // Task checkin
+    selectResult: 'Select Result',
+    doneBtn: '✅ Done',
+    skipBtn: '⏭️ Skip',
+    notePlaceholder: 'Note (optional)',
+    submitBtn: '✅ Submit',
+    cancelBtn2: 'Cancel',
+    reRecordClose: 'Close',
+    // Task status
+    statusDone: '✅ Done',
+    statusSkip: '⏭️ Skipped',
+    statusBacklog: '🕘 Make Up',
+    statusPending: 'Pending',
+    statusOverdue: '⚠️ Overdue',
+    allDoneMsg: '🎉 All tasks done!',
+    regularDoneMsg: '✅ Regular tasks done',
+    doneDivider: (count) => `✅ Done (${count})`,
+    // Adhoc tasks
+    adhocTag: '📌 Special Task',
+    adhocAdminTag: '📌 Admin',
+    adhocPending: 'Pending',
+    adhocNotePlaceholder: 'Note (optional)',
+    adhocSubmitBtn: '✅ Confirm',
+    adhocCancelBtn: 'Cancel',
+    adhocDoneMsg: '✅ Reported done!',
+    adhocSkipMsg: '⏭️ Marked as skipped',
+    adhocFailMsg: '⚠️ Update failed, please retry',
+    adhocSelectFirst: '⚠️ Please select Done or Skip first',
+    // Self-report
+    selfFeedTitle: 'Fed Food',
+    selfTreatTitle: 'Fed Treats',
+    selfPasteTitle: 'Fed Puree',
+    selfOtherTitle: 'Self Report',
+    selfReportTitle: 'Quick Report',
+    selfReportSuccess: (title, qty, unit) => `${title} reported (×${qty}${unit})`,
+    selfReportSelectType: '⚠️ Please select a report type',
+    selfReportUnknown: '⚠️ Unknown report type',
+    selfReportFail: '❌ Report failed, please retry',
+    selfReportNetErr: '❌ Network error, please retry',
+    selfReportDelConfirm: 'Delete this self-report record?',
+    selfReportDelDone: '🗑️ Report deleted',
+    selfReportDelFail: '❌ Delete failed, please retry',
+    // Alerts
+    alertNoCheckin: "💡 No check-ins recorded today yet",
+    alertNoEat: (catName) => `⚠️ ${catName} hasn't eaten multiple times today — monitor health`,
+    // Calendar
+    calMonthLabel: (y, m) => `${y} / ${m}`,
+    calNoRecord: (date) => `No records for ${date}`,
+    calTaskHeader: (date) => `Check-ins for ${date}`,
+    calLoadFail: 'Load failed',
+    calThTask: 'Task', calThStatus: 'Status', calThResult: 'Result', calThNote: 'Note', calThTime: 'Time',
+    // Admin overview
+    adminDateLine: (date, catName, done, total, pct) => `${date} · ${catName}'s care records`,
+    statDone: 'Done', statRate: 'Rate', statPending: 'Pending',
+    pendingSection: '⏳ Pending / Overdue',
+    doneSection: '✅ Done / Skipped',
+    noRecords: 'No task records for today',
+    specialDoneSection: "✨ Today's completed special tasks",
+    specialDoneTime: (time) => `Completed: ${time}`,
+    specialDoneTag: '✅ Done',
+    incidentSection: '🆘 Incident Reports',
+    incidentPending: (count) => `${count} pending`,
+    incidentAck: '⬇ Dismiss',
+    incidentAckHint: (count) => `⚠ ${count} unresolved cases — will reappear on next login`,
+    selfReportSection: '📝 Quick Reports',
+    selfReportUnconfirmed: (count) => `${count} unconfirmed`,
+    selfReportAck: '✓ Confirmed read — hide for today',
+    caregiverLabel: 'Caregiver report',
+    noPending: 'No pending items today',
+    // Records tab
+    recordNoCheckin: 'No check-ins for this date',
+    recordNoSpecial: 'No special tasks completed for this date',
+    recordNoSelfReport: 'No self-reports for this date',
+    recordLoadFail: 'Load failed: ',
+    recordSelfFeed: 'Fed Food', recordSelfTreat: 'Fed Treats', recordSelfPaste: 'Fed Puree', recordSelfOther: 'Other Report',
+    // Delete
+    deleteCheckinConfirm: 'Delete this check-in? This cannot be undone.',
+    deleteCheckinDone: '🗑️ Check-in deleted',
+    deleteCheckinFail: '⚠️ Delete failed: ',
+    // Weights tab
+    weightNoRecord: 'No weight records yet',
+    weightTableCatHeader: "Cat's Weight",
+    weightThDate: 'Date', weightThPerson: 'Person', weightThCarry: 'Holding Cat', weightThNote: 'Note',
+    weightLoadFail: 'Load failed',
+    // Tasks tab (admin)
+    schedLabels: { daily: 'Daily', weekly: 'Weekly', weekdays: 'Weekdays', weekends: 'Weekends' },
+    schedDays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    temTitleNew: '＋ New Task',
+    temTitleEdit: '✏️ Edit Task',
+    temSaveBtn: '💾 Save Task',
+    temSaving: '⏳ Saving...',
+    temNoResult: '(no result options)',
+    temTimeWarn: '⚠️ Please select a time',
+    temTimeExists: '⚠️ That time already exists',
+    temNoName: '⚠️ Please enter a task name',
+    temNoTime: '⚠️ Please add at least one time',
+    temNoWeekday: '⚠️ Please select repeat days',
+    temSavedNew: '✅ Task added',
+    temSavedEdit: '✅ Task updated',
+    temSaveFail: '❌ Save failed, please retry',
+    temDeleteConfirm: (name) => `Delete "${name}"?`,
+    temDeleted: '🗑️ Task deleted',
+    resultPresets: {
+      meal: '🍽️ Meal: Normal / Small / None',
+      litter: '🪣 Litter: 💩Poop / 💦Urine / Both / Neither',
+      water: '💧 Water: Done / Topped up',
+    },
+    resultOptions: {
+      meal: [{label:'Normal ✅',value:'normal'},{label:'Small amount',value:'little'},{label:'Did not eat',value:'none'}],
+      litter: [{label:'💩 Poop',value:'poop'},{label:'💦 Urine',value:'urine'},{label:'💩💦 Both',value:'both'},{label:'✨ Neither',value:'none'}],
+      water: [{label:'✅ Done',value:'done'},{label:'💧 Topped up',value:'topped'}],
+    },
+    // Special task dispatch
+    stpPresets: [
+      { id: 'stp1', icon: '🪣', name: 'Change Litter', note: 'Cassava, 1 bag' },
+      { id: 'stp2', icon: '✂️', name: 'Trim Nails', note: '' },
+      { id: 'stp3', icon: '👂', name: 'Clean Ears', note: '' },
+      { id: 'stp4', icon: '🛁', name: 'Bath', note: 'Antibacterial shampoo ×2, low fan speed' },
+      { id: 'stp5', icon: '💧', name: 'Add Water to Can', note: 'Prefer filtered water' },
+      { id: 'stp6', icon: '🏥', name: 'Health Checkup', note: 'Blood test, X-ray, dental' },
+    ],
+    stpNoPending: 'No pending special tasks',
+    stpNoPendingSub: 'Choose a quick option above or enter a custom task, then tap Dispatch',
+    stpDispatchTime: (time) => `Dispatched: ${time}`,
+    stpDone: (time) => `✅ Done  ${time}`,
+    stpPending: '⏳ Waiting for caregiver',
+    stpDispatchDone: '✅ Special task dispatched to caregiver',
+    stpDispatchFail: (msg) => `❌ Dispatch failed: ${msg}`,
+    stpDeleteConfirm: 'Delete this special task?',
+    stpDeleteDone: '🗑️ Deleted',
+    stpDeleteFail: '❌ Delete failed',
+    stpNoName: '⚠️ Please enter a task name or choose a quick option',
+    stpLoadFail: 'Load failed',
+    // Preset manager
+    pmgrNoPresets: 'List is empty — add one',
+    pmgrNoName: '⚠️ Please enter a name',
+    pmgrAdded: '✅ Added',
+    // Cat tab
+    catLoadFail: '⚠️ Failed to load cat info',
+    catNoName: "⚠️ Please enter the cat's name",
+    catSaved: '✅ Cat info saved',
+    catSaveFail: '❌ Save failed',
+    catAgeMonths: (m) => `(${m} months old)`,
+    catAgeYears: (y) => `(${y} yr)`,
+    catAgeYearsMonths: (y, m) => `(${y} yr ${m} mo)`,
+    // PIN
+    pinConfirmMsg: 'Enter PIN again to confirm',
+    pinSetupSuccess: '✅ Setting up...',
+    pinSetupSaved: '✅ PIN set successfully!',
+    pinSetupFail: '❌ Setup failed, please retry',
+    pinMismatch: '❌ PINs do not match — try again',
+    pinLockSecs: (s) => `🔒 Too many errors, wait ${s}s`,
+    pinAdminMode: '✅ Admin Mode',
+    pinTooMany: '🔒 Too many attempts, please wait',
+    pinLocked60: '🔒 Too many attempts — locked for 60s',
+    pinWrong: (n) => `❌ Wrong PIN (${n}/5)`,
+    pinVerifyFail: '❌ Verification failed',
+    adminLogout: '👋 Logged out of Admin Mode',
+    // PIN change
+    pinChangeRequiredFields: '⚠️ Please fill in all fields',
+    // Weight toast
+    weightCarryErr: '⚠️ Must be greater than person weight',
+    weightCatDisplay: (name, w) => `🐱 ${name}: ${w} kg ✅`,
+    weightRecordFail: '❌ Record failed, please retry',
+    weightCarryInput: '⚠️ Please enter weight holding cat',
+    weightCarryGtPerson: '⚠️ Carrying weight must be > person weight',
+    weightSkipDone: '⏭️ Weight skipped',
+    weightSkipFail: '❌ Skip failed, please retry',
+    // Checkin
+    selectFirst: '⚠️ Please select Done or Skip first',
+    checkinDone: '✅ Checked in!',
+    checkinRecorded: '📝 Recorded',
+    checkinFail: '❌ Submit failed, please retry',
+    // Load fail
+    loadFail: '⚠️ Failed to load data',
+    // Pull to refresh
+    refreshing: '🔄 Refreshing…',
+    refreshDone: '✅ Updated',
+    releaseToRefresh: '↓ Release to refresh',
+    // Push notifications
+    pushEnabled: '✅ Push notifications enabled!',
+    pushDisabled: '🔕 Push notifications disabled',
+    pushCancelFail: (msg) => `❌ Cancel failed: ${msg}`,
+    pushNoSW: '❌ ServiceWorker not supported (use Chrome or add to home screen on Safari)',
+    pushNoPush: '❌ Web Push not supported (iOS: add to home screen first)',
+    pushBlocked: '❌ Notifications blocked — go to browser settings → this site → allow',
+    pushFail: (msg) => `❌ Enable failed: ${msg}`,
+    pushFixed: '✅ Push settings repaired',
+    pushTitleEnabled: 'Notifications on ✅ (tap to disable)',
+    pushTitleDisabled: 'Enable notifications',
+    pushTitleBlocked: 'Notifications blocked',
+    // Incident
+    incidentUploaded: '🆘 Incident reported! Admin will be notified.',
+    incidentFail: '❌ Report failed, please retry',
+    incidentNetErr: '❌ Network error, please retry',
+    photoTooLarge: '⚠️ Photo too large (8 MB limit) — choose a smaller image',
+    // Log detail
+    photoNotExist: '⚠️ Photo not found',
+    photoLoadFail: '⚠️ Photo failed to load',
+    markResolved: '✅ Mark as Resolved',
+    alreadyResolved: (time) => `✅ Resolved${time ? ' ' + time : ''}`,
+    deleteRecord: '🗑️ Delete Record',
+    deleteCheckin2: '🗑️ Delete Check-in',
+    // Task detail modal
+    tdStatus: 'Status', tdDoneTime: 'Time', tdResult: 'Result', tdNote: 'Note',
+    tdSchedTime: 'Schedule', tdRepeat: 'Repeat', tdRepeatDays: 'Days', tdType: 'Type',
+    tdStatusDone: '✅ Done', tdStatusSkip: '⏭️ Skipped', tdStatusPending: '⏳ Pending',
+    tdCalgary: ' (Calgary)',
+    // Admin overview sub row
+    adminSubRowFmt: (date, h, m, catName, done, total, pct) => `${date} · ${h}:${m} Calgary · ${catName}: ${done}/${total} done (${pct}%)`,
+    adminSubRowLoading: (date, h, m, catName) => `${date} · ${h}:${m} Calgary · ${catName} care status`,
+    // Date display
+    weekdays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    dateFormat: (y, mo, d, wd) => `${y}/${mo}/${d} ${wd}`,
+    // Weight task UI
+    weightLastPerson: (w) => `Last: ${w} kg`,
+    weightCatLabel: (name) => `🐱 ${name} weight`,
+    weightCarryLabel: (name) => `Weight holding ${name} (kg)`,
+    weightNotePlaceholder: 'Note (optional)',
+    weightReRecordNote: 'Note: ',
+    // ServiceWorker
+    swNotSupported: 'ServiceWorker not supported',
+    // Remove request
+    removeReqDone: '🗑️ Request removed',
+    removeReqFail: '❌ Remove failed',
     taskName: (task) => task.nameEn || task.name,
     periodicName: (item) => item.nameEn || item.name,
   },
@@ -1860,6 +2364,14 @@ function applyI18n() {
   if (legMissed) legMissed.textContent = t('calLegendMissed');
   const legFuture = document.querySelector('.cal-legend-future');
   if (legFuture) legFuture.textContent = t('calLegendFuture');
+  // Push notification button default title
+  const pushBtn = document.getElementById('push-btn');
+  if (pushBtn && pushBtn.dataset.subscribed !== 'true') {
+    pushBtn.title = t('pushTitleDisabled');
+  }
+  // Records date picker label
+  const recordsDateLbl = document.getElementById('recordsDateLabel');
+  if (recordsDateLbl) recordsDateLbl.textContent = LANG==='en'?'Select Date':'選擇日期';
 }
 
 // ─── STATE ─────────────────────────────────────────────────────
@@ -2001,7 +2513,7 @@ function updateCatProfileCard() {
   const wth = document.getElementById('weightTableCatHeader');
   if (wth) {
     const name = (state.cat?.name || state.catName || '貓咪');
-    wth.textContent = name + '體重';
+    wth.textContent = LANG === 'en' ? name + ' Weight' : name + '體重';
   }
 }
 
@@ -2050,7 +2562,7 @@ async function loadApp() {
     // Also load latest weight
     loadLatestWeight();
   } catch(e) {
-    showToast('⚠️ 載入資料失敗');
+    showToast(t('loadFail'));
   }
   renderCaregiverView();
 }
@@ -2161,26 +2673,26 @@ function renderCaregiverChrome() {
   const header = document.getElementById('catNameDisplay');
   const sourceDate = state.backlogSourceDate || getYesterdayDateStr(state.currentDate);
   if (isCaregiverBacklogMode()) {
-    if (header) header.textContent = '補做昨日任務';
-    if (title) title.textContent = '📋 昨日未完成任務';
+    if (header) header.textContent = t('backlogHeader');
+    if (title) title.textContent = t('backlogTitle');
     if (quick) quick.style.display = 'none';
     if (banner) {
       banner.innerHTML = `
         <div class="card" style="margin:0 16px 14px;border:1px solid rgba(251,146,60,0.3);background:linear-gradient(135deg, rgba(251,146,60,0.12), rgba(255,133,161,0.08));">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
             <div>
-              <div style="font-weight:700;margin-bottom:4px">🕘 正在補做 ${sourceDate} 未完成任務</div>
-              <div style="font-size:0.82rem;color:var(--text-secondary)">只顯示昨天尚未完成或略過記錄的排程任務；完成後會自動回到今日。</div>
+              <div style="font-weight:700;margin-bottom:4px">${t('backlogBannerTitle', sourceDate)}</div>
+              <div style="font-size:0.82rem;color:var(--text-secondary)">${t('backlogBannerSub')}</div>
             </div>
-            <button class="btn btn-secondary" style="width:auto;min-width:120px;margin-top:0" onclick="exitCaregiverBacklogMode()">↩️ 返回今日</button>
+            <button class="btn btn-secondary" style="width:auto;min-width:120px;margin-top:0" onclick="exitCaregiverBacklogMode()">${t('backlogBtn')}</button>
           </div>
         </div>`;
     }
     return;
   }
 
-  if (header) header.textContent = '今日照護';
-  if (title) title.textContent = '📋 今日任務';
+  if (header) header.textContent = t('todayCareHeader');
+  if (title) title.textContent = t('todayTasksTitle');
   if (quick) quick.style.display = '';
   if (!banner) return;
   const backlogCount = (state.yesterdayBacklog || []).length;
@@ -2189,10 +2701,10 @@ function renderCaregiverChrome() {
       <div class="card" style="margin:0 16px 14px;border:1px solid rgba(251,146,60,0.3);background:linear-gradient(135deg, rgba(251,146,60,0.12), rgba(255,133,161,0.08));">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div>
-            <div style="font-weight:700;margin-bottom:4px">🕘 昨日尚有 ${backlogCount} 項未完成任務</div>
-            <div style="font-size:0.82rem;color:var(--text-secondary)">你可以先補做昨天未完成的項目，再返回今天的任務清單。</div>
+            <div style="font-weight:700;margin-bottom:4px">${t('backlogBannerYesterday', backlogCount)}</div>
+            <div style="font-size:0.82rem;color:var(--text-secondary)">${t('backlogBannerYesterdaySub')}</div>
           </div>
-          <button class="btn btn-secondary" style="width:auto;min-width:140px;margin-top:0" onclick="enterYesterdayBacklogMode()">補做昨日任務</button>
+          <button class="btn btn-secondary" style="width:auto;min-width:140px;margin-top:0" onclick="enterYesterdayBacklogMode()">${t('enterBacklogBtn')}</button>
         </div>
       </div>`;
   } else {
@@ -2209,7 +2721,7 @@ function renderCaregiverView() {
 
 async function enterYesterdayBacklogMode() {
   if (!(state.yesterdayBacklog || []).length) {
-    showToast('✅ 昨日沒有未完成任務');
+    showToast(t('noBacklog'));
     return;
   }
   const date = state.backlogSourceDate || getYesterdayDateStr(state.currentDate);
@@ -2225,7 +2737,7 @@ async function enterYesterdayBacklogMode() {
   updateYesterdayBacklogFromCheckins(state.yesterdayCheckins);
   renderCaregiverView();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(_) {}
-  showToast('🕘 已切換到昨日未完成任務');
+  showToast(t('switchedToBacklog'));
 }
 
 async function exitCaregiverBacklogMode(silent) {
@@ -2240,14 +2752,17 @@ async function exitCaregiverBacklogMode(silent) {
   updateYesterdayBacklogFromCheckins(state.yesterdayCheckins);
   renderCaregiverView();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(_) {}
-  if (!silent) showToast('↩️ 已返回今日任務');
+  if (!silent) showToast(t('returnedToday'));
 }
 
 function updateDateDisplay() {
   const d = getCalgaryDate();
-  const days = ['日','一','二','三','四','五','六'];
-  document.getElementById('todayDate').textContent =
-    `${d.getUTCFullYear()}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')} 星期${days[d.getUTCDay()]}`;
+  const days = t('weekdays');
+  const y = d.getUTCFullYear();
+  const mo = String(d.getUTCMonth()+1).padStart(2,'0');
+  const day = String(d.getUTCDate()).padStart(2,'0');
+  const wd = days[d.getUTCDay()];
+  document.getElementById('todayDate').textContent = t('dateFormat', y, mo, day, wd);
 }
 
 // ─── PIN SETUP ─────────────────────────────────────────────────
@@ -2287,16 +2802,16 @@ function handleSetupPin(key) {
       state.setupFirstPin = pin;
       state.setupStep = 'confirm';
       state.pinBuffer = [];
-      document.getElementById('setupConfirmMsg').textContent = '請再次輸入確認 PIN';
+      document.getElementById('setupConfirmMsg').textContent = t('pinConfirmMsg');
       updatePinDots('setupDots', 0);
     } else {
       if (pin === state.setupFirstPin) {
-        document.getElementById('setupConfirmMsg').textContent = '✅ 設定中...';
+        document.getElementById('setupConfirmMsg').textContent = t('pinSetupSuccess');
         api('/api/pin/setup', { method: 'POST', body: JSON.stringify({ pin }) })
-          .then(() => { showToast('✅ PIN 設定成功！'); loadApp(); })
-          .catch(() => showToast('❌ 設定失敗，請重試'));
+          .then(() => { showToast(t('pinSetupSaved')); loadApp(); })
+          .catch(() => showToast(t('pinSetupFail')));
       } else {
-        document.getElementById('setupConfirmMsg').textContent = '❌ PIN 不一致，請重新輸入';
+        document.getElementById('setupConfirmMsg').textContent = t('pinMismatch');
         state.setupStep = 'enter';
         state.setupFirstPin = '';
         state.pinBuffer = [];
@@ -2327,7 +2842,7 @@ function handleLoginPin(key) {
   const now = Date.now();
   if (now < _pinLockedUntil) {
     const secs = Math.ceil((_pinLockedUntil - now) / 1000);
-    document.getElementById('loginError').textContent = `🔒 太多錯誤，請等 ${secs} 秒`;
+    document.getElementById('loginError').textContent = t('pinLockSecs', secs);
     return;
   }
   if (key === '⌫') {
@@ -2350,24 +2865,24 @@ function handleLoginPin(key) {
           sessionStorage.setItem('adminSessionStart', Date.now().toString());
           switchPage('admin', true);  // true = use wipe animation
           loadAdminData();
-          setTimeout(() => showToast('✅ 管理員模式'), 300);
+          setTimeout(() => showToast(t('pinAdminMode')), 300);
         } else if (r.locked) {
-          document.getElementById('loginError').textContent = '🔒 錯誤次數過多，請稍後再試';
+          document.getElementById('loginError').textContent = t('pinTooMany');
           updatePinDots('loginDots', 0);
         } else {
           _pinAttempts++;
           if (_pinAttempts >= 5) {
             _pinLockedUntil = Date.now() + 60000;
             _pinAttempts = 0;
-            document.getElementById('loginError').textContent = '🔒 錯誤次數過多，鎖定 60 秒';
+            document.getElementById('loginError').textContent = t('pinLocked60');
           } else {
-            document.getElementById('loginError').textContent = `❌ PIN 不正確（${_pinAttempts}/5 次）`;
+            document.getElementById('loginError').textContent = t('pinWrong', _pinAttempts);
           }
           updatePinDots('loginDots', 0);
         }
       })
       .catch(() => {
-        document.getElementById('loginError').textContent = '❌ 驗證失敗';
+        document.getElementById('loginError').textContent = t('pinVerifyFail');
       });
   }
 }
@@ -2376,7 +2891,7 @@ function adminLogout() {
   state.adminMode = false;
   sessionStorage.removeItem('adminSessionStart');
   switchPage('tasks', true);   // true = use reverse wipe animation
-  setTimeout(() => showToast('👋 已登出管理員模式'), 200);
+  setTimeout(() => showToast(t('adminLogout')), 200);
 }
 
 // ─── NAVIGATION ────────────────────────────────────────────────
@@ -2469,8 +2984,8 @@ function renderTaskCard(task, checkin) {
   const backlogMode = isCaregiverBacklogMode();
   const status = checkin ? (checkin.isDone ? 'done' : 'skip') : (backlogMode ? 'pending' : getOverdueStatus(task));
   const statusLabel = checkin
-    ? (checkin.isDone ? '✅ 完成' : '⏭️ 略過')
-    : (backlogMode ? '🕘 待補做' : ({ pending: '待完成', overdue: '⚠️ 逾時' }[status] || '待完成'));
+    ? (checkin.isDone ? t('statusDone') : t('statusSkip'))
+    : (backlogMode ? t('statusBacklog') : ({ pending: t('statusPending'), overdue: t('statusOverdue') }[status] || t('statusPending')));
   const statusClass = 'status-' + status;
 
   // Show completion time for done/skip tasks
@@ -2508,8 +3023,8 @@ function renderTaskList() {
   const visibleTasks = getCaregiverVisibleTasks();
   if (!visibleTasks.length) {
     container.innerHTML = backlogMode
-      ? '<div style="text-align:center;padding:40px;color:var(--text-muted)">🎉 昨日未完成任務已全部補做</div>'
-      : '<div style="text-align:center;padding:40px;color:var(--text-muted)">目前沒有任務</div>';
+      ? `<div style="text-align:center;padding:40px;color:var(--text-muted)">${t('allBacklogDone')}</div>`
+      : `<div style="text-align:center;padding:40px;color:var(--text-muted)">${t('noTasks')}</div>`;
     return;
   }
 
@@ -2536,20 +3051,20 @@ function renderTaskList() {
         <div class="task-info">
           <div class="task-name" style="text-decoration:line-through;">${a.name}</div>
           <div class="task-time">
-            <span class="adhoc-time-tag">📌 特殊任務</span>
+            <span class="adhoc-time-tag">${t('adhocTag')}</span>
             ${a.doneAt ? ' · ' + (utcToCalgaryClock ? utcToCalgaryClock(a.doneAt) : '') : ''}
           </div>
         </div>
-        <div class="task-status" style="color:#4ade80;">✅ 完成</div>
+        <div class="task-status" style="color:#4ade80;">${t('statusDone')}</div>
       </div>
     </div>`).join('');
 
   let html = '<div class="tasks-pending-section">';
   html += adhocCards;
   if (pending.length === 0 && !adhocCards) {
-    html += '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.9rem">🎉 所有任務已完成！</div>';
+    html += `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.9rem">${t('allDoneMsg')}</div>`;
   } else if (pending.length === 0 && adhocCards) {
-    html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem">✅ 一般任務已完成</div>';
+    html += `<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem">${t('regularDoneMsg')}</div>`;
   } else {
     html += pending.map(({ task, checkin }) => renderTaskCard(task, checkin)).join('');
   }
@@ -2557,7 +3072,7 @@ function renderTaskList() {
 
   if (done.length > 0 || adhocDoneCards) {
     const doneCount = done.length + todayDoneAdhoc.length;
-    html += `<div class="tasks-done-divider"><span>✅ 已完成 (${doneCount})</span></div>`;
+    html += `<div class="tasks-done-divider"><span>${t('doneDivider', doneCount)}</span></div>`;
     html += '<div class="tasks-done-section">';
     html += adhocDoneCards;
     html += done.map(({ task, checkin }) => renderTaskCard(task, checkin)).join('');
@@ -2573,8 +3088,8 @@ const adhocDoneState = {};   // id -> true | false
 function renderAdhocCard(a) {
   const calTime = utcToCalgaryClock ? utcToCalgaryClock(a.createdAt) : '';
   const timeDisplay = calTime
-    ? `${calTime} <span class="adhoc-time-tag">📌 管理員</span>`
-    : `<span class="adhoc-time-tag">📌 管理員</span>`;
+    ? `${calTime} <span class="adhoc-time-tag">${t('adhocAdminTag')}</span>`
+    : `<span class="adhoc-time-tag">${t('adhocAdminTag')}</span>`;
   const panelId = 'adhoc-panel-' + a.id;
   return `
   <div class="task-card adhoc-task-card" id="adhoc-card-${a.id}">
@@ -2584,21 +3099,21 @@ function renderAdhocCard(a) {
         <div class="task-name">${a.name}</div>
         <div class="task-time">${timeDisplay}</div>
       </div>
-      <div class="task-status status-adhoc">待完成</div>
+      <div class="task-status status-adhoc">${t('adhocPending')}</div>
     </div>
     <div class="adhoc-confirm-panel" id="${panelId}">
       ${a.note ? `<div class="adhoc-note-text">📝 ${a.note}</div>` : ''}
       <div class="done-toggle mt-8">
         <button class="toggle-btn" id="adhoc-done-${a.id}"
-          onclick="selectAdhocDone('${a.id}', true)">✅ 完成</button>
+          onclick="selectAdhocDone('${a.id}', true)">${t('doneBtn')}</button>
         <button class="toggle-btn" id="adhoc-skip-${a.id}"
-          onclick="selectAdhocDone('${a.id}', false)">⏭️ 略過</button>
+          onclick="selectAdhocDone('${a.id}', false)">${t('skipBtn')}</button>
       </div>
       <textarea class="note-input" id="adhoc-note-${a.id}"
-        placeholder="備註（選填）" rows="2"></textarea>
+        placeholder="${t('adhocNotePlaceholder')}" rows="2"></textarea>
       <div class="confirm-row">
-        <button class="btn btn-success" onclick="submitAdhoc('${a.id}')">✅ 確認提交</button>
-        <button class="btn btn-secondary" onclick="toggleAdhocPanel('${a.id}')">取消</button>
+        <button class="btn btn-success" onclick="submitAdhoc('${a.id}')">${t('adhocSubmitBtn')}</button>
+        <button class="btn btn-secondary" onclick="toggleAdhocPanel('${a.id}')">${t('adhocCancelBtn')}</button>
       </div>
     </div>
   </div>`;
@@ -2631,7 +3146,7 @@ function toggleAdhocPanel(id) {
 async function submitAdhoc(id) {
   const isDone = adhocDoneState[id];
   if (isDone === undefined || isDone === null) {
-    showToast('⚠️ 請先選擇完成 / 略過');
+    showToast(t('adhocSelectFirst'));
     return;
   }
   const note = document.getElementById('adhoc-note-' + id)?.value || '';
@@ -2650,10 +3165,10 @@ async function submitAdhoc(id) {
     state.adhocRequests = state.adhocRequests.filter(a => a.id !== id);
     renderTaskList();
     renderProgress();
-    if (isDone) { showToast('✅ 已回報完成！'); confetti(); }
-    else showToast('⏭️ 已標記略過');
+    if (isDone) { showToast(t('adhocDoneMsg')); confetti(); }
+    else showToast(t('adhocSkipMsg'));
   } catch(e) {
-    showToast('⚠️ 更新失敗，請重試');
+    showToast(t('adhocFailMsg'));
   }
 }
 
@@ -2663,10 +3178,10 @@ let _feedReportQty = 1;
 
 function getFeedPreset(type) {
   return {
-    self_feed: { title: '主動餵糧', icon: '🍽️', unit: '次', success: '🍽️ 已回報主動餵糧' },
-    self_treat: { title: '主動餵貓條', icon: '🐟', unit: '條', success: '🐟 已回報貓條' },
-    self_paste: { title: '主動餵貓泥', icon: '🥣', unit: '罐', success: '🥣 已回報貓泥' },
-  }[type] || { title: '主動回報', icon: '📝', unit: '次', success: '✅ 已回報' };
+    self_feed: { title: t('selfFeedTitle'), icon: '🍽️', unit: LANG==='en'?'×':'次', success: t('selfFeedTitle') },
+    self_treat: { title: t('selfTreatTitle'), icon: '🐟', unit: LANG==='en'?'treat':'條', success: t('selfTreatTitle') },
+    self_paste: { title: t('selfPasteTitle'), icon: '🥣', unit: LANG==='en'?'can':'罐', success: t('selfPasteTitle') },
+  }[type] || { title: t('selfReportTitle'), icon: '📝', unit: LANG==='en'?'×':'次', success: t('selfReportTitle') };
 }
 
 function updateFeedQtyOptions() {
@@ -2718,9 +3233,9 @@ function selectFeedReportQty(qty) {
 
 async function submitFeedReport() {
   // Fix: guard against undefined feed type (user mis-tapped & type not set)
-  if (!_feedReportType) { showToast('⚠️ 請先選擇餵食類型'); return; }
+  if (!_feedReportType) { showToast(t('selfReportSelectType')); return; }
   const preset = getFeedPreset(_feedReportType);
-  if (!preset) { showToast('⚠️ 未知餵食類型'); return; }
+  if (!preset) { showToast(t('selfReportUnknown')); return; }
   const note = document.getElementById('feedReportNoteInput').value.trim();
   try {
     const res = await api('/api/selfreports', {
@@ -2738,28 +3253,28 @@ async function submitFeedReport() {
     if (res?.ok) {
       state.selfReports = [res.item, ...(state.selfReports || [])];
       closeFeedReportModal();
-      showToast(`${preset.success}（${_feedReportQty}${preset.unit}）`);
+      showToast(t('selfReportSuccess', preset.success, _feedReportQty, preset.unit));
       confetti();
       if (document.getElementById('adminTabRecords')?.classList.contains('active')) loadAdminRecords();
     } else {
-      showToast('❌ 回報失敗，請重試');
+      showToast(t('selfReportFail'));
     }
   } catch (e) {
-    showToast('❌ 網路錯誤，請重試');
+    showToast(t('selfReportNetErr'));
   }
 }
 
 async function deleteSelfReport(id) {
-  if (!confirm('確認刪除此主動回報記錄？')) return;
+  if (!confirm(t('selfReportDelConfirm'))) return;
   try {
     await api('/api/selfreports/' + id, { method: 'DELETE' });
     state.selfReports = (state.selfReports || []).filter(item => item.id !== id);
-    showToast('🗑️ 已刪除主動回報');
+    showToast(t('selfReportDelDone'));
     loadAdminRecords();
     // Fix: refresh overview so amber self-report pin disappears
     loadAdminOverview();
   } catch (e) {
-    showToast('❌ 刪除失敗，請重試');
+    showToast(t('selfReportDelFail'));
   }
 }
 
@@ -2788,7 +3303,7 @@ function getOverdueStatus(task) {
 
 function renderTaskPanel(task, checkin) {
   const isWeight = task.type === 'weight';
-  const actionDayLabel = isCaregiverBacklogMode() ? '補做記錄' : '今日記錄';
+  const actionDayLabel = isCaregiverBacklogMode() ? (LANG==='en' ? 'Make-up Record' : '補做記錄') : (LANG==='en' ? "Today's Record" : '今日記錄');
   const isDone = checkin?.isDone;
   const isSkip = checkin && !checkin.isDone;
   const selectedResult = checkin?.result || '';
@@ -2819,15 +3334,15 @@ function renderTaskPanel(task, checkin) {
         <div class="weight-recorded-view mt-8">
           <div class="weight-recorded-title">📊 ${actionDayLabel} ${doneTimeStr ? '<span class="weight-recorded-time">(' + doneTimeStr + ')</span>' : ''}</div>
           <div class="weight-recorded-row">
-            <div class="weight-rec-item"><div class="weight-rec-label">人重</div><div class="weight-rec-val">${personW} kg</div></div>
-            <div class="weight-rec-item"><div class="weight-rec-label">抱貓重</div><div class="weight-rec-val">${carryW} kg</div></div>
+            <div class="weight-rec-item"><div class="weight-rec-label">${t('weightPerson')}</div><div class="weight-rec-val">${personW} kg</div></div>
+            <div class="weight-rec-item"><div class="weight-rec-label">${t('weightCarry')}</div><div class="weight-rec-val">${carryW} kg</div></div>
             <div class="weight-rec-item cat-weight-highlight"><div class="weight-rec-label">🐱 ${catDisplayName}</div><div class="weight-rec-val">${displayCatKg} kg</div></div>
           </div>
-          ${checkin.note ? '<div class="weight-rec-note">備註: ' + checkin.note + '</div>' : ''}
+          ${checkin.note ? '<div class="weight-rec-note">' + t('weightReRecordNote') + checkin.note + '</div>' : ''}
         </div>
         <div class="confirm-row mt-8">
-          <button class="btn btn-secondary" style="flex:1" onclick="reRecordWeight('${task.id}')">🔄 重新記錄</button>
-          <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">關閉</button>
+          <button class="btn btn-secondary" style="flex:1" onclick="reRecordWeight('${task.id}')">${t('reRecord')}</button>
+          <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">${t('closeBtn')}</button>
         </div>`;
     }
 
@@ -2836,45 +3351,45 @@ function renderTaskPanel(task, checkin) {
       const skipTimeStr = utcToCalgaryClock(checkin.time) || '';
       return `
         <div class="weight-recorded-view mt-8" style="border-left:3px solid #f59e0b;background:rgba(245,158,11,0.06)">
-          <div class="weight-recorded-title" style="color:#f59e0b">⏭️ ${isCaregiverBacklogMode() ? '已標記略過' : '今日已略過'} ${skipTimeStr ? '<span class="weight-recorded-time">('+skipTimeStr+')</span>' : ''}</div>
-          ${checkin.note && checkin.note !== '略過' ? '<div class="weight-rec-note" style="margin-top:6px">備註: ' + checkin.note + '</div>' : ''}
+          <div class="weight-recorded-title" style="color:#f59e0b">${t('weightSkipped', skipTimeStr ? `(${skipTimeStr})` : '')}</div>
+          ${checkin.note && checkin.note !== '略過' ? '<div class="weight-rec-note" style="margin-top:6px">' + t('weightReRecordNote') + checkin.note + '</div>' : ''}
         </div>
         <div class="confirm-row mt-8">
-          <button class="btn btn-secondary" style="flex:1" onclick="reRecordWeight('${task.id}')">🔄 改為記錄體重</button>
-          <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">關閉</button>
+          <button class="btn btn-secondary" style="flex:1" onclick="reRecordWeight('${task.id}')">${t('recordWeight')}</button>
+          <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">${t('closeBtn')}</button>
         </div>`;
     }
 
     return `
       <div class="weight-inputs mt-8" id="weightInputs-${task.id}">
         <div class="weight-field">
-          <label>人重（今次）kg</label>
+          <label>${t('personWeightInput')}</label>
           <input type="number" step="0.1" id="personW-${task.id}" 
-            placeholder="上次: ${state.settings.lastPersonWeight || 66.5} kg"
+            placeholder="${t('weightLastPerson', state.settings.lastPersonWeight || 66.5)}"
             value="" inputmode="decimal"
             oninput="calcCatWeight('${task.id}')">
         </div>
         <div class="weight-field">
-          <label>抱著${catDisplayName}量 kg</label>
+          <label>${t('weightCarryLabel', catDisplayName)}</label>
           <input type="number" step="0.1" id="carryW-${task.id}"
             value="" inputmode="decimal"
             oninput="calcCatWeight('${task.id}')">
         </div>
         <div class="weight-result" id="catWResult-${task.id}">
-          <span class="label">🐱 ${catDisplayName}體重</span>
+          <span class="label">${t('weightCatLabel', catDisplayName)}</span>
           <span class="value" id="catWValue-${task.id}">-- kg</span>
         </div>
       </div>
-      <textarea class="note-input" id="note-${task.id}" placeholder="備註（選填）" rows="2">${note}</textarea>
+      <textarea class="note-input" id="note-${task.id}" placeholder="${t('weightNotePlaceholder')}" rows="2">${note}</textarea>
       <div class="confirm-row">
-        <button class="btn btn-success" onclick="submitWeight('${task.id}')">✅ 確認記錄</button>
-        <button class="btn btn-warning" onclick="skipWeightTask('${task.id}')">${isCaregiverBacklogMode() ? '⏭️ 標記略過' : '⏭️ 今日略過'}</button>
-        <button class="btn btn-secondary" onclick="cancelReRecord('${task.id}')">關閉</button>
+        <button class="btn btn-success" onclick="submitWeight('${task.id}')">${t('submitWeightBtn')}</button>
+        <button class="btn btn-warning" onclick="skipWeightTask('${task.id}')">${isCaregiverBacklogMode() ? t('skipWeightBacklog') : t('skipWeightBtn')}</button>
+        <button class="btn btn-secondary" onclick="cancelReRecord('${task.id}')">${t('reRecordClose')}</button>
       </div>`;
   }
 
   const resultHtml = task.resultOptions?.length ? `
-    <div class="section-title mt-8">選擇結果</div>
+    <div class="section-title mt-8">${t('selectResult')}</div>
     <div class="result-grid">
       ${task.resultOptions.map(r => `
         <button class="result-btn ${selectedResult === r.value ? 'selected' : ''}"
@@ -2887,15 +3402,15 @@ function renderTaskPanel(task, checkin) {
   return `
     <div class="done-toggle mt-8">
       <button class="toggle-btn ${isDone ? 'selected-done' : ''}" 
-        id="done-${task.id}" onclick="selectDone('${task.id}', true)">✅ 完成</button>
+        id="done-${task.id}" onclick="selectDone('${task.id}', true)">${t('doneBtn')}</button>
       <button class="toggle-btn ${isSkip ? 'selected-skip' : ''}"
-        id="skip-${task.id}" onclick="selectDone('${task.id}', false)">⏭️ 略過</button>
+        id="skip-${task.id}" onclick="selectDone('${task.id}', false)">${t('skipBtn')}</button>
     </div>
     ${resultHtml}
-    <textarea class="note-input" id="note-${task.id}" placeholder="備註（選填）" rows="2">${note}</textarea>
+    <textarea class="note-input" id="note-${task.id}" placeholder="${t('notePlaceholder')}" rows="2">${note}</textarea>
     <div class="confirm-row">
-      <button class="btn btn-success" onclick="submitCheckin('${task.id}')">✅ 確認提交</button>
-      <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">取消</button>
+      <button class="btn btn-success" onclick="submitCheckin('${task.id}')">${t('submitBtn')}</button>
+      <button class="btn btn-secondary" onclick="toggleTask('${task.id}')">${t('cancelBtn2')}</button>
     </div>`;
 }
 
@@ -2915,7 +3430,7 @@ function toggleTask(taskId) {
     state.expandedTask = taskId;
     // Pre-fill person weight hint
     const personInput = document.getElementById('personW-' + taskId);
-    if (personInput) personInput.placeholder = `上次: ${state.settings.lastPersonWeight || 66.5} kg`;
+    if (personInput) personInput.placeholder = t('weightLastPerson', state.settings.lastPersonWeight || 66.5);
   } else {
     state.expandedTask = null;
   }
@@ -2948,7 +3463,7 @@ function calcCatWeight(taskId) {
     resultEl.textContent = cat + ' kg';
     resultEl.style.color = '#4ade80';
   } else if (!isNaN(carryW) && carryW > 0) {
-    resultEl.textContent = '⚠️ 應大於人重';
+    resultEl.textContent = t('weightCarryErr');
     resultEl.style.color = '#f87171';
   } else {
     resultEl.textContent = '-- kg';
@@ -2972,7 +3487,7 @@ function reRecordWeight(taskId) {
     if (panel && task) {
       panel.innerHTML = renderTaskPanel(task, null);
       const personInput = document.getElementById('personW-' + taskId);
-      if (personInput) personInput.placeholder = `上次: ${state.settings.lastPersonWeight || 66.5} kg`;
+      if (personInput) personInput.placeholder = t('weightLastPerson', state.settings.lastPersonWeight || 66.5);
     }
     const card = document.getElementById('card-' + taskId);
     if (card) { card.classList.remove('done'); card.classList.remove('skip'); }
@@ -2987,10 +3502,10 @@ async function skipWeightTask(taskId) {
       body: JSON.stringify({ taskId, isDone: false, result: null, note: '略過', date: getCaregiverDate(), time: new Date().toISOString() }),
     });
     delete _savedWeightCheckins[taskId];
-    showToast('⏭️ 量體重已略過');
+    showToast(t('weightSkipDone'));
     await reloadCheckins(taskId);  // pass taskId for slide animation; panel stays closed after re-render
   } catch(e) {
-    showToast('❌ 略過失敗，請重試');
+    showToast(t('weightSkipFail'));
   }
 }
 
@@ -3023,11 +3538,11 @@ async function submitWeight(taskId) {
   const carryW = parseFloat(carryInput.value);
   
   if (isNaN(carryW) || carryW <= 0) {
-    showToast('⚠️ 請輸入抱貓重量');
+    showToast(t('weightCarryInput'));
     return;
   }
   if (carryW <= personW) {
-    showToast('⚠️ 抱貓重應大於人重');
+    showToast(t('weightCarryGtPerson'));
     return;
   }
 
@@ -3043,7 +3558,7 @@ async function submitWeight(taskId) {
     state.settings.lastPersonWeight = personW;
     const catW = (carryW - personW).toFixed(2);
     const catDisplayN = state.cat?.name || state.catName || '貓咪';
-    showToast(`🐱 ${catDisplayN}體重：${catW} kg ✅`);
+    showToast(t('weightCatDisplay', catDisplayN, catW));
     confetti();
     // Refresh weights list so panel shows recorded data
     try { state.weightsList = await api('/api/weights'); } catch(e) {}
@@ -3052,7 +3567,7 @@ async function submitWeight(taskId) {
     await reloadCheckins(taskId);
   } catch(e) {
     window._isCheckingIn = false; // Fix: reset guard on error
-    showToast('❌ 記錄失敗，請重試');
+    showToast(t('weightRecordFail'));
   }
 }
 
@@ -3061,7 +3576,7 @@ async function submitCheckin(taskId) {
   const isDone = taskDoneState[taskId];
   if (isDone === undefined || isDone === null) {
     window._isCheckingIn = false; // Fix: reset guard on early return
-    showToast('⚠️ 請先選擇完成 / 略過');
+    showToast(t('selectFirst'));
     return;
   }
   const result = taskResultState[taskId] || null;
@@ -3072,15 +3587,15 @@ async function submitCheckin(taskId) {
       method: 'POST',
       body: JSON.stringify({ taskId, isDone, result, note, date: getCaregiverDate(), time: new Date().toISOString() }),
     });
-    if (isDone) { showToast('✅ 打卡成功！'); confetti(); }
-    else showToast('📝 已記錄');
+    if (isDone) { showToast(t('checkinDone')); confetti(); }
+    else showToast(t('checkinRecorded'));
     delete taskDoneState[taskId];
     delete taskResultState[taskId];
     window._isCheckingIn = false; // Fix: reset guard after success
     await reloadCheckins(isDone ? taskId : null);
     if (!isDone) toggleTask(taskId);
   } catch(e) {
-    showToast('❌ 提交失敗，請重試');
+    showToast(t('checkinFail'));
   }
 }
 
@@ -3102,7 +3617,7 @@ async function reloadCheckins(justCompletedId) {
   }
   renderCaregiverView();
   if (isCaregiverBacklogMode() && (state.yesterdayBacklog || []).length === 0 && (state.backlogOriginalIds || []).length) {
-    showToast('🎉 昨日未完成任務已全部補做');
+    showToast(t('allBacklogDone'));
     await exitCaregiverBacklogMode(true);
     return;
   }
@@ -3132,11 +3647,13 @@ function renderProgress() {
   const offset = circumference - (pct / 100) * circumference;
   document.getElementById('progressRing').style.strokeDashoffset = offset;
   document.getElementById('progressPct').textContent = pct + '%';
-  document.getElementById('progressCount').textContent = t('progressCount', done, total) + (resolved > done ? '（' + (resolved - done) + ' 略過）' : '');
-  const msgs = ['今日任務','加油！繼續努力 💪','快到了！','差不多啦 🎉','全部完成！🎊'];
+  document.getElementById('progressCount').textContent = t('progressCount', done, total) + (resolved > done ? LANG==='en'?' ('+( resolved - done)+' skipped)':'（'+(resolved-done)+' 略過）' : '');
+  const msgs = LANG === 'en'
+    ? ["Today's Tasks", 'Keep going! 💪', 'Almost there!', 'Nearly done 🎉', 'All done! 🎊']
+    : ['今日任務', '加油！繼續努力 💪', '快到了！', '差不多啦 🎉', '全部完成！🎊'];
   const idx = pct === 100 ? 4 : pct >= 75 ? 3 : pct >= 50 ? 2 : pct > 0 ? 1 : 0;
   document.getElementById('progressSub').textContent = backlogMode
-    ? `補做 ${state.backlogSourceDate || getCaregiverDate()}`
+    ? (LANG === 'en' ? `Making up ${state.backlogSourceDate || getCaregiverDate()}` : `補做 ${state.backlogSourceDate || getCaregiverDate()}`)
     : msgs[idx];
 }
 
@@ -3148,20 +3665,21 @@ async function checkAlerts() {
   const now = getCalgaryDate();
   const hour = now.getUTCHours();
   if (state.checkins.length === 0 && hour >= 14) {
-    container.innerHTML += `<div class="alert alert-blue">💡 今天還沒有打卡記錄</div>`;
+    container.innerHTML += `<div class="alert alert-blue">${t('alertNoCheckin')}</div>`;
   }
   // Check no meal eaten
-  const mealTasks = getVisibleTasks().filter(t => t.type === 'meal');
-  const noneEaten = state.checkins.filter(c => c.result === 'none' && mealTasks.find(t => t.id === c.taskId));
+  const mealTasks = getVisibleTasks().filter(tk => tk.type === 'meal');
+  const noneEaten = state.checkins.filter(c => c.result === 'none' && mealTasks.find(tk => tk.id === c.taskId));
   if (noneEaten.length >= 2) {
-    container.innerHTML += `<div class="alert alert-red">⚠️ 屋咪今天多次未進食，請留意健康狀況</div>`;
+    const catName = state.cat?.name || state.catName || '屋咪';
+    container.innerHTML += `<div class="alert alert-red">${t('alertNoEat', catName)}</div>`;
   }
 }
 
 // ─── CALENDAR ──────────────────────────────────────────────────
 function renderCalendar() {
   const y = state.calYear, m = state.calMonth;
-  document.getElementById('calMonthLabel').textContent = `${y} 年 ${m+1} 月`;
+  document.getElementById('calMonthLabel').textContent = t('calMonthLabel', y, m+1);
   const grid = document.getElementById('calGrid');
   const firstDay = new Date(y, m, 1).getDay();
   const daysInMonth = new Date(y, m+1, 0).getDate();
@@ -3212,11 +3730,11 @@ async function showDayDetail(dateStr) {
   try {
     const checkins = await api('/api/checkins?date=' + dateStr);
     if (!checkins.length) {
-      detail.innerHTML = `<div class="card"><div class="text-muted">${dateStr} 沒有打卡紀錄</div></div>`;
+      detail.innerHTML = `<div class="card"><div class="text-muted">${t('calNoRecord', dateStr)}</div></div>`;
       return;
     }
     const rows = checkins.map(c => {
-      const task = state.tasks.find(t => t.id === c.taskId);
+      const task = state.tasks.find(tk => tk.id === c.taskId);
       return `<tr>
         <td>${task?.icon || '📌'} ${task?.name || c.taskId}</td>
         <td class="${c.isDone ? 'badge-done' : 'badge-skip'}">${c.isDone ? '✅' : '⏭️'}</td>
@@ -3226,14 +3744,14 @@ async function showDayDetail(dateStr) {
       </tr>`;
     }).join('');
     detail.innerHTML = `<div class="card">
-      <div style="font-weight:600;margin-bottom:12px">${dateStr} 打卡記錄</div>
+      <div style="font-weight:600;margin-bottom:12px">${t('calTaskHeader', dateStr)}</div>
       <div style="overflow-x:auto">
       <table class="records-table">
-        <thead><tr><th>任務</th><th>狀態</th><th>結果</th><th>備註</th><th>時間</th></tr></thead>
+        <thead><tr><th>${t('calThTask')}</th><th>${t('calThStatus')}</th><th>${t('calThResult')}</th><th>${t('calThNote')}</th><th>${t('calThTime')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div></div>`;
   } catch(e) {
-    detail.innerHTML = '<div class="card text-muted">載入失敗</div>';
+    detail.innerHTML = `<div class="card text-muted">${t('calLoadFail')}</div>`;
   }
 }
 
@@ -3307,11 +3825,11 @@ async function loadAdminOverview() {
       const now2 = getCalgaryDate();
       const hStr = String(now2.getUTCHours()).padStart(2,'0');
       const mStr = String(now2.getUTCMinutes()).padStart(2,'0');
-      subRow.textContent = `${date} · ${hStr}:${mStr} Calgary · ${catName}: ${done}/${total} 完成 (${pct}%)`;
+      subRow.textContent = t('adminSubRowFmt', date, hStr, mStr, catName, done, total, pct);
     }
 
     // ── SECTION 1: ALERT PANEL (always visible, top priority) ──
-    const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❗ 其他異常' };
+    const typeLabels = LANG === 'en' ? { vomit:'🤢 Vomit', no_eat:'🚫 No Eat', lethargy:'😴 Lethargy', diarrhea:'💦 Diarrhea', blood:'🩸 Blood', other:'❗ Other' } : { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❗ 其他異常' };
 
     const unresolvedInc = todayIncidents.filter(i => !i.resolved);
     const resolvedInc   = todayIncidents.filter(i =>  i.resolved);
@@ -3341,7 +3859,7 @@ async function loadAdminOverview() {
         const metaTxt = timeStr + (inc.note ? ' — ' + inc.note : '');
         const isResolved = !!inc.resolved;
         const resolvedTag = isResolved
-          ? `<div class="inc-pin-resolved">✅ 已完成</div>`
+          ? `<div class="inc-pin-resolved">${t('specialDoneTag')}</div>`
           : '';
         const arrow = isResolved
           ? `<span style="color:#3aaa63;font-size:0.8rem;flex-shrink:0">✅</span>`
@@ -3367,12 +3885,12 @@ async function loadAdminOverview() {
       incPinnedHtml = `
         <div class="inc-pin-section" id="incPinSection">
           <div class="inc-pin-header">
-            <div class="inc-pin-label">🆘 異常上報 <span class="inc-pin-badge">${unresolvedInc.length} 則待處理</span></div>
+            <div class="inc-pin-label">${t('incidentSection')} <span class="inc-pin-badge">${t('incidentPending', unresolvedInc.length)}</span></div>
             <span style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
           </div>
           ${incItems}
-          <button class="inc-pin-ack" id="incPinAck" onclick="acknowledgeIncidents()">⬇ 暫時收起</button>
-          <div class="inc-pin-ack-hint">⚠ 以上 ${unresolvedInc.length} 筆未處理案件，下次登入仍會提醒</div>
+          <button class="inc-pin-ack" id="incPinAck" onclick="acknowledgeIncidents()">${t('incidentAck')}</button>
+          <div class="inc-pin-ack-hint">${t('incidentAckHint', unresolvedInc.length)}</div>
         </div>`;
     }
 
@@ -3390,18 +3908,18 @@ async function loadAdminOverview() {
           <div class="sr-pin-icon">${sr.icon || '📝'}</div>
           <div class="sr-pin-body">
             <div class="sr-pin-title">${sr.title}${qtyStr}</div>
-            <div class="sr-pin-meta">${timeStr} · 飼養者回報</div>
+            <div class="sr-pin-meta">${timeStr} · ${t('caregiverLabel')}</div>
           </div>
         </div>`;
       }).join('');
       pinnedHtml = `
         <div class="sr-pin-section" id="srPinSection">
           <div class="sr-pin-header">
-            <div class="sr-pin-label">📝 主動回報 <span class="sr-pin-badge" id="srPinBadge">${selfReports.length} 則未確認</span></div>
+            <div class="sr-pin-label">${t('selfReportSection')} <span class="sr-pin-badge" id="srPinBadge">${t('selfReportUnconfirmed', selfReports.length)}</span></div>
             <span style="font-size:0.7rem;color:var(--text-muted);font-family:var(--mono)">${date}</span>
           </div>
           ${srItems}
-          <button class="sr-pin-ack" id="srPinAck" onclick="acknowledgeSelfReports()">✓ 確認已閱讀，今日不再顯示</button>
+          <button class="sr-pin-ack" id="srPinAck" onclick="acknowledgeSelfReports()">${t('selfReportAck')}</button>
         </div>`;
     }
 
@@ -3410,7 +3928,7 @@ async function loadAdminOverview() {
     const srSuppressed  = !selfReports.length   || _pinAcked.sr;
     let clearHtml = '';
     if (incSuppressed && srSuppressed) {
-      clearHtml = `<div class="alert-panel-clear"><span class="apc-icon">✅</span>今日無待確認事項</div>`;
+      clearHtml = `<div class="alert-panel-clear"><span class="apc-icon">✅</span>${t('noPending')}</div>`;
     }
 
     // ── SECTION 2: TASK TIMELINE ──
@@ -3432,7 +3950,7 @@ async function loadAdminOverview() {
 
       const doneTime = ci?.time ? utcToCalgaryClock(ci.time) : null;
       const badgeMap = { done:'badge-tl-done', skip:'badge-tl-skip', overdue:'badge-tl-over', pending:'badge-tl-pend' };
-      const labelMap = { done:'✅ 完成', skip:'⏭️ 略過', overdue:'⚠️ 逾時', pending:'待完成' };
+      const labelMap = { done:t('statusDone'), skip:t('statusSkip'), overdue:t('statusOverdue'), pending:t('statusPending') };
       const card = `<div class="tl-item tl-${status}" onclick="openTaskDetailModal('${task.id}',${ci?JSON.stringify(ci).replace(/"/g,"'"):null})">
         <div class="tl-card">
           <div style="display:flex;align-items:center;flex:1;min-width:0">
@@ -3466,16 +3984,16 @@ async function loadAdminOverview() {
       });
       if (todayDone.length) {
         specialDoneHtml = `
-          <div class="ov-section-title" style="margin-top:16px;">✨ 今日完成的特殊任務</div>
+          <div class="ov-section-title" style="margin-top:16px;">${t('specialDoneSection')}</div>
           <div class="st-task-list" style="margin-bottom:16px;">
-            ${todayDone.map(t => `
+            ${todayDone.map(tk => `
               <div class="st-task-item done">
-                <div class="st-task-icon">${t.icon || '📌'}</div>
+                <div class="st-task-icon">${tk.icon || '📌'}</div>
                 <div class="st-task-body">
-                  <div class="st-task-name done">${t.name}</div>
-                  ${t.note ? `<div class="st-task-note">📝 ${t.note}</div>` : ''}
-                  <div class="st-task-meta">完成時間：${new Date(t.doneAt).toLocaleString('zh-HK',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
-                  <span class="st-task-status-done">✅ 已完成</span>
+                  <div class="st-task-name done">${tk.name}</div>
+                  ${tk.note ? `<div class="st-task-note">📝 ${tk.note}</div>` : ''}
+                  <div class="st-task-meta">${t('specialDoneTime', new Date(tk.doneAt).toLocaleString(LANG==='en'?'en-CA':'zh-HK',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}))}</div>
+                  <span class="st-task-status-done">${t('specialDoneTag')}</span>
                 </div>
               </div>`).join('')}
           </div>`;
@@ -3486,16 +4004,16 @@ async function loadAdminOverview() {
       // ① Alerts always first
       `<div class="alert-panel">${incPinnedHtml}${pinnedHtml}${clearHtml}</div>` +
       // ② Task progress stats
-      `<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">📅 ${date} · ${catName} 的照護紀錄</div>
+      `<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">📅 ${t('adminDateLine', date, catName, done, total, pct)}</div>
       <div class="overview-summary">
-        <div class="ov-stat"><div class="ov-stat-num">${done}</div><div class="ov-stat-label">已完成</div></div>
-        <div class="ov-stat"><div class="ov-stat-num" style="color:${pct>=80?'#4ade80':pct>=50?'#fb923c':'#f87171'}">${pct}%</div><div class="ov-stat-label">完成率</div></div>
-        <div class="ov-stat"><div class="ov-stat-num" style="color:#6b7280">${total - done - skipped}</div><div class="ov-stat-label">待完成</div></div>
+        <div class="ov-stat"><div class="ov-stat-num">${done}</div><div class="ov-stat-label">${t('statDone')}</div></div>
+        <div class="ov-stat"><div class="ov-stat-num" style="color:${pct>=80?'#4ade80':pct>=50?'#fb923c':'#f87171'}">${pct}%</div><div class="ov-stat-label">${t('statRate')}</div></div>
+        <div class="ov-stat"><div class="ov-stat-num" style="color:#6b7280">${total - done - skipped}</div><div class="ov-stat-label">${t('statPending')}</div></div>
       </div>` +
       // ③ Task timeline
-      (pendItems.length ? `<div class="ov-section-title">⏳ 待完成 / 逾時</div><div class="timeline">${pendItems.join('')}</div>` : '') +
-      (doneItems.length ? `<div class="ov-section-title">✅ 已完成 / 略過</div><div class="timeline">${doneItems.join('')}</div>` : '') +
-      ((!pendItems.length && !doneItems.length) ? '<div class="text-muted" style="text-align:center;padding:30px">今日尚無任務記錄</div>' : '') +
+      (pendItems.length ? `<div class="ov-section-title">${t('pendingSection')}</div><div class="timeline">${pendItems.join('')}</div>` : '') +
+      (doneItems.length ? `<div class="ov-section-title">${t('doneSection')}</div><div class="timeline">${doneItems.join('')}</div>` : '') +
+      ((!pendItems.length && !doneItems.length) ? `<div class="text-muted" style="text-align:center;padding:30px">${t('noRecords')}</div>` : '') +
       // ④ Completed special tasks for today (dimmed, no delete)
       specialDoneHtml;
 
@@ -3512,37 +4030,37 @@ async function loadAdminOverview() {
     if (stRecordsContainer) {
       try {
         const allAdhoc = await api('/api/adhoc').catch(() => []);
-        const dateDone = allAdhoc.filter(t => {
-          if (!t.done || !t.doneAt) return false;
-          const calDate = getCalgaryDate(new Date(t.doneAt));
+        const dateDone = allAdhoc.filter(ad => {
+          if (!ad.done || !ad.doneAt) return false;
+          const calDate = getCalgaryDate(new Date(ad.doneAt));
           if (!calDate) return false;
           return calDate.toISOString().slice(0,10) === date;
         });
         if (!dateDone.length) {
-          stRecordsContainer.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">當日沒有特殊任務完成紀錄</div>';
+          stRecordsContainer.innerHTML = `<div class="text-muted" style="padding:20px;text-align:center">${t('recordNoSpecial')}</div>`;
         } else {
           const doneDiv = document.createElement('div');
           doneDiv.className = 'log-list';
-          dateDone.forEach(t => {
-            const timeStr = t.doneAt ? utcToCalgaryClock(t.doneAt) : '--:--';
-            const doneNote = t.doneNote ? ` · ${t.doneNote}` : '';
+          dateDone.forEach(ad => {
+            const timeStr = ad.doneAt ? utcToCalgaryClock(ad.doneAt) : '--:--';
+            const doneNote = ad.doneNote ? ` · ${ad.doneNote}` : '';
             const wrap = document.createElement('div');
             wrap.className = 'log-row-wrap';
             const row = document.createElement('div');
             row.className = 'log-row';
             row.innerHTML =
-              `<span class="log-row-icon">${t.icon || '📌'}</span>` +
-              `<span class="log-row-name">${t.name}${t.note ? ' <span style="font-size:0.75rem;color:var(--text-muted);">· '+t.note+'</span>' : ''}</span>` +
-              `<div class="log-row-chips"><span class="log-pill log-pill-done">✅ 完成</span></div>` +
+              `<span class="log-row-icon">${ad.icon || '📌'}</span>` +
+              `<span class="log-row-name">${ad.name}${ad.note ? ' <span style="font-size:0.75rem;color:var(--text-muted);">· '+ad.note+'</span>' : ''}</span>` +
+              `<div class="log-row-chips"><span class="log-pill log-pill-done">${t('statusDone')}</span></div>` +
               `<span class="log-row-time">${timeStr}${doneNote}</span>`;
             // Admin delete button
             const delBtn = document.createElement('button');
             delBtn.className = 'log-del-btn';
             delBtn.textContent = '🗑';
-            delBtn.title = '刪除（管理員）';
+            delBtn.title = LANG==='en'?'Delete (Admin)':'刪除（管理員）';
             delBtn.addEventListener('click', e => {
               e.stopPropagation();
-              deleteSpecialTask(t.id, e.currentTarget);
+              deleteSpecialTask(ad.id, e.currentTarget);
             });
             row.appendChild(delBtn);
             wrap.appendChild(row);
@@ -3552,12 +4070,12 @@ async function loadAdminOverview() {
           stRecordsContainer.appendChild(doneDiv);
         }
       } catch(_) {
-        stRecordsContainer.innerHTML = '<div style="color:#f87171;text-align:center;padding:12px;">載入失敗</div>';
+        stRecordsContainer.innerHTML = `<div style="color:#f87171;text-align:center;padding:12px;">${t('calLoadFail')}</div>`;
       }
     }
 
   } catch(e) {
-    container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
+    container.innerHTML = `<div class="text-muted">${t('recordLoadFail')}` + e.message + '</div>';
   }
 }
 
@@ -3634,11 +4152,11 @@ async function loadAdminRecords() {
     // Build a fresh taskMap from the latest tasks list (not stale state.tasks)
     const _taskMap = {};
     const _taskArr = Array.isArray(allTasks) ? allTasks : (state.tasks || []);
-    _taskArr.forEach(t => { if (t && t.id) _taskMap[t.id] = t; });
+    _taskArr.forEach(tk => { if (tk && tk.id) _taskMap[tk.id] = tk; });
 
     // ── Task checkin rows ──
     if (!checkins.length) {
-      container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">該日沒有打卡紀錄</div>';
+      container.innerHTML = `<div class="text-muted" style="padding:20px;text-align:center">${t('recordNoCheckin')}</div>`;
     } else {
       const div = document.createElement('div');
       div.className = 'log-list';
@@ -3648,8 +4166,8 @@ async function loadAdminRecords() {
         const taskIcon = task?.icon || '📋';
         const timeStr = c.time ? utcToCalgaryClock(c.time) : '--:--';
         const pill    = c.isDone
-          ? '<span class="log-pill log-pill-done">✅ 完成</span>'
-          : '<span class="log-pill log-pill-skip">⏭️ 略過</span>';
+          ? `<span class="log-pill log-pill-done">${t('statusDone')}</span>`
+          : `<span class="log-pill log-pill-skip">${t('statusSkip')}</span>`;
         const noteChip = c.note ? '<span class="log-chip-btn">📝</span>' : '';
 
         const wrap = document.createElement('div');
@@ -3672,7 +4190,7 @@ async function loadAdminRecords() {
         const delBtn = document.createElement('button');
         delBtn.className = 'log-del-btn';
         delBtn.textContent = '🗑';
-        delBtn.title = '刪除';
+        delBtn.title = LANG==='en'?'Delete':'刪除';
         delBtn.addEventListener('click', e => {
           e.stopPropagation();
           confirmDeleteCheckin(c.taskId, date);
@@ -3688,18 +4206,18 @@ async function loadAdminRecords() {
     // ── Self-report rows ──
     if (selfReportContainer) {
       const labels = {
-        self_feed:  { icon:'🍽️', title:'主動餵糧' },
-        self_treat: { icon:'🐟', title:'主動餵貓條' },
-        self_paste: { icon:'🥣', title:'主動餵貓泥' },
-        other:      { icon:'📝', title:'其他回報' },
+        self_feed:  { icon:'🍽️', title:t('recordSelfFeed') },
+        self_treat: { icon:'🐟', title:t('recordSelfTreat') },
+        self_paste: { icon:'🥣', title:t('recordSelfPaste') },
+        other:      { icon:'📝', title:t('recordSelfOther') },
       };
       if (!selfReports.length) {
-        selfReportContainer.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">當日沒有主動回報</div>';
+        selfReportContainer.innerHTML = `<div class="text-muted" style="padding:20px;text-align:center">${t('recordNoSelfReport')}</div>`;
       } else {
         const div = document.createElement('div');
         div.className = 'log-list';
         selfReports.forEach(item => {
-          const meta    = labels[item.type] || { icon:item.icon||'📝', title:item.title||'主動回報' };
+          const meta    = labels[item.type] || { icon:item.icon||'📝', title:item.title||t('selfReportTitle') };
           const timeStr = item.reportedAt ? utcToCalgaryClock(item.reportedAt) : '--:--';
           const qtyStr  = item.quantity ? ` ×${item.quantity}${item.unit||''}` : '';
           const noteChip = item.note ? '<span class="log-chip-btn">📝</span>' : '';
@@ -3712,7 +4230,7 @@ async function loadAdminRecords() {
           row.innerHTML =
             `<span class="log-row-icon">${meta.icon}</span>` +
             `<span class="log-row-name">${item.title||meta.title}${qtyStr}</span>` +
-            `<div class="log-row-chips">${noteChip}<span class="log-pill log-pill-sr">飼養者</span></div>` +
+            `<div class="log-row-chips">${noteChip}<span class="log-pill log-pill-sr">${t('caregiverLabel')}</span></div>` +
             `<span class="log-row-time">${timeStr}</span>`;
 
           row._logData = { type:'sr', id:item.id,
@@ -3723,7 +4241,7 @@ async function loadAdminRecords() {
           const delBtn = document.createElement('button');
           delBtn.className = 'log-del-btn';
           delBtn.textContent = '🗑';
-          delBtn.title = '刪除';
+          delBtn.title = LANG==='en'?'Delete':'刪除';
           delBtn.addEventListener('click', e => {
             e.stopPropagation();
             deleteSelfReport(item.id);
@@ -3737,8 +4255,8 @@ async function loadAdminRecords() {
       }
     }
   } catch(e) {
-    container.innerHTML = '<div class="text-muted">載入失敗: ' + e.message + '</div>';
-    if (selfReportContainer) selfReportContainer.innerHTML = '<div class="text-muted">載入失敗</div>';
+    container.innerHTML = `<div class="text-muted">${t('recordLoadFail')}` + e.message + '</div>';
+    if (selfReportContainer) selfReportContainer.innerHTML = `<div class="text-muted">${t('calLoadFail')}</div>`;
   }
 }
 
@@ -3785,12 +4303,12 @@ function openLogDetailFromData(data) {
       } else {
         photoLoading.style.display = 'none';
         photoError.style.display = '';
-        photoError.textContent = '⚠️ 照片不存在';
+        photoError.textContent = t('photoNotExist');
       }
     }).catch(() => {
       photoLoading.style.display = 'none';
       photoError.style.display = '';
-      photoError.textContent = '⚠️ 照片載入失敗';
+      photoError.textContent = t('photoLoadFail');
     });
   } else {
     photoWrap.style.display = 'none';
@@ -3803,31 +4321,31 @@ function openLogDetailFromData(data) {
     if (!data.resolved) {
       const rb = document.createElement('button');
       rb.className = 'log-detail-resolve-btn';
-      rb.textContent = '✅ 標記為已處理';
+      rb.textContent = t('markResolved');
       rb.onclick = () => { resolveIncidentFromModal(data.id); };
       actEl.appendChild(rb);
     } else {
       const resolvedTime = data.resolvedAt ? utcToCalgaryClock(data.resolvedAt) : '';
       const rb = document.createElement('span');
       rb.style.cssText = 'color:#4ade80;font-size:0.82rem;padding:10px 0;display:block;';
-      rb.textContent = '✅ 已處理' + (resolvedTime ? ' ' + resolvedTime : '');
+      rb.textContent = t('alreadyResolved', resolvedTime);
       actEl.appendChild(rb);
     }
     const db = document.createElement('button');
     db.className = 'log-detail-delete-btn';
-    db.textContent = '🗑️ 刪除此記錄';
+    db.textContent = t('deleteRecord');
     db.onclick = () => { closeLogDetail(); deleteIncident(data.id); };
     actEl.appendChild(db);
   } else if (data.type === 'sr') {
     const db = document.createElement('button');
     db.className = 'log-detail-delete-btn';
-    db.textContent = '🗑️ 刪除此記錄';
+    db.textContent = t('deleteRecord');
     db.onclick = () => { closeLogDetail(); deleteSelfReport(data.id); };
     actEl.appendChild(db);
   } else if (data.type === 'checkin') {
     const db = document.createElement('button');
     db.className = 'log-detail-delete-btn';
-    db.textContent = '🗑️ 刪除此打卡';
+    db.textContent = t('deleteCheckin2');
     db.onclick = () => { closeLogDetail(); confirmDeleteCheckin(data.taskId, data.date); };
     actEl.appendChild(db);
   }
@@ -3863,7 +4381,7 @@ async function resolveIncidentFromModal(id) {
     if (bodyEl && !bodyEl.querySelector('.inc-pin-resolved')) {
       const tag = document.createElement('div');
       tag.className = 'inc-pin-resolved';
-      tag.textContent = '✅ 已完成';
+      tag.textContent = t('specialDoneTag');
       bodyEl.appendChild(tag);
     }
     // Strikethrough the title
@@ -3876,7 +4394,7 @@ async function resolveIncidentFromModal(id) {
   if (badge) {
     const cur = parseInt(badge.textContent) || 1;
     const newCount = Math.max(0, cur - 1);
-    badge.textContent = newCount + ' 則待處理';
+    badge.textContent = LANG==='en'?newCount+' pending':newCount+' 則待處理';
     if (newCount === 0) {
       // All resolved – change header colour to green
       badge.style.background = 'rgba(82,199,126,0.15)';
@@ -3914,11 +4432,11 @@ async function logDetailLoadPhoto() {
       if (photoImg) { photoImg.src = data.photo; photoImg.style.display = ''; }
     } else {
       if (photoLoading) photoLoading.style.display = 'none';
-      if (photoError) { photoError.style.display = ''; photoError.textContent = '⚠️ 照片不存在'; }
+      if (photoError) { photoError.style.display = ''; photoError.textContent = t('photoNotExist'); }
     }
   } catch(e) {
     if (photoLoading) photoLoading.style.display = 'none';
-    if (photoError) { photoError.style.display = ''; photoError.textContent = '⚠️ 載入失敗'; }
+    if (photoError) { photoError.style.display = ''; photoError.textContent = t('photoLoadFail'); }
   }
 }
 
@@ -3930,14 +4448,14 @@ function logDetailViewPhoto() {
 }
 
 async function confirmDeleteCheckin(taskId, date) {
-  if (!confirm('確認刪除此打卡記錄？此操作無法撤銷。')) return;
+  if (!confirm(t('deleteCheckinConfirm'))) return;
   try {
     await api('/api/checkins?date=' + date + '&taskId=' + encodeURIComponent(taskId), { method: 'DELETE' });
-    showToast('🗑️ 已刪除打卡記錄');
+    showToast(t('deleteCheckinDone'));
     loadAdminRecords();
     // Fix: refresh overview so completion % updates immediately
     loadAdminOverview();
-  } catch(e) { showToast('⚠️ 刪除失敗: ' + e.message); }
+  } catch(e) { showToast(t('deleteCheckinFail') + e.message); }
 }
 
 function openPhotoOverlay(src) {
@@ -3967,13 +4485,13 @@ async function loadAdminWeights() {
   try {
     const weights = await api('/api/weights');
     if (!weights.length) {
-      container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">目前沒有體重紀錄</div>';
+      container.innerHTML = `<div class="text-muted" style="padding:20px;text-align:center">${t('weightNoRecord')}</div>`;
       return;
     }
     const rows = weights.slice().reverse().map(w => {
       const d = new Date(w.measuredAt);
       return `<tr>
-        <td style="font-family:var(--mono);font-size:0.8rem">${d.toLocaleDateString('zh-HK')}</td>
+        <td style="font-family:var(--mono);font-size:0.8rem">${d.toLocaleDateString(LANG==='en'?'en-CA':'zh-HK')}</td>
         <td>${w.personWeight} kg</td>
         <td>${w.carryWeight} kg</td>
         <td style="color:var(--cat-accent);font-weight:600">${w.catWeight} kg</td>
@@ -3982,30 +4500,32 @@ async function loadAdminWeights() {
     }).join('');
     container.innerHTML = `<div style="overflow-x:auto">
       <table class="records-table">
-        <thead><tr><th>日期</th><th>人重</th><th>抱貓重</th><th id="weightTableCatHeader">貓咪體重</th><th>備註</th></tr></thead>
+        <thead><tr><th>${t('weightThDate')}</th><th>${t('weightThPerson')}</th><th>${t('weightThCarry')}</th><th id="weightTableCatHeader">${t('weightTableCatHeader')}</th><th>${t('weightThNote')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
   } catch(e) {
-    container.innerHTML = '<div class="text-muted">載入失敗</div>';
+    container.innerHTML = `<div class="text-muted">${t('weightLoadFail')}</div>`;
   }
 }
 
 async function loadAdminTasks() {
   const container = document.getElementById('adminTasksList');
   container.innerHTML = '';
-  const schedLabel = {daily:'每天',weekly:'每週指定日',weekdays:'平日',weekends:'週末'};
+  const schedLabel = t('schedLabels');
+  const schedDaysArr = t('schedDays');
   state.tasks.forEach((task) => {
-    const times = (task.scheduledTimes || []).map(t => `<span class="sched-time-chip">${t}</span>`).join(' ');
-    const stype = schedLabel[task.scheduleType || 'daily'] || '每天';
+    const times = (task.scheduledTimes || []).map(ti => `<span class="sched-time-chip">${ti}</span>`).join(' ');
+    const stype = schedLabel[task.scheduleType || 'daily'] || schedLabel.daily;
+    const editLabel = LANG==='en' ? '✏️ Edit' : '✏️ 編輯';
     container.innerHTML += `<div class="task-sched-card" onclick="openTaskModal('${task.id}')">
       <div class="task-sched-left">
         <span class="task-sched-icon">${task.icon}</span>
         <div>
           <div class="task-sched-name">${t('taskName', task)}</div>
-          <div class="task-sched-meta">${stype}${task.weekDays ? ' · ' + task.weekDays.map(d=>['日','一','二','三','四','五','六'][d]).join('、') : ''}</div>
+          <div class="task-sched-meta">${stype}${task.weekDays ? ' · ' + task.weekDays.map(d=>schedDaysArr[d]).join('、') : ''}</div>
         </div>
       </div>
-      <div class="task-sched-right">${times}<span class="sched-edit-btn">✏️ 編輯</span></div>
+      <div class="task-sched-right">${times}<span class="sched-edit-btn">${editLabel}</span></div>
     </div>`;
   });
 }
@@ -4021,9 +4541,9 @@ function openTaskModal(taskId) {
   const saveBtn = document.getElementById('temSaveBtn');
   if (saveBtn) {
     saveBtn.disabled = false;
-    saveBtn.textContent = '💾 儲存任務';
+    saveBtn.textContent = t('temSaveBtn');
   }
-  document.getElementById('temTitle').textContent = isNew ? '＋ 新增任務' : '✏️ 編輯任務';
+  document.getElementById('temTitle').textContent = isNew ? t('temTitleNew') : t('temTitleEdit');
   document.getElementById('temTaskId').value = taskId || '';
   document.getElementById('temDeleteRow').style.display = isNew ? 'none' : 'block';
 
@@ -4052,7 +4572,7 @@ function openTaskModal(taskId) {
     }
     // show result preview
     const opts = (task.resultOptions || []).map(o=>o.label).join(' / ');
-    document.getElementById('temResultPreview').textContent = opts || '(沒有結果選項)';
+    document.getElementById('temResultPreview').textContent = opts || t('temNoResult');
   }
 
   updateTemWeekdays();
@@ -4090,8 +4610,8 @@ function renderTemTimes() {
 
 function addTemTime() {
   const v = document.getElementById('temNewTime').value;
-  if (!v) { showToast('⚠️ 請選擇時間'); return; }
-  if (_temTimes.includes(v)) { showToast('⚠️ 該時間已存在'); return; }
+  if (!v) { showToast(t('temTimeWarn')); return; }
+  if (_temTimes.includes(v)) { showToast(t('temTimeExists')); return; }
   _temTimes.push(v);
   _temTimes.sort();
   renderTemTimes();
@@ -4100,32 +4620,19 @@ function addTemTime() {
 
 function updateTemResultOptions() {
   const type = document.getElementById('temType').value;
-  const presets = {
-    meal: '🍽️ 餐食: 正常 / 少量 / 完全不吃',
-    litter: '🪣 貓砂: 💩有便便 / 💦有尿尿 / 都有 / 都沒有',
-    water: '💧 飲水: 完成 / 加水',
-  };
-  document.getElementById('temResultPreview').textContent = presets[type] || '(沒有預設 — 可從下方選擇)';
+  const presets = t('resultPresets');
+  document.getElementById('temResultPreview').textContent = presets[type] || t('temNoResult');
 }
 
 function applyResultPreset() {
   const p = document.getElementById('temResultPreset').value;
-  const presets = {
-    meal: '🍽️ 餐食: 正常進食 / 少量進食 / 完全不吃',
-    litter: '🪣 貓砂: 💩有便便 / 💦有尿尿 / 都有 / 都沒有',
-    water: '💧 飲水: 完成 / 加水',
-    none: '(清空)',
-  };
+  const presets = t('resultPresets');
   if (p) document.getElementById('temResultPreview').textContent = presets[p] || '';
 }
 
 function getResultOptionsForPreset(preset) {
-  const map = {
-    meal: [{label:'正常進食 ✅',value:'normal'},{label:'少量進食',value:'little'},{label:'完全不吃',value:'none'}],
-    litter: [{label:'💩 有便便',value:'poop'},{label:'💦 有尿尿',value:'urine'},{label:'💩💦 都有',value:'both'},{label:'✨ 都沒有',value:'none'}],
-    water: [{label:'✅ 完成',value:'done'},{label:'💧 加水',value:'topped'}],
-    none: [],
-  };
+  const map = t('resultOptions');
+  if (preset === 'none') return [];
   return map[preset] || null;
 }
 
@@ -4148,8 +4655,8 @@ async function saveTaskModal() {
     renderTemTimes();
   }
 
-  if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
-  if (_temTimes.length === 0) { showToast('⚠️ 請至少新增一個時間'); return; }
+  if (!name) { showToast(t('temNoName')); return; }
+  if (_temTimes.length === 0) { showToast(t('temNoTime')); return; }
 
   // weekdays
   let weekDays = null;
@@ -4158,7 +4665,7 @@ async function saveTaskModal() {
     document.querySelectorAll('#temWeekdaysRow input[type=checkbox]').forEach(cb => {
       if (cb.checked) weekDays.push(Number(cb.value));
     });
-    if (!weekDays.length) { showToast('⚠️ 請選擇重複日'); return; }
+    if (!weekDays.length) { showToast(t('temNoWeekday')); return; }
   } else if (scheduleType === 'weekdays') {
     weekDays = [1,2,3,4,5];
   } else if (scheduleType === 'weekends') {
@@ -4177,7 +4684,7 @@ async function saveTaskModal() {
 
   if (saveBtn) {
     saveBtn.disabled = true;
-    saveBtn.textContent = '⏳ 儲存中...';
+    saveBtn.textContent = t('temSaving');
   }
 
   try {
@@ -4190,7 +4697,7 @@ async function saveTaskModal() {
     } else {
       const idx = state.tasks.findIndex(t => t.id === taskId);
       if (idx < 0) {
-        showToast('❌ 找不到要更新的任務');
+        showToast(LANG==='en'?'❌ Task not found':'❌ 找不到要更新的任務');
         return;
       }
       const existing = state.tasks[idx];
@@ -4205,7 +4712,7 @@ async function saveTaskModal() {
     }
 
     await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
-    showToast(isNew ? '✅ 任務已新增' : '✅ 任務已更新');
+    showToast(isNew ? t('temSavedNew') : t('temSavedEdit'));
     closeTaskModal();
     loadAdminTasks();
     renderTaskList();
@@ -4213,11 +4720,11 @@ async function saveTaskModal() {
     console.error('saveTaskModal error:', e);
     state.tasks = prevTasks;
     const detail = e && e.message ? '：' + e.message : '';
-    showToast('❌ 儲存失敗，請重試' + detail);
+    showToast(t('temSaveFail') + detail);
   } finally {
     if (saveBtn) {
       saveBtn.disabled = false;
-      saveBtn.textContent = '💾 儲存任務';
+      saveBtn.textContent = t('temSaveBtn');
     }
   }
 }
@@ -4225,11 +4732,11 @@ async function saveTaskModal() {
 async function deleteCurrentTask() {
   const taskId = document.getElementById('temTaskId').value;
   if (!taskId) return;
-  const task = state.tasks.find(t => t.id === taskId);
-  if (!confirm(`確定刪除「${task?.name || taskId}」？`)) return;
-  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  const task = state.tasks.find(tk => tk.id === taskId);
+  if (!confirm(t('temDeleteConfirm', task?.name || taskId))) return;
+  state.tasks = state.tasks.filter(tk => tk.id !== taskId);
   await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
-  showToast('🗑️ 任務已刪除');
+  showToast(t('temDeleted'));
   closeTaskModal();
   loadAdminTasks();
   renderTaskList();
@@ -4237,11 +4744,11 @@ async function deleteCurrentTask() {
 
 async function deleteTask(taskId) {
   // legacy wrapper
-  const task = state.tasks.find(t => t.id === taskId);
-  if (!confirm(`確定刪除「${task?.name || taskId}」？`)) return;
-  state.tasks = state.tasks.filter(t => t.id !== taskId);
+  const task = state.tasks.find(tk => tk.id === taskId);
+  if (!confirm(t('temDeleteConfirm', task?.name || taskId))) return;
+  state.tasks = state.tasks.filter(tk => tk.id !== taskId);
   await api('/api/tasks', { method: 'POST', body: JSON.stringify(state.tasks) });
-  showToast('🗑️ 任務已刪除');
+  showToast(t('temDeleted'));
   loadAdminTasks();
   renderTaskList();
 }
@@ -4253,14 +4760,15 @@ function openTaskDetailModal(taskId, checkin) {
   const modal = document.getElementById('taskDetailModal');
   document.getElementById('tdmTitle').textContent = task.icon + ' ' + task.name;
   let rows = [];
-  rows.push(['狀態', checkin?.isDone === false ? '⏭️ 略過' : checkin?.isDone ? '✅ 完成' : '⏳ 待完成']);
-  if (checkin?.time) rows.push(['完成時間', utcToCalgaryClock(checkin.time) + ' (Calgary)']);
-  if (checkin?.result) rows.push(['結果', checkin.result]);
-  if (checkin?.note) rows.push(['備註', checkin.note]);
-  rows.push(['排程時間', (task.scheduledTimes||[]).join(', ') || '-']);
-  rows.push(['重複規則', ({daily:'每天',weekly:'每週指定日',weekdays:'平日',weekends:'週末'})[task.scheduleType||'daily']]);
-  if (task.weekDays) rows.push(['重複日', task.weekDays.map(d=>['日','一','二','三','四','五','六'][d]).join('、')]);
-  rows.push(['類型', task.type || '-']);
+  rows.push([t('tdStatus'), checkin?.isDone === false ? t('tdStatusSkip') : checkin?.isDone ? t('tdStatusDone') : t('tdStatusPending')]);
+  if (checkin?.time) rows.push([t('tdDoneTime'), utcToCalgaryClock(checkin.time) + t('tdCalgary')]);
+  if (checkin?.result) rows.push([t('tdResult'), checkin.result]);
+  if (checkin?.note) rows.push([t('tdNote'), checkin.note]);
+  rows.push([t('tdSchedTime'), (task.scheduledTimes||[]).join(', ') || '-']);
+  const schedLabels = t('schedLabels');
+  rows.push([t('tdRepeat'), schedLabels[task.scheduleType||'daily'] || schedLabels.daily]);
+  if (task.weekDays) rows.push([t('tdRepeatDays'), task.weekDays.map(d=>t('schedDays')[d]).join('、')]);
+  rows.push([t('tdType'), task.type || '-']);
   document.getElementById('tdmBody').innerHTML = rows.map(([l,v]) =>
     `<div class="detail-row"><span class="detail-label">${l}</span><span class="detail-value">${v}</span></div>`
   ).join('');
@@ -4274,14 +4782,8 @@ function closeTaskDetailModal() {
 // SPECIAL TASK DISPATCH  (✨ 特殊任務 tab)  v4.1.5
 // ══════════════════════════════════════════════════════════════════
 
-const DEFAULT_ST_PRESETS = [
-  { id: 'stp1', icon: '🪣', name: '換貓砂',   note: '木薯砂，一包' },
-  { id: 'stp2', icon: '✂️', name: '剪指甲',   note: '' },
-  { id: 'stp3', icon: '👂', name: '清耳朵',   note: '' },
-  { id: 'stp4', icon: '🛁', name: '洗澡',     note: '抗菌洗劑×2、低速風筒' },
-  { id: 'stp5', icon: '💧', name: '罐頭加水', note: '偏好過濾水' },
-  { id: 'stp6', icon: '🏥', name: '健康檢查', note: '血檢、X-ray、牙科' },
-];
+function getDefaultStPresets() { return t('stpPresets'); }
+const DEFAULT_ST_PRESETS = getDefaultStPresets();
 
 let _stPresets   = [];   // loaded from KV or default
 let _stSelected  = null; // { icon, name, note } of selected preset chip
@@ -4330,34 +4832,35 @@ async function loadSpecialTaskAdmin() {
     const list = await api('/api/adhoc');
 
     // Show PENDING only in this tab; completed tasks go to overview + records
-    const sorted = list.filter(t => !t.done)
+    const sorted = list.filter(ad => !ad.done)
                        .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
     if (!sorted.length) {
       container.innerHTML = `<div style="text-align:center;padding:28px 20px;color:var(--text-muted);font-size:0.88rem;">
-        目前沒有待完成的特殊任務<br>
-        <span style="font-size:0.78rem;margin-top:4px;display:block;">點上方快速選擇或填寫自訂任務後按「立即派發」</span>
+        ${t('stpNoPending')}<br>
+        <span style="font-size:0.78rem;margin-top:4px;display:block;">${t('stpNoPendingSub')}</span>
       </div>`;
       return;
     }
-    container.innerHTML = `<div class="st-task-list">${sorted.map(t => {
-      const timeStr = t.createdAt ? new Date(t.createdAt).toLocaleString('zh-HK', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
-      const doneStr = t.doneAt   ? new Date(t.doneAt).toLocaleString('zh-HK',   { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+    const locale = LANG==='en' ? 'en-CA' : 'zh-HK';
+    container.innerHTML = `<div class="st-task-list">${sorted.map(ad => {
+      const timeStr = ad.createdAt ? new Date(ad.createdAt).toLocaleString(locale, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+      const doneStr = ad.doneAt   ? new Date(ad.doneAt).toLocaleString(locale,   { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
       return `
-      <div class="st-task-item${t.done ? ' done' : ''}">
-        <div class="st-task-icon">${t.icon || '📌'}</div>
+      <div class="st-task-item${ad.done ? ' done' : ''}">
+        <div class="st-task-icon">${ad.icon || '📌'}</div>
         <div class="st-task-body">
-          <div class="st-task-name${t.done ? ' done' : ''}">${escapeHtml(t.name)}</div>
-          ${t.note ? `<div class="st-task-note">📝 ${escapeHtml(t.note)}</div>` : ''}
-          <div class="st-task-meta">派發時間：${timeStr}</div>
-          ${t.done
-            ? `<span class="st-task-status-done">✅ 已完成${doneStr ? '  ' + doneStr : ''}</span>`
-            : `<span class="st-task-status-pending">⏳ 待飼養員完成</span>`}
+          <div class="st-task-name${ad.done ? ' done' : ''}">${escapeHtml(ad.name)}</div>
+          ${ad.note ? `<div class="st-task-note">📝 ${escapeHtml(ad.note)}</div>` : ''}
+          <div class="st-task-meta">${t('stpDispatchTime', timeStr)}</div>
+          ${ad.done
+            ? `<span class="st-task-status-done">${t('stpDone', doneStr)}</span>`
+            : `<span class="st-task-status-pending">${t('stpPending')}</span>`}
         </div>
-        <button class="st-del-btn" onclick="deleteSpecialTask('${t.id}', this)" title="刪除">🗑</button>
+        <button class="st-del-btn" onclick="deleteSpecialTask('${ad.id}', this)" title="${LANG==='en'?'Delete':'刪除'}">🗑</button>
       </div>`;
     }).join('')}</div>`;
   } catch(e) {
-    container.innerHTML = '<div style="color:#f87171;text-align:center;padding:20px;">載入失敗</div>';
+    container.innerHTML = `<div style="color:#f87171;text-align:center;padding:20px;">${t('stpLoadFail')}</div>`;
   }
 }
 
@@ -4365,7 +4868,7 @@ async function dispatchSpecialTask() {
   const icon = (document.getElementById('stIcon')?.value || '').trim() || '📌';
   const name = (document.getElementById('stName')?.value || '').trim();
   const note = (document.getElementById('stNote')?.value || '').trim();
-  if (!name) { showToast('⚠️ 請輸入任務名稱或選擇快速選項'); return; }
+  if (!name) { showToast(t('stpNoName')); return; }
   try {
     await api('/api/adhoc', { method: 'POST', body: JSON.stringify({ icon, name, note }) });
     // Reset form
@@ -4374,7 +4877,7 @@ async function dispatchSpecialTask() {
     document.getElementById('stNote').value  = '';
     _stSelected = null;
     renderStPresetChips();
-    showToast('✅ 已派發特殊任務給飼養員');
+    showToast(t('stpDispatchDone'));
     loadSpecialTaskAdmin();
     // Refresh caretaker task list too
     const fresh = await api('/api/adhoc').catch(() => []);
@@ -4384,11 +4887,11 @@ async function dispatchSpecialTask() {
       try { return getCalgaryDate(new Date(a.doneAt)).toISOString().slice(0,10) === state.currentDate; } catch(_) { return false; }
     });
     renderTaskList();
-  } catch(e) { showToast('❌ 派發失敗：' + e.message); }
+  } catch(e) { showToast(t('stpDispatchFail', e.message)); }
 }
 
 async function deleteSpecialTask(id, triggerEl) {
-  if (!confirm('確認刪除此特殊任務？')) return;
+  if (!confirm(t('stpDeleteConfirm'))) return;
   // Optimistic UI: immediately hide the card/row so user sees instant feedback
   let hiddenEl = null;
   if (triggerEl) {
@@ -4397,7 +4900,7 @@ async function deleteSpecialTask(id, triggerEl) {
   }
   try {
     await api('/api/adhoc/' + id, { method: 'DELETE' });
-    showToast('🗑️ 已刪除');
+    showToast(t('stpDeleteDone'));
     loadSpecialTaskAdmin();
     // Also refresh history records if that tab is currently active
     if (document.getElementById('adminTabRecords')?.classList.contains('active')) {
@@ -4411,7 +4914,7 @@ async function deleteSpecialTask(id, triggerEl) {
     });
     renderTaskList();
   } catch(e) {
-    showToast('❌ 刪除失敗');
+    showToast(t('stpDeleteFail'));
     // Restore visibility on failure
     if (hiddenEl) hiddenEl.style.display = '';
   }
@@ -4437,7 +4940,7 @@ function renderPresetMgrList() {
       <span style="flex:1;font-size:0.88rem;font-weight:600;">${p.name}</span>
       <span style="font-size:0.75rem;color:var(--text-muted);flex:1;">${p.note || ''}</span>
       <button onclick="removePreset('${p.id}')" style="background:none;border:none;color:#f87171;cursor:pointer;font-size:1rem;padding:2px 6px;border-radius:6px;">✕</button>
-    </div>`).join('') || '<div style="color:var(--text-muted);text-align:center;padding:16px;">清單為空，請新增</div>';
+    </div>`).join('') || `<div style="color:var(--text-muted);text-align:center;padding:16px;">${t('pmgrNoPresets')}</div>`;
 }
 async function removePreset(id) {
   _stPresets = _stPresets.filter(p => p.id !== id);
@@ -4449,7 +4952,7 @@ async function addPresetFromMgr() {
   const icon = (document.getElementById('pmgrIcon')?.value || '').trim() || '✨';
   const name = (document.getElementById('pmgrName')?.value || '').trim();
   const note = (document.getElementById('pmgrNote')?.value || '').trim();
-  if (!name) { showToast('⚠️ 請輸入名稱'); return; }
+  if (!name) { showToast(t('pmgrNoName')); return; }
   _stPresets.push({ id: 'stp_' + Date.now(), icon, name, note });
   await saveStPresets();
   document.getElementById('pmgrIcon').value = '';
@@ -4457,7 +4960,7 @@ async function addPresetFromMgr() {
   document.getElementById('pmgrNote').value = '';
   renderPresetMgrList();
   renderStPresetChips();
-  showToast('✅ 已新增');
+  showToast(t('pmgrAdded'));
 }
 async function saveStPresets() {
   try {
@@ -4480,9 +4983,9 @@ function updateCatBdayAge() {
   let months = now.getMonth() - birth.getMonth();
   if (months < 0) { years--; months += 12; }
   if (years < 0) { span.textContent = ''; return; }
-  if (years === 0) span.textContent = '(' + months + ' 個月大)';
-  else if (months === 0) span.textContent = '(' + years + ' 歲)';
-  else span.textContent = '(' + years + ' 歲 ' + months + ' 個月)';
+  if (years === 0) span.textContent = t('catAgeMonths', months);
+  else if (months === 0) span.textContent = t('catAgeYears', years);
+  else span.textContent = t('catAgeYearsMonths', years, months);
 }
 
 async function loadAdminCat() {
@@ -4495,7 +4998,7 @@ async function loadAdminCat() {
       updateCatBdayAge();
       document.getElementById('catFormNotes').value = cat.notes || '';
     }
-  } catch(e) { showToast('⚠️ 載入貓咪資訊失敗'); }
+  } catch(e) { showToast(t('catLoadFail')); }
 }
 
 async function saveCatProfile() {
@@ -4503,7 +5006,7 @@ async function saveCatProfile() {
   const breed = document.getElementById('catFormBreed').value.trim();
   const birthdate = document.getElementById('catFormBday').value;
   const notes = document.getElementById('catFormNotes').value.trim();
-  if (!name) { showToast('⚠️ 請輸入貓咪名字'); return; }
+  if (!name) { showToast(t('catNoName')); return; }
   try {
     await api('/api/cat', {
       method: 'POST',
@@ -4513,8 +5016,8 @@ async function saveCatProfile() {
     state.catName = name;
     document.getElementById('catNameDisplay').textContent = name;
     updateCatProfileCard();
-    showToast('✅ 貓咪資料已儲存');
-  } catch(e) { showToast('❌ 儲存失敗'); }
+    showToast(t('catSaved'));
+  } catch(e) { showToast(t('catSaveFail')); }
 }
 
 async function loadAdminSettings() {
@@ -4528,12 +5031,12 @@ async function saveSettings() {
 async function changePin() {
   const oldPin = document.getElementById('oldPin').value;
   const newPin = document.getElementById('newPin').value;
-  if (!oldPin || !newPin) { showToast('⚠️ 請填寫所有欄位'); return; }
+  if (!oldPin || !newPin) { showToast(t('pinChangeRequiredFields')); return; }
   try {
     const r = await api('/api/pin/change', { method: 'POST', body: JSON.stringify({ oldPin, newPin }) });
     if (r.ok) { showToast(t('toastPinChanged')); document.getElementById('oldPin').value = ''; document.getElementById('newPin').value = ''; }
-    else showToast('❌ ' + (r.error || '更改失敗'));
-  } catch(e) { showToast('❌ 更改失敗'); }
+    else showToast('❌ ' + (r.error || (LANG==='en'?'Change failed':'更改失敗')));
+  } catch(e) { showToast(LANG==='en'?'❌ Change failed':'❌ 更改失敗'); }
 }
 
 async function exportData() {
@@ -4547,7 +5050,7 @@ async function exportData() {
     a.href = URL.createObjectURL(blob);
     a.download = `umicare-export-${todayStr()}.json`;
     a.click();
-  } catch(e) { showToast('❌ 匯出失敗'); }
+  } catch(e) { showToast(LANG==='en'?'❌ Export failed':'❌ 匯出失敗'); }
 }
 
 // ─── TOAST & CONFETTI ──────────────────────────────────────────
@@ -4594,7 +5097,7 @@ async function refreshAdhocForCaregiver(showIndicator) {
   _adhocRefreshing = true;
   const indicator = document.getElementById('pullRefreshIndicator');
   if (showIndicator && indicator) {
-    indicator.textContent = '🔄 更新中…';
+    indicator.textContent = t('refreshing');
     indicator.style.opacity = '1';
     indicator.style.transform = 'translateX(-50%) translateY(0)';
   }
@@ -4606,7 +5109,7 @@ async function refreshAdhocForCaregiver(showIndicator) {
   finally {
     _adhocRefreshing = false;
     if (showIndicator && indicator) {
-      indicator.textContent = '✅ 已更新';
+      indicator.textContent = t('refreshDone');
       setTimeout(() => {
         indicator.style.opacity = '0';
         indicator.style.transform = 'translateX(-50%) translateY(-40px)';
@@ -4649,7 +5152,7 @@ async function refreshAdhocForCaregiver(showIndicator) {
       pulling = true;
       const indicator = document.getElementById('pullRefreshIndicator');
       if (indicator) {
-        indicator.textContent = '↓ 放開即更新';
+        indicator.textContent = t('releaseToRefresh');
         indicator.style.opacity = '1';
         indicator.style.transform = 'translateX(-50%) translateY(0)';
       }
@@ -4672,7 +5175,7 @@ async function refreshAdhocForCaregiver(showIndicator) {
 async function refreshAdmin(showIndicator) {
   const indicator = document.getElementById('pullRefreshIndicator');
   if (showIndicator && indicator) {
-    indicator.textContent = '🔄 更新中…';
+    indicator.textContent = t('refreshing');
     indicator.style.opacity = '1';
     indicator.style.transform = 'translateX(-50%) translateY(0)';
   }
@@ -4694,7 +5197,7 @@ async function refreshAdmin(showIndicator) {
   } catch(e) { /* keep state on error */ }
   finally {
     if (showIndicator && indicator) {
-      indicator.textContent = '✅ 已更新';
+      indicator.textContent = t('refreshDone');
       setTimeout(() => {
         indicator.style.opacity = '0';
         indicator.style.transform = 'translateX(-50%) translateY(-40px)';
@@ -4733,7 +5236,7 @@ setInterval(async () => {
       const hStr = String(now2.getUTCHours()).padStart(2,'0');
       const mStr = String(now2.getUTCMinutes()).padStart(2,'0');
       const catName = state.cat?.name || state.catName || '屋咪';
-      subRow.textContent = `${state.currentDate} · ${hStr}:${mStr} Calgary · ${catName} 照護狀態`;
+      subRow.textContent = t('adminSubRowLoading', state.currentDate, hStr, mStr, catName);
     }
   }
 }, 30 * 1000);
@@ -4748,8 +5251,8 @@ async function dismissAdhoc(id) {
     state.adhocRequests = state.adhocRequests.filter(a => a.id !== id);
     renderTaskList();
     loadAdhocPendingList();
-    showToast('🗑️ 已移除請求');
-  } catch(e) { showToast('❌ 移除失敗'); }
+    showToast(t('removeReqDone'));
+  } catch(e) { showToast(t('removeReqFail')); }
 }
 
 // ===== PUSH NOTIFICATION =====
@@ -4861,26 +5364,26 @@ async function togglePushNotification() {
       localStorage.removeItem(PUSH_VAPID_STORAGE_KEY);
       btn.textContent = '🔔';
       btn.style.color = '';
-      btn.title = '啟用通知';
+      btn.title = t('pushTitleDisabled');
       btn.dataset.subscribed = 'false';
-      showToast('🔕 推播通知已關閉');
-    } catch(e) { showToast('❌ 取消失敗：' + e.message); }
+      showToast(t('pushDisabled'));
+    } catch(e) { showToast(t('pushCancelFail', e.message)); }
     return;
   }
 
   if (!('serviceWorker' in navigator)) {
-    showToast('❌ 此裝置不支援 ServiceWorker（請使用 Chrome 或已加入主畫面的 Safari）');
+    showToast(t('pushNoSW'));
     return;
   }
   if (!('PushManager' in window)) {
-    showToast('❌ 此裝置不支援 Web Push（iOS 請先加入主畫面）');
+    showToast(t('pushNoPush'));
     return;
   }
   const perm = Notification.permission;
   if (perm === 'denied') {
-    showToast('❌ 通知已被封鎖，請在瀏覽器設定 → 此網站 → 通知 → 允許');
+    showToast(t('pushBlocked'));
     btn.style.color = '#ccc';
-    btn.title = '通知已封鎖';
+    btn.title = t('pushTitleBlocked');
     return;
   }
   try {
@@ -4888,9 +5391,9 @@ async function togglePushNotification() {
     await syncPushSubscription({ forceResubscribe: true, requestPermission: true });
     btn.textContent = '🔔';
     btn.style.color = '#4caf50';
-    btn.title = '通知已啟用 ✅（點擊關閉）';
+    btn.title = t('pushTitleEnabled');
     btn.dataset.subscribed = 'true';
-    showToast('✅ 推播通知已啟用！');
+    showToast(t('pushEnabled'));
     setTimeout(async () => {
       try {
         const r = await fetch('/api/push/test', { method: 'POST' });
@@ -4901,7 +5404,7 @@ async function togglePushNotification() {
   } catch (err) {
     btn.textContent = '🔔';
     console.error('[Push] Subscribe error:', err);
-    showToast('❌ 通知啟用失敗：' + err.message);
+    showToast(t('pushFail', err.message));
   }
 }
 
@@ -4912,7 +5415,7 @@ async function checkPushStatus() {
   if (Notification.permission === 'denied') {
     btn.textContent = '🔕';
     btn.style.color = '#ccc';
-    btn.title = '通知已封鎖';
+    btn.title = t('pushTitleBlocked');
     btn.dataset.subscribed = 'false';
     return;
   }
@@ -4926,9 +5429,9 @@ async function checkPushStatus() {
       await syncPushSubscription({ forceResubscribe: true, requestPermission: false });
       btn.textContent = '🔔';
       btn.style.color = '#4caf50';
-      btn.title = '通知已啟用 ✅（點擊關閉）';
+      btn.title = t('pushTitleEnabled');
       btn.dataset.subscribed = 'true';
-      showToast('✅ 已自動修復推播設定');
+      showToast(t('pushFixed'));
       setTimeout(async () => {
         try { await fetch('/api/push/test', { method: 'POST' }); } catch(e) {}
       }, 1200);
@@ -4938,7 +5441,7 @@ async function checkPushStatus() {
     if (sub) {
       btn.textContent = '🔔';
       btn.style.color = '#4caf50';
-      btn.title = '通知已啟用 ✅（點擊關閉）';
+      btn.title = t('pushTitleEnabled');
       btn.dataset.subscribed = 'true';
       localStorage.setItem(PUSH_VAPID_STORAGE_KEY, VAPID_PUBLIC_KEY);
       return;
@@ -4983,7 +5486,7 @@ async function checkPushStatus() {
     // Fix: reject files > 8 MB before even reading (prevents base64 memory spike)
     const MAX_BYTES = 8 * 1024 * 1024;
     if (file.size > MAX_BYTES) {
-      showToast('⚠️ 照片過大（上限 8 MB），請選擇較小的圖片');
+      showToast(t('photoTooLarge'));
       input.value = '';
       return;
     }
@@ -5011,7 +5514,6 @@ async function checkPushStatus() {
 
   async function submitIncident() {
     const note = document.getElementById('incidentNoteInput').value.trim();
-    const typeLabels = { vomit:'嘔吐', no_eat:'拒食', lethargy:'精神差', diarrhea:'腹瀉', blood:'血跡', other:'其他異常' };
     try {
       const r = await api('/api/incidents', {
         method: 'POST',
@@ -5024,13 +5526,13 @@ async function checkPushStatus() {
       });
       if (r.ok) {
         closeIncidentModal();
-        showToast('🆘 異常狀況已上報！管理員將收到通知。');
+        showToast(t('incidentUploaded'));
         _incidentPhotoBase64 = null;
       } else {
-        showToast('❌ 上報失敗，請重試');
+        showToast(t('incidentFail'));
       }
     } catch(e) {
-      showToast('❌ 網路錯誤，請重試');
+      showToast(t('incidentNetErr'));
     }
   }
 
@@ -5046,7 +5548,7 @@ async function checkPushStatus() {
   function renderAdminIncidents(list) {
     const container = document.getElementById('adminIncidentList');
     if (!container) return;
-    const typeLabels = { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❗ 其他異常' };
+    const typeLabels = LANG === 'en' ? { vomit:'🤢 Vomit', no_eat:'🚫 No Eat', lethargy:'😴 Lethargy', diarrhea:'💦 Diarrhea', blood:'🩸 Blood', other:'❗ Other' } : { vomit:'🤢 嘔吐', no_eat:'🚫 拒食', lethargy:'😴 精神差', diarrhea:'💦 腹瀉', blood:'🩸 血跡', other:'❗ 其他異常' };
     if (!list || list.length === 0) {
       container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">目前沒有異常通報紀錄</div>';
       return;
@@ -5060,8 +5562,8 @@ async function checkPushStatus() {
       const photoChip = inc.hasPhoto ? '<span class="log-chip-btn">📷</span>' : '';
       const noteChip  = inc.note     ? '<span class="log-chip-btn">📝</span>' : '';
       const statusPill = resolved
-        ? '<span class="log-pill log-pill-resolved">✅ 已處理</span>'
-        : '<span class="log-pill log-pill-inc">待處理</span>';
+        ? `<span class="log-pill log-pill-resolved">${LANG==='en'?'✅ Resolved':'✅ 已處理'}</span>`
+        : `<span class="log-pill log-pill-inc">${LANG==='en'?'Pending':'待處理'}</span>`;
 
       const wrap = document.createElement('div');
       wrap.className = 'log-row-wrap';
@@ -5084,7 +5586,7 @@ async function checkPushStatus() {
       const delBtn = document.createElement('button');
       delBtn.className = 'log-del-btn';
       delBtn.textContent = '🗑';
-      delBtn.title = '刪除';
+      delBtn.title = LANG==='en'?'Delete':'刪除';
       delBtn.addEventListener('click', e => { e.stopPropagation(); deleteIncident(inc.id); });
       row.appendChild(delBtn);
       wrap.appendChild(row);
@@ -5096,14 +5598,14 @@ async function checkPushStatus() {
 
   async function resolveIncident(id) {
     await api('/api/incidents/' + id + '/resolve', { method: 'POST', body: JSON.stringify({ note: '' }) });
-    showToast('✅ 已標記為處理完成');
+    showToast(LANG==='en'?'✅ Marked resolved':'✅ 已標記為處理完成');
     loadAdminIncidents();
     // Fix: refresh overview so badge count syncs with server state
     loadAdminOverview();
   }
 
   async function deleteIncident(id) {
-    if (!confirm('確認刪除此上報記錄？')) return;
+    if (!confirm(LANG==='en'?'Delete this incident record?':'確認刪除此上報記錄？')) return;
     // Optimistic: instantly remove the pin item from overview UI
     const pinItem = document.querySelector(`.inc-pin-item[data-inc-id="${id}"]`);
     if (pinItem) pinItem.remove();
@@ -5114,9 +5616,9 @@ async function checkPushStatus() {
     }
     try {
       await api('/api/incidents/' + id, { method: 'DELETE' });
-      showToast('🗑️ 已刪除');
+      showToast(LANG==='en'?'🗑️ Deleted':'🗑️ 已刪除');
     } catch(e) {
-      showToast('❌ 刪除失敗');
+      showToast(LANG==='en'?'❌ Delete failed':'❌ 刪除失敗');
     }
     // Fix: refresh both Overview and Records tab so stale pin/list disappear
     loadAdminOverview();
@@ -5126,16 +5628,16 @@ async function checkPushStatus() {
   async function viewIncidentPhotoFromPin(id) {
     // Use in-app overlay (window.open is blocked by iOS after async)
     const btn = event?.target;
-    if (btn) btn.textContent = '⏳ 載入中...';
+    if (btn) btn.textContent = LANG==='en'?'⏳ Loading...':'⏳ 載入中...';
     try {
       const data = await api('/api/incidents/' + id + '/photo');
-      if (btn) btn.textContent = '📷 查看照片';
+      if (btn) btn.textContent = LANG==='en'?'📷 View Photo':'📷 查看照片';
       if (data.photo) {
         openPhotoOverlay(data.photo);
-      } else { showToast('⚠️ 照片不存在'); }
+      } else { showToast(t('photoNotExist')); }
     } catch(e) {
-      if (btn) btn.textContent = '📷 查看照片';
-      showToast('⚠️ 載入照片失敗');
+      if (btn) btn.textContent = LANG==='en'?'📷 View Photo':'📷 查看照片';
+      showToast(t('photoLoadFail'));
     }
   }
 
@@ -5181,23 +5683,23 @@ function renderPeriodicTasksAdmin() {
   const container = document.getElementById('periodicTaskList');
   if (!container) return;
   if (!_periodicTasks.length) {
-    container.innerHTML = '<div class="text-muted" style="padding:20px;text-align:center">尚未設定定期任務</div>';
+    container.innerHTML = `<div class="text-muted" style="padding:20px;text-align:center">${LANG==='en'?'No periodic tasks set':'尚未設定定期任務'}</div>`;
     return;
   }
   container.innerHTML = _periodicTasks.map(p => {
     const lastStr = p.lastDoneAt
       ? utcToCalgaryClock(p.lastDoneAt)
-      : '從未完成';
+      : LANG==='en'?'Never done':'從未完成';
     const dueStr = (p.intervalDays && p.lastDoneAt)
       ? (() => {
           const due = new Date(p.lastDoneAt);
           due.setDate(due.getDate() + p.intervalDays);
           const diff = Math.ceil((due - new Date()) / 86400000);
-          if (diff < 0) return `<span style="color:#f87171">逾期 ${-diff} 天</span>`;
-          if (diff === 0) return `<span style="color:#fb923c">今天到期</span>`;
-          return `<span style="color:var(--text-muted)">${diff} 天後</span>`;
+          if (diff < 0) return `<span style="color:#f87171">${LANG==='en'?`Overdue ${-diff}d`:`逾期 ${-diff} 天`}</span>`;
+          if (diff === 0) return `<span style="color:#fb923c">${LANG==='en'?'Due today':'今天到期'}</span>`;
+          return `<span style="color:var(--text-muted)">${LANG==='en'?`In ${diff}d`:`${diff} 天後`}</span>`;
         })()
-      : (p.intervalDays ? `<span style="color:var(--text-muted)">每 ${p.intervalDays} 天</span>` : '<span style="color:var(--text-muted)">不定期</span>');
+      : (p.intervalDays ? `<span style="color:var(--text-muted)">${LANG==='en'?`Every ${p.intervalDays}d`:`每 ${p.intervalDays} 天`}</span>` : '<span style="color:var(--text-muted)">不定期</span>');
     const noteChip = p.note
       ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">📝 ${p.note}</div>`
       : '';
@@ -5207,12 +5709,12 @@ function renderPeriodicTasksAdmin() {
           <span class="periodic-task-icon">${p.icon || '📋'}</span>
           <div class="periodic-task-body">
             <div class="periodic-task-name">${p.name}</div>
-            <div class="periodic-task-meta">上次：${lastStr} · ${dueStr}</div>
+            <div class="periodic-task-meta">${LANG==='en'?`Last: ${lastStr} · ${dueStr}`:`上次：${lastStr} · ${dueStr}`}</div>
             ${noteChip}
           </div>
         </div>
         <div class="periodic-card-actions">
-          <button class="periodic-done-btn" onclick="markPeriodicDone('${p.id}')">✅ 完成</button>
+          <button class="periodic-done-btn" onclick="markPeriodicDone('${p.id}')">${LANG==='en'?'✅ Done':'✅ 完成'}</button>
           <button class="periodic-edit-btn" onclick="openPeriodicModal('${p.id}')">✏️</button>
           <button class="periodic-del-btn" onclick="deletePeriodicTask('${p.id}')">🗑</button>
         </div>
@@ -5252,10 +5754,10 @@ async function savePeriodicModal() {
   const name = (document.getElementById('pmName').value || '').trim();
   const daysVal = document.getElementById('pmDays').value.trim();
   const note = (document.getElementById('pmNote').value || '').trim();
-  if (!name) { showToast('⚠️ 請輸入任務名稱'); return; }
+  if (!name) { showToast(LANG==='en'?'⚠️ Please enter task name':'⚠️ 請輸入任務名稱'); return; }
   const intervalDays = daysVal ? parseInt(daysVal) : null;
   if (daysVal && (isNaN(intervalDays) || intervalDays < 1)) {
-    showToast('⚠️ 週期天數必須為正整數'); return;
+    showToast(LANG==='en'?'⚠️ Interval must be a positive integer':'⚠️ 週期天數必須為正整數'); return;
   }
   if (_periodicEditId) {
     // Edit existing
@@ -5270,7 +5772,7 @@ async function savePeriodicModal() {
   }
   try {
     await api('/api/periodic', { method: 'POST', body: JSON.stringify(_periodicTasks) });
-    showToast('✅ 已儲存');
+    showToast(LANG==='en'?'✅ Saved':'✅ 已儲存');
     closePeriodicModal();
     renderPeriodicTasksAdmin();
   } catch(e) { showToast('❌ 儲存失敗'); }
@@ -5284,26 +5786,26 @@ async function markPeriodicDone(taskId) {
   t.lastDoneAt = new Date().toISOString();
   try {
     await api('/api/periodic', { method: 'POST', body: JSON.stringify(_periodicTasks) });
-    showToast(`✅ ${t.name} 已標記完成`);
+    showToast(LANG==='en'?`✅ ${t.name} marked done`:`✅ ${t.name} 已標記完成`);
     renderPeriodicTasksAdmin();
   } catch(e) {
     t.lastDoneAt = null;
     if (card) card.style.opacity = '';
-    showToast('❌ 更新失敗');
+    showToast(LANG==='en'?'❌ Update failed':'❌ 更新失敗');
   }
 }
 
 async function deletePeriodicTask(taskId) {
-  if (!confirm('確認刪除此定期任務？')) return;
+  if (!confirm(LANG==='en'?'Delete this periodic task?':'確認刪除此定期任務？')) return;
   const card = document.getElementById('ptc-' + taskId);
   if (card) card.style.display = 'none';
   _periodicTasks = _periodicTasks.filter(p => p.id !== taskId);
   try {
     await api('/api/periodic', { method: 'POST', body: JSON.stringify(_periodicTasks) });
-    showToast('🗑️ 已刪除');
+    showToast(LANG==='en'?'🗑️ Deleted':'🗑️ 已刪除');
     renderPeriodicTasksAdmin();
   } catch(e) {
-    showToast('❌ 刪除失敗');
+    showToast(LANG==='en'?'❌ Delete failed':'❌ 刪除失敗');
     if (card) card.style.display = '';
     // reload to get correct state
     loadPeriodicTasksAdmin();
