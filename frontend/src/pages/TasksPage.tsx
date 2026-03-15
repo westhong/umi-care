@@ -90,7 +90,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px',
             padding: '2px 7px',
           }}>
-            v5.0.1
+            v5.0.2
           </span>
           <div
             onClick={onAdminOpen}
