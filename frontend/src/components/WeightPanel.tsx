@@ -1,7 +1,16 @@
-import { useState } from 'react';
-import { post } from '../api/client';
+import { useState, useEffect } from 'react';
+import { post, get } from '../api/client';
 import { useAppStore } from '../store/useAppStore';
 import { confetti } from '../utils/confetti';
+
+interface WeightRecord {
+  id: string;
+  personWeight: number;
+  carryWeight: number;
+  catWeight: number;
+  note: string;
+  measuredAt: string;
+}
 
 interface WeightPanelProps {
   taskId: string;
@@ -35,6 +44,22 @@ export function WeightPanel({ taskId, caregiverDate, checkin, onUpdate, onClose 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [reRecording, setReRecording] = useState(false);
+  const [latestWeight, setLatestWeight] = useState<WeightRecord | null>(null);
+
+  // Load matching weight record when checkin exists
+  useEffect(() => {
+    if (!checkin?.isDone || !checkin.time) return;
+    get<WeightRecord[]>('/api/weights').then((list) => {
+      if (!list.length) return;
+      const checkinMs = new Date(checkin.time).getTime();
+      // Find weight record within 5 min of checkin time
+      const match = list.find((w) => {
+        const wMs = new Date(w.measuredAt).getTime();
+        return Math.abs(wMs - checkinMs) < 5 * 60 * 1000;
+      });
+      setLatestWeight(match || list[list.length - 1]);
+    }).catch(() => {});
+  }, [checkin]);
 
   const personNum = parseFloat(personW.replace(',', '.'));
   const carryNum = parseFloat(carryW.replace(',', '.'));
@@ -147,6 +172,10 @@ export function WeightPanel({ taskId, caregiverDate, checkin, onUpdate, onClose 
       );
     }
 
+    const displayPersonW = latestWeight?.personWeight ?? null;
+    const displayCarryW  = latestWeight?.carryWeight  ?? null;
+    const displayCatW    = latestWeight?.catWeight     ?? catKg;
+
     return (
       <div
         style={panelStyle()}
@@ -164,16 +193,20 @@ export function WeightPanel({ taskId, caregiverDate, checkin, onUpdate, onClose 
           <div style={{ display: 'flex', gap: '8px' }}>
             <div style={recItemStyle()}>
               <div style={recLabelStyle()}>人重</div>
-              <div style={recValStyle()}>— kg</div>
+              <div style={recValStyle()}>
+                {displayPersonW != null ? `${displayPersonW} kg` : '— kg'}
+              </div>
             </div>
             <div style={recItemStyle()}>
               <div style={recLabelStyle()}>抱貓重</div>
-              <div style={recValStyle()}>— kg</div>
+              <div style={recValStyle()}>
+                {displayCarryW != null ? `${displayCarryW} kg` : '— kg'}
+              </div>
             </div>
             <div style={{ ...recItemStyle(), background: 'rgba(255,133,161,0.12)', border: '1px solid rgba(255,133,161,0.25)' }}>
               <div style={recLabelStyle()}>🐱 {catName}</div>
               <div style={{ ...recValStyle(), color: 'var(--primary)' }}>
-                {catKg > 0 ? catKg.toFixed(2) : '—'} kg
+                {displayCatW > 0 ? `${Number(displayCatW).toFixed(2)} kg` : '— kg'}
               </div>
             </div>
           </div>
