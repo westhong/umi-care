@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  UmiCare v4.1.5 — Long-Term Support Series
+  UmiCare v4.2.0 — i18n zh/en bilingual support
   ================================================
   v4.0  feat: 特殊任務 tab, full UmiCare icon
   v4.0.1  fix: switchAdminTab crash (regex → string match)
@@ -29,9 +29,9 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <meta name="theme-color" content="#ff85a1">
 <meta charset="UTF-8">
-<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.1.5">
+<meta name="description" content="UmiCare – 貓咪照護管理系統 v4.2.0">
   <meta name="application-name" content="UmiCare">
-  <meta name="version" content="4.1.5">
+  <meta name="version" content="4.2.0">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>UmiCare 🐱 屋咪照護</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1450,7 +1450,7 @@ body::before {
         <div class="date" id="todayDate"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span id="version-badge">v4.1.5 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">LTS</span></span>
+        <span id="version-badge">v4.2.0 <span style="font-size:0.65rem;background:rgba(74,222,128,0.2);color:#4ade80;border-radius:4px;padding:1px 5px;font-weight:700;letter-spacing:0.03em">i18n</span></span>
         <button id="push-btn" onclick="togglePushNotification()" title="啟用通知" style="background:none;border:none;font-size:1.5rem;cursor:pointer;padding:4px;border-radius:50%;transition:all 0.2s;" aria-label="啟用推播通知">🔔</button>
         <div class="admin-btn" onclick="openAdminLogin()" title="管理員">🔐</div>
       </div>
@@ -1502,7 +1502,7 @@ body::before {
   <!-- PAGE: CALENDAR -->
   <div id="pageCalendar" class="page hidden" style="display:none">
     <div class="header">
-      <div class="header-left"><h1>📅 日曆</h1></div>
+      <div class="header-left"><h1 id="calendarPageTitle">📅 日曆</h1></div>
     </div>
     <div class="calendar-section">
       <div class="cal-header">
@@ -1518,10 +1518,10 @@ body::before {
       </div>
       <div class="cal-grid" id="calGrid"></div>
       <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap;" class="text-muted">
-        <span><span style="color:#4ade80">●</span> 全完成</span>
-        <span><span style="color:#fb923c">●</span> 部分完成</span>
-        <span><span style="color:#f87171">●</span> 漏打卡</span>
-        <span><span style="color:rgba(255,255,255,0.2)">●</span> 未來</span>
+        <span><span style="color:#4ade80">●</span> <span class="cal-legend-full">全完成</span></span>
+        <span><span style="color:#fb923c">●</span> <span class="cal-legend-partial">部分完成</span></span>
+        <span><span style="color:#f87171">●</span> <span class="cal-legend-missed">漏打卡</span></span>
+        <span><span style="color:rgba(255,255,255,0.2)">●</span> <span class="cal-legend-future">未來</span></span>
       </div>
     </div>
     <div id="calDayDetail" style="padding:0 16px;"></div>
@@ -1677,6 +1677,13 @@ body::before {
           <div style="font-weight:600;margin-bottom:10px">📥 匯出資料</div>
           <button class="btn btn-secondary" onclick="exportData()">下載 JSON</button>
         </div>
+        <div style="margin-top:20px;">
+          <div class="section-title" id="langSectionTitle">語言 / Language</div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-secondary" style="flex:1" onclick="switchLang('zh')">繁體中文</button>
+            <button class="btn btn-secondary" style="flex:1" onclick="switchLang('en')">English</button>
+          </div>
+        </div>
       </div>
       <!-- Settings Tab stub (kept for JS redirect compatibility) -->
       <div id="adminTabSettings" class="admin-tab-content"></div>
@@ -1700,6 +1707,160 @@ body::before {
 
 <script>
 const API = '';
+
+// ─── I18N ────────────────────────────────────────────────────────
+const LANG = new URL(location.href).searchParams.get('lang') || 'zh';
+const T = {
+  zh: {
+    appTitle: 'UmiCare 🐾',
+    todayLabel: '今日', calendarLabel: '日曆',
+    progressLabel: '完成', todayCare: '今日照護',
+    todayTasks: '今日任務',
+    progressCount: (d,t) => `${d} / ${t} 完成`,
+    quickReportTitle: '⚡ 主動回報',
+    incidentBtn: '🤢 嘔吐 / 異常狀況', feedReportBtn: '🍽️ 餵食紀錄',
+    feedReportHint: '按一下「餵食紀錄」後，再選擇飼料 / 貓條 / 貓泥與數量；管理員可在記錄頁查看及刪除。',
+    todayTasksTitle: '📋 今日任務', yesterdayTasksTitle: '📋 昨日補做',
+    welcomeTitle: '歡迎使用 UmiCare',
+    welcomeSetupPin: '首次使用，請設定管理員 PIN 碼',
+    pinOnServer: 'PIN 只存在伺服器，App 不記錄',
+    adminLoginTitle: '管理員登入', adminLoginSub: '請輸入 PIN 碼',
+    cancelBtn: '取消',
+    adminModeTitle: '🛠️ 管理員模式', logoutBtn: '🚪 登出',
+    loadingSummary: '正在載入照護摘要…',
+    tabOverview: '📊 今日概覽', tabPeriodic: '✨ 特殊任務',
+    tabRecords: '📋 歷史紀錄', tabWeights: '⚖️ 體重',
+    tabTasks: '✏️ 任務排程', tabCat: '🐾 貓咪&設定',
+    calendarTitle: '📅 日曆',
+    calDays: ['日','一','二','三','四','五','六'],
+    calLegendFull: '全完成', calLegendPartial: '部分完成',
+    calLegendMissed: '漏打卡', calLegendFuture: '未來',
+    toastSaved: '✅ 已儲存', toastError: '❌ 發生錯誤',
+    toastNetwork: '⚠️ 無法連線至伺服器，請檢查網路',
+    toastPinChanged: '✅ PIN 已更改', toastPinFail: '❌ 更改失敗',
+    toastAdminTimeout: '⏰ 管理員模式已逾時登出',
+    changePinTitle: '更改 PIN 碼', oldPinLabel: '舊 PIN', newPinLabel: '新 PIN',
+    changePinBtn: '更改 PIN', exportDataBtn: '📥 匯出資料',
+    languageLabel: '語言',
+    personWeightLabel: '個人體重', carryWeightLabel: '抱貓體重',
+    catWeightLabel: '貓咪體重', addWeightBtn: '➕ 新增體重紀錄',
+    taskName: (task) => task.name,
+    periodicName: (item) => item.name,
+  },
+  en: {
+    appTitle: 'UmiCare 🐾',
+    todayLabel: 'Today', calendarLabel: 'Calendar',
+    progressLabel: 'Done', todayCare: "Today's Care",
+    todayTasks: "Today's Tasks",
+    progressCount: (d,t) => `${d} / ${t} done`,
+    quickReportTitle: '⚡ Quick Report',
+    incidentBtn: '🤢 Vomit / Abnormal', feedReportBtn: '🍽️ Feeding Log',
+    feedReportHint: 'Tap "Feeding Log" to log food / treats / wet food. Admin can view and delete in Records.',
+    todayTasksTitle: "📋 Today's Tasks", yesterdayTasksTitle: '📋 Yesterday (Make-up)',
+    welcomeTitle: 'Welcome to UmiCare',
+    welcomeSetupPin: 'First time setup — please set an admin PIN',
+    pinOnServer: 'PIN is stored on the server only',
+    adminLoginTitle: 'Admin Login', adminLoginSub: 'Enter PIN',
+    cancelBtn: 'Cancel',
+    adminModeTitle: '🛠️ Admin Mode', logoutBtn: '🚪 Logout',
+    loadingSummary: 'Loading care summary…',
+    tabOverview: '📊 Overview', tabPeriodic: '✨ Special Tasks',
+    tabRecords: '📋 History', tabWeights: '⚖️ Weight',
+    tabTasks: '✏️ Task Schedule', tabCat: '🐾 Cat & Settings',
+    calendarTitle: '📅 Calendar',
+    calDays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    calLegendFull: 'All done', calLegendPartial: 'Partial',
+    calLegendMissed: 'Missed', calLegendFuture: 'Future',
+    toastSaved: '✅ Saved', toastError: '❌ An error occurred',
+    toastNetwork: '⚠️ Cannot connect to server',
+    toastPinChanged: '✅ PIN changed', toastPinFail: '❌ Failed to change PIN',
+    toastAdminTimeout: '⏰ Admin session timed out',
+    changePinTitle: 'Change PIN', oldPinLabel: 'Old PIN', newPinLabel: 'New PIN',
+    changePinBtn: 'Change PIN', exportDataBtn: '📥 Export Data',
+    languageLabel: 'Language',
+    personWeightLabel: 'Your weight', carryWeightLabel: 'Weight holding cat',
+    catWeightLabel: "Cat's weight", addWeightBtn: '➕ Add Weight Record',
+    taskName: (task) => task.nameEn || task.name,
+    periodicName: (item) => item.nameEn || item.name,
+  },
+};
+function t(key, ...args) {
+  const val = (T[LANG] || T.zh)[key];
+  return typeof val === 'function' ? val(...args) : (val ?? key);
+}
+function switchLang(lang) {
+  const url = new URL(location.href);
+  url.searchParams.set('lang', lang);
+  location.href = url.toString();
+}
+
+function applyI18n() {
+  // Nav buttons
+  document.querySelector('#navTasks').lastChild.textContent = t('todayLabel');
+  document.querySelector('#navCalendar').lastChild.textContent = t('calendarLabel');
+  // PIN overlays
+  const pinSetupH2 = document.querySelector('#pinSetupOverlay h2');
+  if (pinSetupH2) pinSetupH2.textContent = t('welcomeTitle');
+  const pinSetupP = document.querySelector('#pinSetupOverlay p');
+  if (pinSetupP) pinSetupP.innerHTML = `${t('welcomeSetupPin')}<br><small style="color:var(--text-muted)">${t('pinOnServer')}</small>`;
+  const loginH2 = document.querySelector('#adminLoginOverlay h2');
+  if (loginH2) loginH2.textContent = t('adminLoginTitle');
+  const loginP = document.querySelector('#adminLoginOverlay p');
+  if (loginP) loginP.textContent = t('adminLoginSub');
+  const cancelBtn = document.querySelector('#adminLoginOverlay .btn-secondary');
+  if (cancelBtn) cancelBtn.textContent = t('cancelBtn');
+  // Admin tabs
+  const tabOv = document.querySelector('[onclick="switchAdminTab(\'overview\')"]');
+  if (tabOv) tabOv.textContent = t('tabOverview');
+  const tabPe = document.querySelector('[onclick="switchAdminTab(\'periodic\')"]');
+  if (tabPe) tabPe.textContent = t('tabPeriodic');
+  const tabRe = document.querySelector('[onclick="switchAdminTab(\'records\')"]');
+  if (tabRe) tabRe.textContent = t('tabRecords');
+  const tabWe = document.querySelector('[onclick="switchAdminTab(\'weights\')"]');
+  if (tabWe) tabWe.textContent = t('tabWeights');
+  const tabTa = document.querySelector('[onclick="switchAdminTab(\'tasks\')"]');
+  if (tabTa) tabTa.textContent = t('tabTasks');
+  const tabCa = document.querySelector('[onclick="switchAdminTab(\'cat\')"]');
+  if (tabCa) tabCa.textContent = t('tabCat');
+  // Calendar day labels
+  document.querySelectorAll('.cal-day-label').forEach((el, i) => {
+    el.textContent = t('calDays')[i];
+  });
+  // Progress label
+  const progressLabel = document.querySelector('.progress-label');
+  if (progressLabel) progressLabel.textContent = t('progressLabel');
+  // Admin logout btn
+  const logoutBtn = document.querySelector('.admin-logout-btn');
+  if (logoutBtn) logoutBtn.innerHTML = t('logoutBtn');
+  // Calendar page title
+  const calTitle = document.getElementById('calendarPageTitle');
+  if (calTitle) calTitle.textContent = t('calendarTitle');
+  // Admin sub row initial text
+  const adminSubRow = document.getElementById('adminSubRow');
+  if (adminSubRow && adminSubRow.textContent.trim() === '正在載入照護摘要…') {
+    adminSubRow.textContent = t('loadingSummary');
+  }
+  // Quick report section
+  const qrTitle = document.querySelector('#caregiverQuickReportSection .section-title');
+  if (qrTitle) qrTitle.textContent = t('quickReportTitle');
+  const btns = document.querySelectorAll('#caregiverQuickReportSection .btn');
+  if (btns[0]) btns[0].textContent = t('incidentBtn');
+  if (btns[1]) btns[1].textContent = t('feedReportBtn');
+  const qrHint = document.querySelector('#caregiverQuickReportSection [style*="font-size:0.78rem"]');
+  if (qrHint) qrHint.textContent = t('feedReportHint');
+  // Today tasks section title
+  const taskSectionTitle = document.getElementById('caregiverTaskSectionTitle');
+  if (taskSectionTitle && !taskSectionTitle.dataset.backlog) taskSectionTitle.textContent = t('todayTasksTitle');
+  // Calendar legend
+  const legFull = document.querySelector('.cal-legend-full');
+  if (legFull) legFull.textContent = t('calLegendFull');
+  const legPartial = document.querySelector('.cal-legend-partial');
+  if (legPartial) legPartial.textContent = t('calLegendPartial');
+  const legMissed = document.querySelector('.cal-legend-missed');
+  if (legMissed) legMissed.textContent = t('calLegendMissed');
+  const legFuture = document.querySelector('.cal-legend-future');
+  if (legFuture) legFuture.textContent = t('calLegendFuture');
+}
 
 // ─── STATE ─────────────────────────────────────────────────────
 // Track acknowledged pins so 30s interval doesn't re-show them
@@ -1764,6 +1925,7 @@ async function api(path, opts = {}) {
 
 // ─── INIT ──────────────────────────────────────────────────────
 async function init() {
+  applyI18n();
   // ① Always guarantee caregiver (tasks) page on load — no admin state
   //    This handles: fresh load, hard refresh, Safari bfcache restore
   _applyPage('tasks');
@@ -1779,7 +1941,7 @@ async function init() {
       checkPushStatus();
     }
   } catch(e) {
-    showToast('⚠️ 無法連線至伺服器，請檢查網路');
+    showToast(t('toastNetwork'));
     document.getElementById('pinSetupOverlay').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     renderTaskList();
@@ -1814,7 +1976,7 @@ document.addEventListener('visibilitychange', () => {
         state.adminMode = false;
         sessionStorage.removeItem('adminSessionStart');
         _applyPage('tasks');
-        showToast('⏰ 管理員模式已逾時登出');
+        showToast(t('toastAdminTimeout'));
       }
     }
   }
@@ -2329,7 +2491,7 @@ function renderTaskCard(task, checkin) {
       <div class="task-header" onclick="toggleTask('${task.id}')">
         <div class="task-icon">${task.icon || '📌'}</div>
         <div class="task-info">
-          <div class="task-name">${task.name}</div>
+          <div class="task-name">${t('taskName', task)}</div>
           <div class="task-time">${timeDisplay}</div>
         </div>
         <div class="task-status ${statusClass}">${statusLabel}</div>
@@ -2970,7 +3132,7 @@ function renderProgress() {
   const offset = circumference - (pct / 100) * circumference;
   document.getElementById('progressRing').style.strokeDashoffset = offset;
   document.getElementById('progressPct').textContent = pct + '%';
-  document.getElementById('progressCount').textContent = `${done} / ${total} 完成${resolved > done ? '（' + (resolved - done) + ' 略過）' : ''}`;
+  document.getElementById('progressCount').textContent = t('progressCount', done, total) + (resolved > done ? '（' + (resolved - done) + ' 略過）' : '');
   const msgs = ['今日任務','加油！繼續努力 💪','快到了！','差不多啦 🎉','全部完成！🎊'];
   const idx = pct === 100 ? 4 : pct >= 75 ? 3 : pct >= 50 ? 2 : pct > 0 ? 1 : 0;
   document.getElementById('progressSub').textContent = backlogMode
@@ -3276,7 +3438,7 @@ async function loadAdminOverview() {
           <div style="display:flex;align-items:center;flex:1;min-width:0">
             <span class="tl-icon">${task.icon}</span>
             <div style="min-width:0">
-              <div class="tl-name">${task.name}</div>
+              <div class="tl-name">${t('taskName', task)}</div>
               <div class="tl-sched">${schedTime || '—'}</div>
             </div>
           </div>
@@ -3839,7 +4001,7 @@ async function loadAdminTasks() {
       <div class="task-sched-left">
         <span class="task-sched-icon">${task.icon}</span>
         <div>
-          <div class="task-sched-name">${task.name}</div>
+          <div class="task-sched-name">${t('taskName', task)}</div>
           <div class="task-sched-meta">${stype}${task.weekDays ? ' · ' + task.weekDays.map(d=>['日','一','二','三','四','五','六'][d]).join('、') : ''}</div>
         </div>
       </div>
@@ -4369,7 +4531,7 @@ async function changePin() {
   if (!oldPin || !newPin) { showToast('⚠️ 請填寫所有欄位'); return; }
   try {
     const r = await api('/api/pin/change', { method: 'POST', body: JSON.stringify({ oldPin, newPin }) });
-    if (r.ok) { showToast('✅ PIN 已更改'); document.getElementById('oldPin').value = ''; document.getElementById('newPin').value = ''; }
+    if (r.ok) { showToast(t('toastPinChanged')); document.getElementById('oldPin').value = ''; document.getElementById('newPin').value = ''; }
     else showToast('❌ ' + (r.error || '更改失敗'));
   } catch(e) { showToast('❌ 更改失敗'); }
 }
