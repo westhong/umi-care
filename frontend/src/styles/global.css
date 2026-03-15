@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #ff85a1;
+  --secondary: #c8a8e9;
+  --accent: #ffb347;
+  --cat-accent: #ff8c69;
+  --cat-warm: #ffb347;
+  --bg-primary: #fff8f5;
+  --bg-secondary: #fff0eb;
+  --bg-card: #ffffff;
+  --bg-card2: #fef2f5;
+  --text-primary: #3d2c35;
+  --text-secondary: rgba(61,44,53,0.65);
+  --text-muted: rgba(61,44,53,0.38);
+  --glass: rgba(255,255,255,0.85);
+  --glass-border: rgba(255,133,161,0.25);
+  --success: #52c77e;
+  --warning: #ffb347;
+  --danger: #ff7c7c;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --font: 'Space Grotesk', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(255,133,161,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(200,168,233,0.14) 0%, transparent 50%),
+    radial-gradient(ellipse at 65% 5%, rgba(255,179,71,0.1) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 100%, rgba(255,133,161,0.08) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
