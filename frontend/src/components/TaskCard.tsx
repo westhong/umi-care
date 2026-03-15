@@ -4,6 +4,11 @@ import { post } from '../api/client';
 import { useAppStore } from '../store/useAppStore';
 import { confetti } from '../utils/confetti';
 import { WeightPanel } from './WeightPanel';
+import {
+  getTaskStatus,
+  STATUS_LABEL, STATUS_COLOR, STATUS_BG,
+  STATUS_BADGE_BG, STATUS_BADGE_COLOR,
+} from '../utils/taskStatus';
 
 interface TaskCardProps {
   task: Task;
@@ -22,15 +27,8 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
 
   const isWeight = task.type === 'weight';
 
-  const status = checkin
-    ? (checkin.isDone ? 'done' : 'skip')
-    : 'pending';
-
-  const statusLabel = {
-    done: '✅ 完成',
-    skip: '⏭️ 略過',
-    pending: '待完成',
-  }[status];
+  const status = getTaskStatus(checkin, task.scheduledTimes);
+  const statusLabel = STATUS_LABEL[status];
 
   const handleSubmit = async () => {
     if (isDone === null) return;
@@ -56,13 +54,14 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
 
   return (
     <div style={{
-      background: 'var(--bg-card)',
-      border: `1px solid ${status === 'done' ? 'rgba(82,199,126,0.4)' : status === 'skip' ? 'rgba(255,133,161,0.35)' : 'var(--glass-border)'}`,
+      background: STATUS_BG[status],
+      border: `1px solid ${STATUS_COLOR[status]}`,
       borderRadius: 'var(--radius)',
       marginBottom: '10px',
       overflow: 'hidden',
-      backgroundColor: status === 'done' ? 'rgba(82,199,126,0.06)' : status === 'skip' ? 'rgba(255,218,230,0.08)' : 'var(--bg-card)',
-      boxShadow: '0 2px 12px rgba(255,133,161,0.1)',
+      boxShadow: status === 'overdue'
+        ? '0 2px 12px rgba(245,158,11,0.2)'
+        : '0 2px 12px rgba(255,133,161,0.1)',
     }}>
       {/* Header */}
       <div
@@ -96,8 +95,8 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
         </div>
         <div style={{
           padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600,
-          background: status === 'done' ? 'rgba(74,222,128,0.2)' : status === 'skip' ? 'rgba(255,182,210,0.3)' : 'rgba(255,255,255,0.08)',
-          color: status === 'done' ? '#4ade80' : status === 'skip' ? '#e8679a' : 'var(--text-muted)',
+          background: STATUS_BADGE_BG[status],
+          color: STATUS_BADGE_COLOR[status],
         }}>
           {statusLabel}
         </div>
