@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Task, Checkin } from '../store/useAppStore';
 import { post } from '../api/client';
 import { useAppStore } from '../store/useAppStore';
+import { confetti } from '../utils/confetti';
 
 interface TaskCardProps {
   task: Task;
@@ -41,6 +42,7 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
         time: new Date().toISOString(),
       });
       setOpen(false);
+      if (isDone) confetti();
       onCheckinUpdate();
     } catch {
       alert('提交失敗，請重試');
