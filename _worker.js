@@ -41,6 +41,7 @@ const DEFAULT_TASKS = [
   { id: 't10', name: '第五餐(睡前)', nameEn: 'Meal 5 (Bedtime)', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['21:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
   { id: 't11', name: '晚上清貓砂', nameEn: 'Clean Litter Box (Night)', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['21:30'], resultOptions: [{ label: '💩 有便便', value: 'poop' }, { label: '💦 有尿尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
   { id: 't12', name: '刷牙', nameEn: 'Brush Teeth', icon: '🦷', type: 'groom', scheduleType: 'daily', scheduledTimes: ['22:00'], resultOptions: [{ label: '完成 ✅', value: 'done' }, { label: '部分完成', value: 'partial' }, { label: '略過', value: 'skip' }] },
+  { id: 't13', name: '檢查飼料機', nameEn: 'Check Feeder', icon: '🤖', type: 'feeder', scheduleType: 'daily', scheduledTimes: ['08:00'], resultOptions: [{ label: '✅ 飼料充足，無需補充', value: 'ok' }, { label: '🔄 已補充飼料', value: 'refilled' }, { label: '⚠️ 飼料快用完，需買', value: 'low' }] },
 ];
 
 
