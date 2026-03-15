@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v4.1.5 – Cloudflare Worker with Static Assets
+// UmiCare v4.1.6 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -16,7 +16,7 @@ async function hashPin(pin) {
 }
 
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://umi-care.westech.com.hk',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
@@ -54,7 +54,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', icon: '🏥', name: '健康檢查', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '4.1.5' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '4.1.6' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -65,7 +65,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '4.1.5', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '4.1.6', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -108,8 +108,25 @@ async function handleApi(request, env, url) {
       const body = await request.json();
       const stored = await KV.get('pin');
       if (!stored) return json({ error: 'No PIN set' }, 400);
-      if (await hashPin(body.oldPin) !== stored) return json({ error: 'Wrong current PIN' }, 401);
+      // Validate new PIN
+      if (!body.newPin || body.newPin.length < 4) return json({ error: 'New PIN must be at least 4 digits' }, 400);
+      // Rate-limit on change attempts (shared with verify)
+      const rlKey = 'pin:attempts';
+      const rlRaw = await KV.get(rlKey);
+      const rl = rlRaw ? JSON.parse(rlRaw) : { count: 0, resetAt: 0 };
+      const now = Date.now();
+      if (now > rl.resetAt) { rl.count = 0; rl.resetAt = now + 3600000; }
+      if (rl.count >= 10) {
+        const wait = Math.ceil((rl.resetAt - now) / 60000);
+        return json({ locked: true, error: `Too many attempts. Try again in ${wait} min.` }, 429);
+      }
+      if (await hashPin(body.oldPin) !== stored) {
+        rl.count++;
+        await KV.put(rlKey, JSON.stringify(rl), { expirationTtl: 3600 });
+        return json({ error: 'Wrong current PIN' }, 401);
+      }
       await KV.put('pin', await hashPin(body.newPin));
+      await KV.delete(rlKey); // reset on success
       return json({ ok: true });
     }
 
@@ -224,6 +241,8 @@ async function handleApi(request, env, url) {
         const raw = await KV.get('weights:list');
         const list = raw ? JSON.parse(raw) : [];
         list.push(record);
+        // Trim to prevent KV value from growing unbounded (max 365 entries)
+        if (list.length > 365) list.splice(0, list.length - 365);
         await KV.put('weights:list', JSON.stringify(list));
         const sRaw = await KV.get('settings');
         const settings = sRaw ? JSON.parse(sRaw) : DEFAULT_SETTINGS;
@@ -516,15 +535,17 @@ async function handleApi(request, env, url) {
 const VAPID_PUBLIC_KEY = 'BKxdGI0ffaWrjM1mmewRQ7nEBkGFDmbQXrVH-jk--HBjf1uBVZdjvQHfTc16Ggn_0r5K6pK1pHckX_zJMHgTq3w';
 const VAPID_SUBJECT = 'mailto:west.wong@westech.com.hk';
 
-// ─── Calgary date helper (shared by cron, simulate, dashboard) ─────────────
-function getCalgaryDateStr(now) {
+// ─── Calgary DST helper (single source of truth) ──────────────────────────
+function getCalgaryContext(now) {
   const year = now.getUTCFullYear();
+  // DST starts 2nd Sunday of March at 09:00 UTC (= 02:00 MST)
   const dstStart = (() => {
     const d = new Date(Date.UTC(year, 2, 1));
     let sundays = 0;
     while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
     d.setUTCHours(9, 0, 0, 0); return d;
   })();
+  // DST ends 1st Sunday of November at 08:00 UTC (= 02:00 MDT)
   const dstEnd = (() => {
     const d = new Date(Date.UTC(year, 10, 1));
     while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
@@ -532,31 +553,22 @@ function getCalgaryDateStr(now) {
   })();
   const isDST = now >= dstStart && now < dstEnd;
   const offset = isDST ? -6 : -7;
-  const c = new Date(now.getTime() + offset * 3600000);
+  const calgaryNow = new Date(now.getTime() + offset * 3600000);
+  return { isDST, offset, calgaryNow };
+}
+
+function getCalgaryDateStr(now) {
+  const { calgaryNow } = getCalgaryContext(now);
   return [
-    c.getUTCFullYear(),
-    String(c.getUTCMonth() + 1).padStart(2, '0'),
-    String(c.getUTCDate()).padStart(2, '0')
+    calgaryNow.getUTCFullYear(),
+    String(calgaryNow.getUTCMonth() + 1).padStart(2, '0'),
+    String(calgaryNow.getUTCDate()).padStart(2, '0')
   ].join('-');
 }
 
-
 function getCalgaryWeekday(now) {
-  const year = now.getUTCFullYear();
-  const dstStart = (() => {
-    const d = new Date(Date.UTC(year, 2, 1));
-    let sundays = 0;
-    while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
-    d.setUTCHours(9, 0, 0, 0); return d;
-  })();
-  const dstEnd = (() => {
-    const d = new Date(Date.UTC(year, 10, 1));
-    while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
-    d.setUTCHours(8, 0, 0, 0); return d;
-  })();
-  const isDST = now >= dstStart && now < dstEnd;
-  const offset = isDST ? -6 : -7;
-  return new Date(now.getTime() + offset * 3600000).getUTCDay();
+  const { calgaryNow } = getCalgaryContext(now);
+  return calgaryNow.getUTCDay();
 }
 
 function isTaskActiveOnCalgaryDate(task, now) {
@@ -595,27 +607,8 @@ export default {
     if (!raw) return; // no subscriber
     const sub = JSON.parse(raw);
 
-    // Calgary time: DST-aware (MST=UTC-7, MDT=UTC-6)
     const now = new Date();
-    const year = now.getUTCFullYear();
-    // DST starts 2nd Sunday of March 09:00 UTC (= 02:00 MST)
-    const dstStart = (() => {
-      const d = new Date(Date.UTC(year, 2, 1));
-      let sundays = 0;
-      while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
-      d.setUTCHours(9, 0, 0, 0);
-      return d;
-    })();
-    // DST ends 1st Sunday of November 08:00 UTC (= 02:00 MDT)
-    const dstEnd = (() => {
-      const d = new Date(Date.UTC(year, 10, 1));
-      while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
-      d.setUTCHours(8, 0, 0, 0);
-      return d;
-    })();
-    const isDST = now >= dstStart && now < dstEnd;
-    const offset = isDST ? -6 : -7;
-    const calgaryNow = new Date(now.getTime() + offset * 3600000);
+    const { isDST, calgaryNow } = getCalgaryContext(now);
     const calgaryHour = calgaryNow.getUTCHours();
     const calgaryMin  = calgaryNow.getUTCMinutes();
     const calgaryTotalMin = calgaryHour * 60 + calgaryMin;
@@ -652,10 +645,17 @@ export default {
 
     if (overdue.length === 0) return; // nothing to remind
 
-    const firstName = overdue[0].name;
-    const body = overdue.length === 1
+    // De-duplicate: only notify for tasks not already notified today
+    const notifiedRaw = await KV.get('debug:notified_today');
+    const notifiedData = notifiedRaw ? JSON.parse(notifiedRaw) : { date: '', ids: [] };
+    const notifiedIds = new Set(notifiedData.date === today ? notifiedData.ids : []);
+    const newOverdue = overdue.filter(t => !notifiedIds.has(t.id));
+    if (newOverdue.length === 0) return; // already notified for all overdue tasks
+
+    const firstName = newOverdue[0].name;
+    const body = newOverdue.length === 1
       ? `${firstName} 尚未完成，請盡快記錄！`
-      : `${firstName}，還有 ${overdue.length} 項任務尚未完成`;
+      : `${firstName}，還有 ${newOverdue.length} 項任務尚未完成`;
 
     const result = await sendWebPush(env, sub, {
       title: `🐾 ${catName} 照護提醒`,
@@ -663,13 +663,18 @@ export default {
       tag: 'umicare-reminder',
       icon: '/icon-192.png',
     });
+
+    // Record which tasks were notified to avoid spamming
+    const allNotifiedIds = [...notifiedIds, ...newOverdue.map(t => t.id)];
+    await KV.put('debug:notified_today', JSON.stringify({ date: today, ids: allNotifiedIds }), { expirationTtl: 86400 });
+
     await KV.put('debug:last_push', JSON.stringify({
       time: new Date().toISOString(),
       calgaryTime: `${calgaryHour}:${String(calgaryMin).padStart(2,'0')}`,
       isDST,
-      calgaryDate: today,  // now Calgary local date
+      calgaryDate: today,
       result,
-      overdue: overdue.length,
+      overdue: newOverdue.length,
       firstTask: firstName,
     }), { expirationTtl: 86400 });
   },
@@ -698,13 +703,6 @@ function concat(...bufs) {
   return out;
 }
 
-async function hkdfExpand(prk, info, len) {
-  const key = await crypto.subtle.importKey('raw', prk, 'HKDF', false, ['deriveBits']);
-  return new Uint8Array(await crypto.subtle.deriveBits(
-    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info },
-    key, len * 8
-  ));
-}
 async function hkdf(salt, ikm, info, len) {
   // Extract
   const saltKey = await crypto.subtle.importKey('raw', salt, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
@@ -860,28 +858,20 @@ async function handlePushApi(path, method, request, env) {
   }
 
   // POST or GET /api/push/simulate — run scheduled logic as HTTP endpoint for debugging
+  // Requires Authorization header with stored PIN hash for protection
   if (path === '/push/simulate' && (method === 'GET' || method === 'POST')) {
+    const authHeader = request.headers.get('Authorization') || '';
+    const storedPin = await KV.get('pin');
+    if (!storedPin || authHeader !== `Bearer ${storedPin}`) {
+      return json({ error: 'Unauthorized' }, 401);
+    }
+
     const raw = await KV.get('push:subscription');
     if (!raw) return json({ error: 'No subscription in KV' });
     const sub = JSON.parse(raw);
 
-    // DST-aware Calgary time
     const now = new Date();
-    const year = now.getUTCFullYear();
-    const dstStart = (() => {
-      const d = new Date(Date.UTC(year, 2, 1));
-      let sundays = 0;
-      while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
-      d.setUTCHours(9, 0, 0, 0); return d;
-    })();
-    const dstEnd = (() => {
-      const d = new Date(Date.UTC(year, 10, 1));
-      while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
-      d.setUTCHours(8, 0, 0, 0); return d;
-    })();
-    const isDST = now >= dstStart && now < dstEnd;
-    const offset = isDST ? -6 : -7;
-    const calgaryNow = new Date(now.getTime() + offset * 3600000);
+    const { isDST, calgaryNow } = getCalgaryContext(now);
     const calgaryHour = calgaryNow.getUTCHours();
     const calgaryMin  = calgaryNow.getUTCMinutes();
     const calgaryTotalMin = calgaryHour * 60 + calgaryMin;
