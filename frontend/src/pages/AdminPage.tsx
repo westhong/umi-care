@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { CatProfile, Checkin, Settings, Task } from '../store/useAppStore';
 
 type AdminTab = 'overview' | 'periodic' | 'records' | 'weights' | 'tasks' | 'cat';
+type TimelineStatus = 'pending' | 'done' | 'skip';
 
 interface WeightRecord {
   id: string;
@@ -51,6 +52,13 @@ interface SpecialPreset {
   icon: string;
   name: string;
   note?: string;
+}
+
+interface TimelineRow {
+  task: Task;
+  checkin?: Checkin;
+  status: TimelineStatus;
+  scheduledAt?: string;
 }
 
 const DEFAULT_PRESETS: SpecialPreset[] = [
@@ -118,6 +126,33 @@ function taskTitle(task: Task) {
   return `${task.icon || '📋'} ${task.name}`;
 }
 
+function formatCountLabel(done: number, total: number) {
+  if (!total) return '今天尚無排程';
+  if (done >= total) return '今日排程已完成';
+  return `還有 ${Math.max(total - done, 0)} 項待處理`;
+}
+
+function badgeStyle(tone: 'neutral' | 'danger' | 'warning' | 'success' | 'purple'): React.CSSProperties {
+  const tones: Record<string, React.CSSProperties> = {
+    neutral: { color: 'var(--text-secondary)', background: 'rgba(61,44,53,0.08)', border: '1px solid rgba(61,44,53,0.08)' },
+    danger: { color: '#b91c1c', background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.22)' },
+    warning: { color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.24)' },
+    success: { color: '#15803d', background: 'rgba(74,222,128,0.14)', border: '1px solid rgba(74,222,128,0.24)' },
+    purple: { color: '#7c3aed', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.22)' },
+  };
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '5px 10px',
+    borderRadius: '999px',
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+    ...tones[tone],
+  };
+}
+
 const sectionCard: React.CSSProperties = {
   background: 'var(--bg-card)',
   border: '1px solid var(--glass-border)',
@@ -146,6 +181,72 @@ const buttonBase: React.CSSProperties = {
   cursor: 'pointer',
   fontFamily: 'var(--font)',
 };
+
+const subtleButton: React.CSSProperties = {
+  ...buttonBase,
+  background: 'var(--glass)',
+  color: 'var(--text-secondary)',
+};
+
+function ActionButton({
+  children,
+  tone = 'default',
+  onClick,
+}: {
+  children: React.ReactNode;
+  tone?: 'default' | 'danger' | 'success';
+  onClick: () => void;
+}) {
+  const toneStyle: Record<string, React.CSSProperties> = {
+    default: subtleButton,
+    danger: { ...buttonBase, background: 'rgba(248,113,113,0.08)', color: '#dc2626', border: '1px solid rgba(248,113,113,0.22)' },
+    success: { ...buttonBase, background: 'rgba(74,222,128,0.12)', color: '#15803d', border: '1px solid rgba(74,222,128,0.22)' },
+  };
+  return <button onClick={onClick} style={toneStyle[tone]}>{children}</button>;
+}
+
+function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div style={{ padding: '18px 12px', borderRadius: '16px', background: 'rgba(61,44,53,0.03)', color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.84rem' }}>
+      <div style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: subtitle ? '4px' : 0 }}>{title}</div>
+      {subtitle && <div>{subtitle}</div>}
+    </div>
+  );
+}
+
+function RecordCard({
+  title,
+  meta,
+  chips,
+  tone = 'default',
+  actions,
+}: {
+  title: React.ReactNode;
+  meta?: React.ReactNode;
+  chips?: React.ReactNode;
+  tone?: 'default' | 'danger' | 'warning' | 'success';
+  actions?: React.ReactNode;
+}) {
+  const toneStyle: Record<string, React.CSSProperties> = {
+    default: { border: '1px solid rgba(15,23,42,0.06)', background: 'rgba(255,255,255,0.65)' },
+    danger: { border: '1px solid rgba(248,113,113,0.22)', background: 'rgba(248,113,113,0.05)' },
+    warning: { border: '1px solid rgba(245,158,11,0.22)', background: 'rgba(245,158,11,0.05)' },
+    success: { border: '1px solid rgba(74,222,128,0.22)', background: 'rgba(74,222,128,0.05)' },
+  };
+
+  return (
+    <div style={{ borderRadius: '16px', padding: '14px', display: 'grid', gap: '10px', ...toneStyle[tone] }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0, flex: '1 1 240px' }}>
+          <div style={{ fontWeight: 700, lineHeight: 1.4 }}>{title}</div>
+          {meta && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.6 }}>{meta}</div>}
+        </div>
+        {actions && <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>{actions}</div>}
+      </div>
+      {chips && <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{chips}</div>}
+    </div>
+  );
+}
 
 export function AdminPage() {
   const {
@@ -215,7 +316,7 @@ export function AdminPage() {
       get<CatProfile>('/api/cat').catch(() => null),
       get<Settings>('/api/settings').catch(() => null),
     ]);
-    if (taskData.length) setTasks(taskData);
+    setTasks(taskData);
     if (catData) setCat(catData);
     if (settingsData) setSettings(settingsData);
   }, [setCat, setSettings, setTasks]);
@@ -274,6 +375,7 @@ export function AdminPage() {
 
   const visibleTasks = useMemo(() => tasks.filter((task) => isTaskVisible(task)), [tasks]);
   const visibleIds = useMemo(() => new Set(visibleTasks.map((task) => task.id)), [visibleTasks]);
+  const todayCheckinMap = useMemo(() => new Map(todayCheckins.map((row) => [row.taskId, row])), [todayCheckins]);
   const doneCount = todayCheckins.filter((row) => row.isDone && visibleIds.has(row.taskId)).length;
   const skipCount = todayCheckins.filter((row) => !row.isDone && visibleIds.has(row.taskId)).length;
   const totalCount = visibleTasks.length;
@@ -284,6 +386,30 @@ export function AdminPage() {
   const pendingSpecial = adhoc.filter((row) => !row.done);
   const selectedDateSpecial = adhoc.filter((row) => row.done && row.doneAt?.slice(0, 10) === recordsDate);
   const taskMap = useMemo(() => Object.fromEntries(tasks.map((task) => [task.id, task])), [tasks]);
+  const unresolvedIncidents = incidents.filter((row) => !row.resolved);
+  const resolvedIncidents = incidents.filter((row) => row.resolved);
+
+  const timelineRows = useMemo<TimelineRow[]>(() => {
+    const rows = visibleTasks.map((task) => {
+      const checkin = todayCheckinMap.get(task.id);
+      const scheduledAt = task.scheduledTimes?.[0] || '';
+      const status: TimelineStatus = checkin ? (checkin.isDone ? 'done' : 'skip') : 'pending';
+      return { task, checkin, scheduledAt, status };
+    });
+    const order = { pending: 0, skip: 1, done: 2 };
+    return rows.sort((a, b) => {
+      const diff = order[a.status] - order[b.status];
+      if (diff !== 0) return diff;
+      return (a.scheduledAt || '').localeCompare(b.scheduledAt || '');
+    });
+  }, [todayCheckinMap, visibleTasks]);
+
+  const completionSummary = useMemo(() => {
+    if (!totalCount) return '今天沒有排程任務';
+    if (!pendingCount && !skipCount) return '所有排程任務已完成';
+    if (!pendingCount && skipCount) return `所有任務都已處理，其中 ${skipCount} 項為略過`;
+    return `${pendingCount} 項待處理${skipCount ? `，${skipCount} 項已略過` : ''}`;
+  }, [pendingCount, skipCount, totalCount]);
 
   const flash = (text: string) => {
     setMessage(text);
@@ -531,18 +657,22 @@ export function AdminPage() {
     flash('已加入快捷任務');
   };
 
+  const openIncidentPhoto = (id: string) => {
+    window.open(`/api/incidents/${id}/photo`, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div style={{ paddingBottom: '28px' }}>
       <div style={{
         background: 'linear-gradient(135deg, var(--primary) 0%, #c084fc 100%)',
-        padding: '20px 20px 16px',
+        padding: '22px 20px 18px',
         color: '#fff',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', marginBottom: '14px', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: '1.35rem', fontWeight: 800 }}>🛠️ 管理員模式</div>
-            <div style={{ fontSize: '0.8rem', opacity: 0.92 }}>
-              {todayLocal()} · {catName} · {doneCount}/{totalCount} 完成 ({pct}%)
+            <div style={{ fontSize: '0.82rem', opacity: 0.92, marginTop: '4px', lineHeight: 1.5 }}>
+              {todayLocal()} · {catName} · {formatCountLabel(doneCount, totalCount)}
             </div>
           </div>
           <button
@@ -556,16 +686,17 @@ export function AdminPage() {
             🚪 登出
           </button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '8px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))', gap: '8px' }}>
           {[
-            { label: '完成', value: doneCount, color: '#4ade80' },
-            { label: '待做', value: pendingCount, color: '#fbbf24' },
-            { label: '特殊任務', value: pendingSpecial.length, color: '#f472b6' },
-            { label: '最新體重', value: latestWeight ? `${latestWeight.catWeight}kg` : '—', color: '#f5f5f5' },
+            { label: '完成', value: `${doneCount}/${totalCount || 0}`, sub: `${pct}%`, color: '#4ade80' },
+            { label: '待做', value: pendingCount, sub: pendingCount ? '需要跟進' : '已清空', color: '#fde68a' },
+            { label: '異常 / 回報', value: `${unresolvedIncidents.length}/${selfReports.length}`, sub: '未解 / 今日回報', color: unresolvedIncidents.length ? '#fecaca' : '#f5f5f5' },
+            { label: '最新體重', value: latestWeight ? `${latestWeight.catWeight}kg` : '—', sub: latestWeight ? toDateTime(latestWeight.measuredAt) : '尚未記錄', color: '#f5f5f5' },
           ].map((item) => (
             <div key={item.label} style={{ background: 'rgba(255,255,255,0.16)', borderRadius: '14px', padding: '10px 12px' }}>
-              <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>{item.label}</div>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: item.color }}>{item.value}</div>
+              <div style={{ fontSize: '0.7rem', opacity: 0.82 }}>{item.label}</div>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: item.color, marginTop: '4px' }}>{item.value}</div>
+              <div style={{ fontSize: '0.7rem', opacity: 0.74, marginTop: '2px' }}>{item.sub}</div>
             </div>
           ))}
         </div>
@@ -616,71 +747,196 @@ export function AdminPage() {
 
         {activeTab === 'overview' && (
           <div style={{ display: 'grid', gap: '14px' }}>
-            {!!incidents.some((row) => !row.resolved) && (
-              <div style={{ ...sectionCard, borderColor: 'rgba(248,113,113,0.35)', background: 'rgba(248,113,113,0.05)' }}>
-                <div style={{ fontWeight: 800, color: '#dc2626', marginBottom: '10px' }}>🆘 今日異常回報</div>
-                <div style={{ display: 'grid', gap: '8px' }}>
-                  {incidents.filter((row) => !row.resolved).map((row) => (
-                    <div key={row.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center' }}>
+            {(unresolvedIncidents.length > 0 || selfReports.length > 0) && (
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {!!unresolvedIncidents.length && (
+                  <div style={{ ...sectionCard, borderColor: 'rgba(248,113,113,0.38)', background: 'linear-gradient(135deg, rgba(248,113,113,0.09), rgba(248,113,113,0.03))', borderTop: '4px solid #ef4444' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
                       <div>
-                        <div style={{ fontWeight: 600 }}>{row.type}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</div>
+                        <div style={{ fontWeight: 800, color: '#b91c1c' }}>🆘 異常案件置頂</div>
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(153,27,27,0.78)' }}>未處理案件會優先顯示，避免被一般記錄淹沒。</div>
                       </div>
-                      <button onClick={() => resolveIncident(row.id)} style={{ ...buttonBase, background: '#fff' }}>✅ 已處理</button>
+                      <span style={badgeStyle('danger')}>{unresolvedIncidents.length} 則待處理</span>
                     </div>
-                  ))}
-                </div>
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      {unresolvedIncidents.map((row) => (
+                        <RecordCard
+                          key={row.id}
+                          tone="danger"
+                          title={<>{row.hasPhoto ? '📷 ' : ''}{row.type}</>}
+                          meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
+                          chips={
+                            <>
+                              <span style={badgeStyle('danger')}>待處理</span>
+                              {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
+                            </>
+                          }
+                          actions={
+                            <>
+                              {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
+                              <ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 標記完成</ActionButton>
+                            </>
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!!selfReports.length && (
+                  <div style={{ ...sectionCard, borderColor: 'rgba(245,158,11,0.34)', background: 'linear-gradient(135deg, rgba(245,158,11,0.09), rgba(251,191,36,0.03))', borderTop: '4px solid #f59e0b' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight: 800, color: '#92400e' }}>📝 今日主動回報</div>
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(146,64,14,0.78)' }}>沿用舊版 pinned 提醒感，先看回報再看一般流水帳。</div>
+                      </div>
+                      <span style={badgeStyle('warning')}>{selfReports.length} 則回報</span>
+                    </div>
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      {selfReports.map((row) => (
+                        <RecordCard
+                          key={row.id}
+                          tone="warning"
+                          title={<>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>}
+                          meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
+                          chips={<span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            <div style={{ ...sectionCard, paddingBottom: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ ...sectionCard, display: 'grid', gap: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 800 }}>今日任務概覽</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{catName} 的照護摘要</div>
+                  <div style={{ fontSize: '0.98rem', fontWeight: 800 }}>今日照護總覽</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>{completionSummary}</div>
                 </div>
-                <button onClick={() => setRefreshKey((value) => value + 1)} style={buttonBase}>🔄 重新整理</button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={badgeStyle('success')}>完成 {doneCount}</span>
+                  <span style={badgeStyle('warning')}>待處理 {pendingCount}</span>
+                  {skipCount > 0 && <span style={badgeStyle('neutral')}>略過 {skipCount}</span>}
+                  <button onClick={() => setRefreshKey((value) => value + 1)} style={subtleButton}>🔄 重新整理</button>
+                </div>
               </div>
-              <div style={{ display: 'grid', gap: '8px' }}>
-                {visibleTasks.map((task) => {
-                  const checkin = todayCheckins.find((row) => row.taskId === task.id);
-                  const status = checkin ? (checkin.isDone ? 'done' : 'skip') : 'pending';
-                  const statusText = status === 'done' ? '✅ 已完成' : status === 'skip' ? '⏭️ 略過' : '🕘 待處理';
-                  const statusColor = status === 'done' ? '#16a34a' : status === 'skip' ? '#ea580c' : '#6b7280';
-                  return (
-                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{taskTitle(task)}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {(task.scheduledTimes || []).join(' / ') || '—'}
-                          {checkin?.time ? ` · ${toClock(checkin.time)}` : ''}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: statusColor }}>{statusText}</div>
-                    </div>
-                  );
-                })}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                {[
+                  { label: '完成率', value: `${pct}%`, tone: 'success' as const },
+                  { label: '待處理', value: pendingCount, tone: 'warning' as const },
+                  { label: '今日特殊任務完成', value: todayDoneSpecial.length, tone: 'purple' as const },
+                  { label: '未完成特殊任務', value: pendingSpecial.length, tone: 'neutral' as const },
+                ].map((item) => (
+                  <div key={item.label} style={{ borderRadius: '16px', padding: '12px', background: 'rgba(61,44,53,0.03)', border: '1px solid rgba(61,44,53,0.04)' }}>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{item.label}</div>
+                    <div style={{ fontSize: '1.18rem', fontWeight: 800, marginTop: '4px' }}>{item.value}</div>
+                    <div style={{ marginTop: '8px' }}><span style={badgeStyle(item.tone)}>{item.label}</span></div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px' }}>
-              <div style={sectionCard}>
-                <div style={{ fontWeight: 800, marginBottom: '8px' }}>✨ 今日完成的特殊任務</div>
-                {todayDoneSpecial.length ? todayDoneSpecial.map((row) => (
-                  <div key={row.id} style={{ padding: '8px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                    <div style={{ fontWeight: 600 }}>{row.icon} {row.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{toDateTime(row.doneAt)}{row.doneNote ? ` · ${row.doneNote}` : ''}</div>
-                  </div>
-                )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>今天還沒有完成的特殊任務。</div>}
+            <div style={{ ...sectionCard, display: 'grid', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>⏱️ 任務時間線</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>待處理會置頂，已完成與略過往下收斂，資訊層級更接近舊版 admin 的掃描感。</div>
+                </div>
+                <span style={badgeStyle(pendingCount ? 'warning' : 'success')}>
+                  {pendingCount ? `${pendingCount} 項優先處理` : '全部已處理'}
+                </span>
               </div>
-              <div style={sectionCard}>
-                <div style={{ fontWeight: 800, marginBottom: '8px' }}>🍽️ / 📝 主動回報</div>
-                {selfReports.length ? selfReports.map((row) => (
-                  <div key={row.id} style={{ padding: '8px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                    <div style={{ fontWeight: 600 }}>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</div>
-                  </div>
-                )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>今日尚無主動回報。</div>}
+
+              {timelineRows.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {timelineRows.map((row) => {
+                    const isPending = row.status === 'pending';
+                    const isSkip = row.status === 'skip';
+                    const statusLabel = isPending ? '待處理' : isSkip ? '已略過' : '已完成';
+                    const tone = isPending ? 'warning' : isSkip ? 'neutral' : 'success';
+                    return (
+                      <div
+                        key={row.task.id}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr auto',
+                          gap: '12px',
+                          alignItems: 'flex-start',
+                          padding: '14px',
+                          borderRadius: '18px',
+                          border: isPending
+                            ? '1px solid rgba(245,158,11,0.24)'
+                            : isSkip
+                              ? '1px solid rgba(61,44,53,0.10)'
+                              : '1px solid rgba(74,222,128,0.22)',
+                          background: isPending
+                            ? 'rgba(245,158,11,0.06)'
+                            : isSkip
+                              ? 'rgba(61,44,53,0.03)'
+                              : 'rgba(74,222,128,0.05)',
+                        }}
+                      >
+                        <div style={{ width: '36px', height: '36px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: '#fff', boxShadow: '0 4px 12px rgba(15,23,42,0.08)', fontSize: '1.1rem' }}>
+                          {row.task.icon || '📋'}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ fontWeight: 700 }}>{row.task.name}</div>
+                            <span style={badgeStyle(tone)}>{statusLabel}</span>
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.6 }}>
+                            預定 {(row.task.scheduledTimes || []).join(' / ') || '—'}
+                            {row.checkin?.time ? ` · ${row.checkin.isDone ? '完成' : '略過'}時間 ${toClock(row.checkin.time)}` : ''}
+                            {row.checkin?.result ? ` · ${row.checkin.result}` : ''}
+                            {row.checkin?.note ? ` · ${row.checkin.note}` : ''}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>
+                          {row.scheduledAt || '—'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <EmptyState title="今天沒有可顯示的排程任務" subtitle="如果剛更新任務排程，重新整理後會同步顯示。" />
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+              <div style={{ ...sectionCard, display: 'grid', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800 }}>✨ 今日完成的特殊任務</div>
+                  <span style={badgeStyle('purple')}>{todayDoneSpecial.length} 筆</span>
+                </div>
+                {todayDoneSpecial.length ? todayDoneSpecial.map((row) => (
+                  <RecordCard
+                    key={row.id}
+                    tone="default"
+                    title={<>{row.icon} {row.name}</>}
+                    meta={<>{toDateTime(row.doneAt)}{row.doneNote ? ` · ${row.doneNote}` : row.note ? ` · 派發備註：${row.note}` : ''}</>}
+                    chips={<span style={badgeStyle('success')}>已完成</span>}
+                  />
+                )) : <EmptyState title="今天還沒有特殊任務完成紀錄" subtitle="派發後由照護者完成，就會出現在這裡。" />}
+              </div>
+
+              <div style={{ ...sectionCard, display: 'grid', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800 }}>📌 仍在等待的特殊任務</div>
+                  <span style={badgeStyle(pendingSpecial.length ? 'warning' : 'neutral')}>{pendingSpecial.length} 筆</span>
+                </div>
+                {pendingSpecial.length ? pendingSpecial.map((row) => (
+                  <RecordCard
+                    key={row.id}
+                    tone="warning"
+                    title={<>{row.icon} {row.name}</>}
+                    meta={<>{toDateTime(row.createdAt)}{row.note ? ` · ${row.note}` : ''}</>}
+                    chips={<span style={badgeStyle('warning')}>待完成</span>}
+                    actions={<ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 刪除</ActionButton>}
+                  />
+                )) : <EmptyState title="目前沒有待完成的特殊任務" subtitle="這區塊會凸顯尚未被照護者完成的派發項目。" />}
               </div>
             </div>
           </div>
@@ -688,89 +944,158 @@ export function AdminPage() {
 
         {activeTab === 'records' && (
           <div style={{ display: 'grid', gap: '14px' }}>
-            <div style={{ ...sectionCard, display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>選擇日期</label>
-              <input type="date" value={recordsDate} onChange={(e) => setRecordsDate(e.target.value)} style={{ ...inputStyle, maxWidth: '220px' }} />
-              <button onClick={() => loadRecords(recordsDate)} style={buttonBase}>🔄 刷新</button>
+            <div style={{ ...sectionCard, display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>選擇日期</label>
+                <input type="date" value={recordsDate} onChange={(e) => setRecordsDate(e.target.value)} style={{ ...inputStyle, maxWidth: '220px' }} />
+                <button onClick={() => loadRecords(recordsDate)} style={subtleButton}>🔄 刷新</button>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={badgeStyle('neutral')}>打卡 {recordCheckins.length}</span>
+                <span style={badgeStyle('warning')}>回報 {selfReports.length}</span>
+                <span style={badgeStyle(unresolvedIncidents.length ? 'danger' : 'neutral')}>異常 {incidents.length}</span>
+              </div>
             </div>
 
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, marginBottom: '10px' }}>📋 任務打卡紀錄</div>
-              {recordCheckins.length ? recordCheckins.map((row) => (
-                <div key={`${row.taskId}-${row.time}`} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{taskTitle(taskMap[row.taskId] || { id: row.taskId, name: row.taskId, icon: '📋', type: 'other', scheduleType: 'daily', scheduledTimes: [] })}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {row.isDone ? '✅ 完成' : '⏭️ 略過'} · {toClock(row.time)}
-                      {row.result ? ` · ${row.result}` : ''}
-                      {row.note ? ` · ${row.note}` : ''}
-                    </div>
-                  </div>
-                  <button onClick={() => deleteCheckin(row.taskId)} style={buttonBase}>🗑 刪除</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>📋 任務打卡紀錄</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>把狀態、時間、結果與備註拆開顯示，閱讀比單行文字更清楚。</div>
                 </div>
-              )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>這天沒有打卡紀錄。</div>}
+                <span style={badgeStyle('neutral')}>{recordCheckins.length} 筆</span>
+              </div>
+              {recordCheckins.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {recordCheckins.map((row) => {
+                    const task = taskMap[row.taskId] || { id: row.taskId, name: row.taskId, icon: '📋', type: 'other', scheduleType: 'daily', scheduledTimes: [] };
+                    return (
+                      <RecordCard
+                        key={`${row.taskId}-${row.time}`}
+                        tone={row.isDone ? 'success' : 'default'}
+                        title={<>{task.icon || '📋'} {task.name}</>}
+                        meta={<>{toClock(row.time)}{row.note ? ` · ${row.note}` : ''}</>}
+                        chips={
+                          <>
+                            <span style={badgeStyle(row.isDone ? 'success' : 'neutral')}>{row.isDone ? '完成' : '略過'}</span>
+                            {row.result && <span style={badgeStyle('purple')}>{row.result}</span>}
+                            {!!task.scheduledTimes?.length && <span style={badgeStyle('neutral')}>預定 {(task.scheduledTimes || []).join(' / ')}</span>}
+                          </>
+                        }
+                        actions={<ActionButton tone="danger" onClick={() => deleteCheckin(row.taskId)}>🗑 刪除</ActionButton>}
+                      />
+                    );
+                  })}
+                </div>
+              ) : <EmptyState title="這天沒有打卡紀錄" subtitle="照護者一旦完成或略過任務，就會出現在這裡。" />}
             </div>
 
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, marginBottom: '10px' }}>📝 主動回報</div>
-              {selfReports.length ? selfReports.map((row) => (
-                <div key={row.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{row.icon || '📝'} {row.title}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</div>
-                  </div>
-                  <button onClick={() => deleteSelfReport(row.id)} style={buttonBase}>🗑 刪除</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>📝 主動回報</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>加上類型 tag 與數量資訊，接近舊版 records 的辨識方式。</div>
                 </div>
-              )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>這天沒有主動回報。</div>}
+                <span style={badgeStyle('warning')}>{selfReports.length} 筆</span>
+              </div>
+              {selfReports.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {selfReports.map((row) => (
+                    <RecordCard
+                      key={row.id}
+                      tone="warning"
+                      title={<>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>}
+                      meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
+                      chips={<span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>}
+                      actions={<ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>}
+                    />
+                  ))}
+                </div>
+              ) : <EmptyState title="這天沒有主動回報" subtitle="餵食、零食或其他自動回報會統一整理在這裡。" />}
             </div>
 
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, marginBottom: '10px' }}>✨ 特殊任務紀錄</div>
-              {selectedDateSpecial.length ? selectedDateSpecial.map((row) => (
-                <div key={row.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{row.icon} {row.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{toDateTime(row.doneAt)}{row.note ? ` · 派發備註：${row.note}` : ''}{row.doneNote ? ` · 完成備註：${row.doneNote}` : ''}</div>
-                  </div>
-                  <button onClick={() => deleteSpecialTask(row.id)} style={buttonBase}>🗑 刪除</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>✨ 特殊任務紀錄</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>把派發備註與完成備註分開標示，方便快速確認執行結果。</div>
                 </div>
-              )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>這天沒有特殊任務完成紀錄。</div>}
+                <span style={badgeStyle('purple')}>{selectedDateSpecial.length} 筆</span>
+              </div>
+              {selectedDateSpecial.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {selectedDateSpecial.map((row) => (
+                    <RecordCard
+                      key={row.id}
+                      tone="default"
+                      title={<>{row.icon} {row.name}</>}
+                      meta={<>{toDateTime(row.doneAt)}</>}
+                      chips={
+                        <>
+                          {row.note && <span style={badgeStyle('neutral')}>派發：{row.note}</span>}
+                          {row.doneNote && <span style={badgeStyle('success')}>完成：{row.doneNote}</span>}
+                        </>
+                      }
+                      actions={<ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 刪除</ActionButton>}
+                    />
+                  ))}
+                </div>
+              ) : <EmptyState title="這天沒有特殊任務完成紀錄" subtitle="派發但未完成的任務仍會留在今日概覽與特殊任務頁。" />}
             </div>
 
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, marginBottom: '10px' }}>🆘 異常回報</div>
-              {incidents.length ? incidents.map((row) => (
-                <div key={row.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{row.resolved ? '✅' : '🆘'} {row.type}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}{row.hasPhoto ? ' · 有照片' : ''}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {!row.resolved && <button onClick={() => resolveIncident(row.id)} style={buttonBase}>✅ 處理</button>}
-                    <button onClick={() => deleteIncident(row.id)} style={buttonBase}>🗑 刪除</button>
-                  </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>🆘 異常回報</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>未處理與已處理狀態以明確 badge 區分，操作按鈕靠右集中。</div>
                 </div>
-              )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>這天沒有異常回報。</div>}
+                <span style={badgeStyle(unresolvedIncidents.length ? 'danger' : 'neutral')}>
+                  未處理 {unresolvedIncidents.length} / 全部 {incidents.length}
+                </span>
+              </div>
+              {incidents.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {[...unresolvedIncidents, ...resolvedIncidents].map((row) => (
+                    <RecordCard
+                      key={row.id}
+                      tone={row.resolved ? 'success' : 'danger'}
+                      title={<>{row.resolved ? '✅' : '🆘'} {row.type}</>}
+                      meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}{row.resolvedAt ? ` · 已於 ${toDateTime(row.resolvedAt)} 處理` : ''}</>}
+                      chips={
+                        <>
+                          <span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>
+                          {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
+                        </>
+                      }
+                      actions={
+                        <>
+                          {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
+                          {!row.resolved && <ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 處理</ActionButton>}
+                          <ActionButton tone="danger" onClick={() => deleteIncident(row.id)}>🗑 刪除</ActionButton>
+                        </>
+                      }
+                    />
+                  ))}
+                </div>
+              ) : <EmptyState title="這天沒有異常回報" subtitle="若照護者提交嘔吐／異常狀況，會出現在這裡並可直接處理。" />}
             </div>
           </div>
         )}
 
         {activeTab === 'weights' && (
           <div style={sectionCard}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <div style={{ fontWeight: 800 }}>⚖️ 體重紀錄</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>沿用既有 /api/weights 資料</div>
               </div>
-              <button onClick={() => loadWeights()} style={buttonBase}>🔄 刷新</button>
+              <button onClick={() => loadWeights()} style={subtleButton}>🔄 刷新</button>
             </div>
             {weights.length ? (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ textAlign: 'left', color: 'var(--text-muted)' }}>
+                    <tr style={{ color: 'var(--text-muted)' }}>
                       <th style={{ padding: '8px 6px' }}>日期</th>
                       <th style={{ padding: '8px 6px' }}>人重</th>
                       <th style={{ padding: '8px 6px' }}>抱貓重</th>
@@ -792,7 +1117,7 @@ export function AdminPage() {
                 </table>
               </div>
             ) : (
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>目前沒有體重紀錄。</div>
+              <EmptyState title="目前沒有體重紀錄" subtitle="照護者完成體重任務後，這裡會自動累積記錄。" />
             )}
           </div>
         )}
@@ -846,7 +1171,7 @@ export function AdminPage() {
                     })}
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <input type="time" value={taskForm.newTime} onChange={(e) => setTaskForm((s) => ({ ...s, newTime: e.target.value }))} style={{ ...inputStyle, maxWidth: '160px' }} />
                   <button
                     type="button"
@@ -854,7 +1179,7 @@ export function AdminPage() {
                       if (!taskForm.newTime || taskForm.scheduledTimes.includes(taskForm.newTime)) return;
                       setTaskForm((s) => ({ ...s, scheduledTimes: [...s.scheduledTimes, s.newTime].sort(), newTime: '' }));
                     }}
-                    style={buttonBase}
+                    style={subtleButton}
                   >
                     ＋ 加入時間
                   </button>
@@ -883,30 +1208,43 @@ export function AdminPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button onClick={saveTask} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>💾 儲存任務</button>
-                  <button onClick={resetTaskForm} style={buttonBase}>↺ 清空表單</button>
+                  <button onClick={resetTaskForm} style={subtleButton}>↺ 清空表單</button>
                 </div>
               </div>
             </div>
 
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, marginBottom: '12px' }}>現有任務</div>
-              {tasks.length ? tasks.map((task) => (
-                <div key={task.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{taskTitle(task)}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {scheduleLabel[task.scheduleType || 'daily'] || '每日'}
-                      {task.weekDays?.length ? ` · ${task.weekDays.map((day) => weekDayLabels[day]).join('、')}` : ''}
-                      {' · '}
-                      {(task.scheduledTimes || []).join(' / ')}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => editTask(task)} style={buttonBase}>✏️ 編輯</button>
-                    <button onClick={() => removeTask(task.id)} style={buttonBase}>🗑 刪除</button>
-                  </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>現有任務</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>把排程與星期資訊直接壓成 tag，比原本純文字更容易掃描。</div>
                 </div>
-              )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>目前沒有任務。</div>}
+                <span style={badgeStyle('neutral')}>{tasks.length} 項</span>
+              </div>
+              {tasks.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {tasks.map((task) => (
+                    <RecordCard
+                      key={task.id}
+                      title={<>{taskTitle(task)}</>}
+                      meta={<>{scheduleLabel[task.scheduleType || 'daily'] || '每日'}{task.weekDays?.length ? ` · ${task.weekDays.map((day) => weekDayLabels[day]).join('、')}` : ''}</>}
+                      chips={
+                        <>
+                          {(task.scheduledTimes || []).map((time) => <span key={time} style={badgeStyle('purple')}>{time}</span>)}
+                          {task.requireNote && <span style={badgeStyle('warning')}>需備註</span>}
+                          {task.type && <span style={badgeStyle('neutral')}>{task.type}</span>}
+                        </>
+                      }
+                      actions={
+                        <>
+                          <ActionButton onClick={() => editTask(task)}>✏️ 編輯</ActionButton>
+                          <ActionButton tone="danger" onClick={() => removeTask(task.id)}>🗑 刪除</ActionButton>
+                        </>
+                      }
+                    />
+                  ))}
+                </div>
+              ) : <EmptyState title="目前沒有任務" subtitle="新增後會同步到照護者今日任務與 admin 概覽。" />}
             </div>
           </div>
         )}
@@ -920,7 +1258,7 @@ export function AdminPage() {
                   <button
                     key={preset.id}
                     onClick={() => setSpecialForm({ icon: preset.icon, name: preset.name, note: preset.note || '' })}
-                    style={buttonBase}
+                    style={subtleButton}
                   >
                     {preset.icon} {preset.name}
                   </button>
@@ -934,35 +1272,43 @@ export function AdminPage() {
                 <textarea value={specialForm.note} onChange={(e) => setSpecialForm((s) => ({ ...s, note: e.target.value }))} rows={3} style={inputStyle} placeholder="備註（選填）" />
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button onClick={dispatchSpecialTask} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>🚀 立即派發</button>
-                  <button onClick={addCurrentAsPreset} style={buttonBase}>💾 存成快捷</button>
+                  <button onClick={addCurrentAsPreset} style={subtleButton}>💾 存成快捷</button>
                 </div>
               </div>
             </div>
 
             <div style={sectionCard}>
               <div style={{ fontWeight: 800, marginBottom: '12px' }}>目前待處理特殊任務</div>
-              {pendingSpecial.length ? pendingSpecial.map((row) => (
-                <div key={row.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{row.icon} {row.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{toDateTime(row.createdAt)}{row.note ? ` · ${row.note}` : ''}</div>
-                  </div>
-                  <button onClick={() => deleteSpecialTask(row.id)} style={buttonBase}>🗑 刪除</button>
+              {pendingSpecial.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {pendingSpecial.map((row) => (
+                    <RecordCard
+                      key={row.id}
+                      tone="warning"
+                      title={<>{row.icon} {row.name}</>}
+                      meta={<>{toDateTime(row.createdAt)}{row.note ? ` · ${row.note}` : ''}</>}
+                      chips={<span style={badgeStyle('warning')}>待完成</span>}
+                      actions={<ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 刪除</ActionButton>}
+                    />
+                  ))}
                 </div>
-              )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>目前沒有待完成的特殊任務。</div>}
+              ) : <EmptyState title="目前沒有待完成的特殊任務" subtitle="派發後會留在這裡，直到完成或刪除。" />}
             </div>
 
             <div style={sectionCard}>
               <div style={{ fontWeight: 800, marginBottom: '12px' }}>快捷任務管理</div>
-              {specialPresets.length ? specialPresets.map((preset) => (
-                <div key={preset.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{preset.icon} {preset.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{preset.note || '—'}</div>
-                  </div>
-                  <button onClick={() => savePresets(specialPresets.filter((row) => row.id !== preset.id))} style={buttonBase}>✕ 移除</button>
+              {specialPresets.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {specialPresets.map((preset) => (
+                    <RecordCard
+                      key={preset.id}
+                      title={<>{preset.icon} {preset.name}</>}
+                      meta={<>{preset.note || '—'}</>}
+                      actions={<ActionButton tone="danger" onClick={() => savePresets(specialPresets.filter((row) => row.id !== preset.id))}>✕ 移除</ActionButton>}
+                    />
+                  ))}
                 </div>
-              )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>尚未建立快捷任務。</div>}
+              ) : <EmptyState title="尚未建立快捷任務" subtitle="把常用的特殊任務存成快捷，下次派發會快很多。" />}
             </div>
           </div>
         )}
@@ -978,7 +1324,7 @@ export function AdminPage() {
                 <textarea value={catForm.notes || ''} onChange={(e) => setCatForm((s) => ({ ...s, notes: e.target.value }))} rows={4} style={inputStyle} placeholder="備註" />
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button onClick={saveCatProfile} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>💾 儲存貓咪資料</button>
-                  <button onClick={saveQuickSettings} style={buttonBase}>⚙️ 同步系統設定</button>
+                  <button onClick={saveQuickSettings} style={subtleButton}>⚙️ 同步系統設定</button>
                 </div>
               </div>
             </div>
@@ -988,7 +1334,7 @@ export function AdminPage() {
               <div style={{ display: 'grid', gap: '10px', maxWidth: '360px' }}>
                 <input type="password" value={pinForm.oldPin} onChange={(e) => setPinForm((s) => ({ ...s, oldPin: e.target.value }))} style={inputStyle} placeholder="舊 PIN" />
                 <input type="password" value={pinForm.newPin} onChange={(e) => setPinForm((s) => ({ ...s, newPin: e.target.value }))} style={inputStyle} placeholder="新 PIN（至少 4 位）" />
-                <button onClick={changePin} style={{ ...buttonBase, width: 'fit-content' }}>🔄 更新 PIN</button>
+                <button onClick={changePin} style={{ ...subtleButton, width: 'fit-content' }}>🔄 更新 PIN</button>
               </div>
             </div>
 
