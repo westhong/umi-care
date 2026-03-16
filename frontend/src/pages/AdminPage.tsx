@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, del, get, post } from '../api/client';
+import { getTaskStatus, type TaskStatus } from '../utils/taskStatus';
 import { useAppStore } from '../store/useAppStore';
 import type { CatProfile, Checkin, Settings, Task } from '../store/useAppStore';
 
 type AdminTab = 'overview' | 'periodic' | 'records' | 'weights' | 'tasks' | 'cat';
-type TimelineStatus = 'pending' | 'done' | 'skip';
+type TimelineStatus = TaskStatus;
 
 interface WeightRecord {
   id: string;
@@ -45,6 +46,7 @@ interface IncidentRow {
   reportedAt: string;
   resolved?: boolean;
   resolvedAt?: string;
+  resolvedNote?: string;
 }
 
 interface SpecialPreset {
@@ -59,6 +61,15 @@ interface TimelineRow {
   checkin?: Checkin;
   status: TimelineStatus;
   scheduledAt?: string;
+}
+
+interface DetailModalState {
+  title: React.ReactNode;
+  tone?: 'default' | 'danger' | 'warning' | 'success';
+  meta?: React.ReactNode;
+  chips?: React.ReactNode;
+  body?: React.ReactNode;
+  actions?: React.ReactNode;
 }
 
 const DEFAULT_PRESETS: SpecialPreset[] = [
@@ -220,12 +231,14 @@ function RecordCard({
   chips,
   tone = 'default',
   actions,
+  onClick,
 }: {
   title: React.ReactNode;
   meta?: React.ReactNode;
   chips?: React.ReactNode;
   tone?: 'default' | 'danger' | 'warning' | 'success';
   actions?: React.ReactNode;
+  onClick?: () => void;
 }) {
   const toneStyle: Record<string, React.CSSProperties> = {
     default: { border: '1px solid rgba(15,23,42,0.06)', background: 'rgba(255,255,255,0.65)' },
@@ -235,13 +248,16 @@ function RecordCard({
   };
 
   return (
-    <div style={{ borderRadius: '16px', padding: '14px', display: 'grid', gap: '10px', ...toneStyle[tone] }}>
+    <div
+      onClick={onClick}
+      style={{ borderRadius: '16px', padding: '14px', display: 'grid', gap: '10px', ...toneStyle[tone], cursor: onClick ? 'pointer' : 'default' }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0, flex: '1 1 240px' }}>
           <div style={{ fontWeight: 700, lineHeight: 1.4 }}>{title}</div>
           {meta && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.6 }}>{meta}</div>}
         </div>
-        {actions && <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>{actions}</div>}
+        {actions && <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>{actions}</div>}
       </div>
       {chips && <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{chips}</div>}
     </div>
@@ -273,6 +289,7 @@ export function AdminPage() {
   const [selfReports, setSelfReports] = useState<SelfReportRow[]>([]);
   const [incidents, setIncidents] = useState<IncidentRow[]>([]);
   const [specialPresets, setSpecialPresets] = useState<SpecialPreset[]>(DEFAULT_PRESETS);
+  const [detailModal, setDetailModal] = useState<DetailModalState | null>(null);
 
   const [specialForm, setSpecialForm] = useState({ icon: '📌', name: '', note: '' });
   const [catForm, setCatForm] = useState<CatProfile>({ name: catName, breed: '', birthdate: '', notes: '' });
@@ -382,6 +399,9 @@ export function AdminPage() {
   const pendingCount = Math.max(totalCount - doneCount - skipCount, 0);
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
   const latestWeight = weights.length ? weights[weights.length - 1] : null;
+  const previousWeight = weights.length > 1 ? weights[weights.length - 2] : null;
+  const weightDelta = latestWeight && previousWeight ? Number((latestWeight.catWeight - previousWeight.catWeight).toFixed(2)) : null;
+  const recentWeightAverage = weights.length ? Number((weights.slice(-5).reduce((sum, row) => sum + row.catWeight, 0) / Math.min(weights.length, 5)).toFixed(2)) : null;
   const todayDoneSpecial = adhoc.filter((row) => row.done && row.doneAt?.slice(0, 10) === todayLocal());
   const pendingSpecial = adhoc.filter((row) => !row.done);
   const selectedDateSpecial = adhoc.filter((row) => row.done && row.doneAt?.slice(0, 10) === recordsDate);
@@ -393,10 +413,10 @@ export function AdminPage() {
     const rows = visibleTasks.map((task) => {
       const checkin = todayCheckinMap.get(task.id);
       const scheduledAt = task.scheduledTimes?.[0] || '';
-      const status: TimelineStatus = checkin ? (checkin.isDone ? 'done' : 'skip') : 'pending';
+      const status = getTaskStatus(checkin, task.scheduledTimes);
       return { task, checkin, scheduledAt, status };
     });
-    const order = { pending: 0, skip: 1, done: 2 };
+    const order = { overdue: 0, pending: 1, skip: 2, done: 3 } satisfies Record<TimelineStatus, number>;
     return rows.sort((a, b) => {
       const diff = order[a.status] - order[b.status];
       if (diff !== 0) return diff;
@@ -404,12 +424,24 @@ export function AdminPage() {
     });
   }, [todayCheckinMap, visibleTasks]);
 
+  const overdueCount = timelineRows.filter((row) => row.status === 'overdue').length;
+  const pendingFreshCount = timelineRows.filter((row) => row.status === 'pending').length;
+  const timelineGroups = useMemo(() => ({
+    overdue: timelineRows.filter((row) => row.status === 'overdue'),
+    pending: timelineRows.filter((row) => row.status === 'pending'),
+    skip: timelineRows.filter((row) => row.status === 'skip'),
+    done: timelineRows.filter((row) => row.status === 'done'),
+  }), [timelineRows]);
+
   const completionSummary = useMemo(() => {
     if (!totalCount) return '今天沒有排程任務';
-    if (!pendingCount && !skipCount) return '所有排程任務已完成';
-    if (!pendingCount && skipCount) return `所有任務都已處理，其中 ${skipCount} 項為略過`;
-    return `${pendingCount} 項待處理${skipCount ? `，${skipCount} 項已略過` : ''}`;
-  }, [pendingCount, skipCount, totalCount]);
+    if (!pendingCount && !skipCount && !overdueCount) return '所有排程任務已完成';
+    const bits = [] as string[];
+    if (overdueCount) bits.push(`${overdueCount} 項已逾時`);
+    if (pendingFreshCount) bits.push(`${pendingFreshCount} 項待處理`);
+    if (skipCount) bits.push(`${skipCount} 項已略過`);
+    return bits.join('，');
+  }, [overdueCount, pendingCount, pendingFreshCount, skipCount, totalCount]);
 
   const flash = (text: string) => {
     setMessage(text);
@@ -540,9 +572,11 @@ export function AdminPage() {
   };
 
   const resolveIncident = async (id: string) => {
+    const note = window.prompt('可選：留下處理註記（例如已聯絡照護者、已清理）', '') ?? '';
     await withBusy(async () => {
-      await post(`/api/incidents/${id}/resolve`, {});
-      flash('已標記為處理完成');
+      await post(`/api/incidents/${id}/resolve`, { note: note.trim() });
+      flash(note.trim() ? '已標記完成並附上註記' : '已標記為處理完成');
+      setDetailModal(null);
       await Promise.all([loadRecords(recordsDate), loadOverview()]);
     });
   };
@@ -574,10 +608,13 @@ export function AdminPage() {
   };
 
   const deleteSpecialTask = async (id: string) => {
-    if (!window.confirm('刪除此特殊任務？')) return;
+    const row = adhoc.find((item) => item.id === id);
+    const label = row?.done ? '刪除此特殊任務紀錄？' : '將這個特殊任務自待辦中移除（dismiss）？';
+    if (!window.confirm(label)) return;
     await withBusy(async () => {
       await del(`/api/adhoc/${id}`);
-      flash('特殊任務已刪除');
+      flash(row?.done ? '特殊任務紀錄已刪除' : '特殊任務已移出待辦');
+      setDetailModal(null);
       await loadOverview();
       if (activeTab === 'records') await loadRecords(recordsDate);
     });
@@ -771,6 +808,14 @@ export function AdminPage() {
                               {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
                             </>
                           }
+                          onClick={() => setDetailModal({
+                            tone: 'danger',
+                            title: <>{row.hasPhoto ? '📷 ' : ''}{row.type}</>,
+                            meta: <>{toDateTime(row.reportedAt)}</>,
+                            chips: <><span style={badgeStyle('danger')}>待處理</span>{row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}</>,
+                            body: <>{row.note ? <div>說明：{row.note}</div> : <div>沒有附加說明。</div>}</>,
+                            actions: <>{row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}<ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 標記完成</ActionButton></>,
+                          })}
                           actions={
                             <>
                               {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
@@ -816,7 +861,8 @@ export function AdminPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <span style={badgeStyle('success')}>完成 {doneCount}</span>
-                  <span style={badgeStyle('warning')}>待處理 {pendingCount}</span>
+                  <span style={badgeStyle(overdueCount ? 'danger' : 'warning')}>{overdueCount ? `逾時 ${overdueCount}` : `待處理 ${pendingFreshCount}`}</span>
+                  {pendingFreshCount > 0 && <span style={badgeStyle('warning')}>待處理 {pendingFreshCount}</span>}
                   {skipCount > 0 && <span style={badgeStyle('neutral')}>略過 {skipCount}</span>}
                   <button onClick={() => setRefreshKey((value) => value + 1)} style={subtleButton}>🔄 重新整理</button>
                 </div>
@@ -825,7 +871,7 @@ export function AdminPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
                 {[
                   { label: '完成率', value: `${pct}%`, tone: 'success' as const },
-                  { label: '待處理', value: pendingCount, tone: 'warning' as const },
+                  { label: '逾時 / 待處理', value: `${overdueCount}/${pendingFreshCount}`, tone: overdueCount ? 'danger' as const : 'warning' as const },
                   { label: '今日特殊任務完成', value: todayDoneSpecial.length, tone: 'purple' as const },
                   { label: '未完成特殊任務', value: pendingSpecial.length, tone: 'neutral' as const },
                 ].map((item) => (
@@ -844,61 +890,76 @@ export function AdminPage() {
                   <div style={{ fontWeight: 800 }}>⏱️ 任務時間線</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>待處理會置頂，已完成與略過往下收斂，資訊層級更接近舊版 admin 的掃描感。</div>
                 </div>
-                <span style={badgeStyle(pendingCount ? 'warning' : 'success')}>
-                  {pendingCount ? `${pendingCount} 項優先處理` : '全部已處理'}
+                <span style={badgeStyle(overdueCount ? 'danger' : pendingFreshCount ? 'warning' : 'success')}>
+                  {overdueCount ? `${overdueCount} 項已逾時` : pendingFreshCount ? `${pendingFreshCount} 項待處理` : '全部已處理'}
                 </span>
               </div>
 
               {timelineRows.length ? (
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  {timelineRows.map((row) => {
-                    const isPending = row.status === 'pending';
-                    const isSkip = row.status === 'skip';
-                    const statusLabel = isPending ? '待處理' : isSkip ? '已略過' : '已完成';
-                    const tone = isPending ? 'warning' : isSkip ? 'neutral' : 'success';
-                    return (
-                      <div
-                        key={row.task.id}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'auto 1fr auto',
-                          gap: '12px',
-                          alignItems: 'flex-start',
-                          padding: '14px',
-                          borderRadius: '18px',
-                          border: isPending
-                            ? '1px solid rgba(245,158,11,0.24)'
-                            : isSkip
-                              ? '1px solid rgba(61,44,53,0.10)'
-                              : '1px solid rgba(74,222,128,0.22)',
-                          background: isPending
-                            ? 'rgba(245,158,11,0.06)'
-                            : isSkip
-                              ? 'rgba(61,44,53,0.03)'
-                              : 'rgba(74,222,128,0.05)',
-                        }}
-                      >
-                        <div style={{ width: '36px', height: '36px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: '#fff', boxShadow: '0 4px 12px rgba(15,23,42,0.08)', fontSize: '1.1rem' }}>
-                          {row.task.icon || '📋'}
-                        </div>
-                        <div>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div style={{ fontWeight: 700 }}>{row.task.name}</div>
-                            <span style={badgeStyle(tone)}>{statusLabel}</span>
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.6 }}>
-                            預定 {(row.task.scheduledTimes || []).join(' / ') || '—'}
-                            {row.checkin?.time ? ` · ${row.checkin.isDone ? '完成' : '略過'}時間 ${toClock(row.checkin.time)}` : ''}
-                            {row.checkin?.result ? ` · ${row.checkin.result}` : ''}
-                            {row.checkin?.note ? ` · ${row.checkin.note}` : ''}
-                          </div>
-                        </div>
-                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>
-                          {row.scheduledAt || '—'}
-                        </div>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {[
+                    { key: 'overdue', label: '⚠️ 已逾時', tone: 'danger' as const, rows: timelineGroups.overdue },
+                    { key: 'pending', label: '🕓 待處理', tone: 'warning' as const, rows: timelineGroups.pending },
+                    { key: 'skip', label: '⏭️ 已略過', tone: 'neutral' as const, rows: timelineGroups.skip },
+                    { key: 'done', label: '✅ 已完成', tone: 'success' as const, rows: timelineGroups.done },
+                  ].filter((group) => group.rows.length).map((group) => (
+                    <div key={group.key} style={{ display: 'grid', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: 700 }}>{group.label}</div>
+                        <span style={badgeStyle(group.tone)}>{group.rows.length} 項</span>
                       </div>
-                    );
-                  })}
+                      {group.rows.map((row) => {
+                        const statusLabel = row.status === 'overdue' ? '已逾時' : row.status === 'pending' ? '待處理' : row.status === 'skip' ? '已略過' : '已完成';
+                        const tone = row.status === 'overdue' ? 'danger' : row.status === 'pending' ? 'warning' : row.status === 'skip' ? 'neutral' : 'success';
+                        return (
+                          <div
+                            key={row.task.id}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'auto 1fr auto',
+                              gap: '12px',
+                              alignItems: 'flex-start',
+                              padding: '14px',
+                              borderRadius: '18px',
+                              border: row.status === 'overdue'
+                                ? '1px solid rgba(248,113,113,0.28)'
+                                : row.status === 'pending'
+                                  ? '1px solid rgba(245,158,11,0.24)'
+                                  : row.status === 'skip'
+                                    ? '1px solid rgba(61,44,53,0.10)'
+                                    : '1px solid rgba(74,222,128,0.22)',
+                              background: row.status === 'overdue'
+                                ? 'rgba(248,113,113,0.06)'
+                                : row.status === 'pending'
+                                  ? 'rgba(245,158,11,0.06)'
+                                  : row.status === 'skip'
+                                    ? 'rgba(61,44,53,0.03)'
+                                    : 'rgba(74,222,128,0.05)',
+                            }}
+                          >
+                            <div style={{ width: '36px', height: '36px', borderRadius: '12px', display: 'grid', placeItems: 'center', background: '#fff', boxShadow: '0 4px 12px rgba(15,23,42,0.08)', fontSize: '1.1rem' }}>
+                              {row.task.icon || '📋'}
+                            </div>
+                            <div>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ fontWeight: 700 }}>{row.task.name}</div>
+                                <span style={badgeStyle(tone)}>{statusLabel}</span>
+                              </div>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.6 }}>
+                                預定 {(row.task.scheduledTimes || []).join(' / ') || '—'}
+                                {row.checkin?.time ? ` · ${row.checkin.isDone ? '完成' : '略過'}時間 ${toClock(row.checkin.time)}` : ''}
+                                {row.checkin?.result ? ` · ${row.checkin.result}` : ''}
+                                {row.checkin?.note ? ` · ${row.checkin.note}` : ''}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>
+                              {row.scheduledAt || '—'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <EmptyState title="今天沒有可顯示的排程任務" subtitle="如果剛更新任務排程，重新整理後會同步顯示。" />
@@ -934,6 +995,14 @@ export function AdminPage() {
                     title={<>{row.icon} {row.name}</>}
                     meta={<>{toDateTime(row.createdAt)}{row.note ? ` · ${row.note}` : ''}</>}
                     chips={<span style={badgeStyle('warning')}>待完成</span>}
+                    onClick={() => setDetailModal({
+                      tone: 'warning',
+                      title: <>{row.icon} {row.name}</>,
+                      meta: <>{toDateTime(row.createdAt)}</>,
+                      chips: <><span style={badgeStyle('warning')}>待完成</span></>,
+                      body: <div>派發備註：{row.note || '—'}</div>,
+                      actions: <ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 移出待辦</ActionButton>,
+                    })}
                     actions={<ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 刪除</ActionButton>}
                   />
                 )) : <EmptyState title="目前沒有待完成的特殊任務" subtitle="這區塊會凸顯尚未被照護者完成的派發項目。" />}
@@ -982,6 +1051,14 @@ export function AdminPage() {
                             {!!task.scheduledTimes?.length && <span style={badgeStyle('neutral')}>預定 {(task.scheduledTimes || []).join(' / ')}</span>}
                           </>
                         }
+                        onClick={() => setDetailModal({
+                          tone: row.isDone ? 'success' : 'default',
+                          title: <>{task.icon || '📋'} {task.name}</>,
+                          meta: <>{toDateTime(row.time)}</>,
+                          chips: <><span style={badgeStyle(row.isDone ? 'success' : 'neutral')}>{row.isDone ? '完成' : '略過'}</span>{row.result && <span style={badgeStyle('purple')}>{row.result}</span>}</>,
+                          body: <div style={{ display: 'grid', gap: '8px' }}><div>預定時間：{(task.scheduledTimes || []).join(' / ') || '—'}</div><div>備註：{row.note || '—'}</div></div>,
+                          actions: <ActionButton tone="danger" onClick={() => deleteCheckin(row.taskId)}>🗑 刪除</ActionButton>,
+                        })}
                         actions={<ActionButton tone="danger" onClick={() => deleteCheckin(row.taskId)}>🗑 刪除</ActionButton>}
                       />
                     );
@@ -1007,6 +1084,14 @@ export function AdminPage() {
                       title={<>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>}
                       meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
                       chips={<span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>}
+                      onClick={() => setDetailModal({
+                        tone: 'warning',
+                        title: <>{row.icon || '📝'} {row.title}</>,
+                        meta: <>{toDateTime(row.reportedAt)}</>,
+                        chips: <><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>{row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}</>,
+                        body: <div>備註：{row.note || '—'}</div>,
+                        actions: <ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>,
+                      })}
                       actions={<ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>}
                     />
                   ))}
@@ -1036,6 +1121,13 @@ export function AdminPage() {
                           {row.doneNote && <span style={badgeStyle('success')}>完成：{row.doneNote}</span>}
                         </>
                       }
+                      onClick={() => setDetailModal({
+                        title: <>{row.icon} {row.name}</>,
+                        meta: <>{toDateTime(row.doneAt)}</>,
+                        chips: <><span style={badgeStyle('success')}>已完成</span></>,
+                        body: <div style={{ display: 'grid', gap: '8px' }}><div>派發備註：{row.note || '—'}</div><div>完成備註：{row.doneNote || '—'}</div></div>,
+                        actions: <ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 刪除</ActionButton>,
+                      })}
                       actions={<ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 刪除</ActionButton>}
                     />
                   ))}
@@ -1067,6 +1159,14 @@ export function AdminPage() {
                           {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
                         </>
                       }
+                      onClick={() => setDetailModal({
+                        tone: row.resolved ? 'success' : 'danger',
+                        title: <>{row.resolved ? '✅' : '🆘'} {row.type}</>,
+                        meta: <>{toDateTime(row.reportedAt)}</>,
+                        chips: <><span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>{row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}</>,
+                        body: <div style={{ display: 'grid', gap: '8px' }}><div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}</div>,
+                        actions: <>{row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}{!row.resolved && <ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 處理</ActionButton>}<ActionButton tone="danger" onClick={() => deleteIncident(row.id)}>🗑 刪除</ActionButton></>,
+                      })}
                       actions={
                         <>
                           {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
@@ -1083,42 +1183,51 @@ export function AdminPage() {
         )}
 
         {activeTab === 'weights' && (
-          <div style={sectionCard}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
-              <div>
-                <div style={{ fontWeight: 800 }}>⚖️ 體重紀錄</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>沿用既有 /api/weights 資料</div>
+          <div style={{ display: 'grid', gap: '14px' }}>
+            <div style={{ ...sectionCard, display: 'grid', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>⚖️ 體重紀錄</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>補回舊版強調的最新值、前次差異與近期平均。</div>
+                </div>
+                <button onClick={() => loadWeights()} style={subtleButton}>🔄 刷新</button>
               </div>
-              <button onClick={() => loadWeights()} style={subtleButton}>🔄 刷新</button>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+                {[
+                  { label: '最新體重', value: latestWeight ? `${latestWeight.catWeight} kg` : '—', sub: latestWeight ? toDateTime(latestWeight.measuredAt) : '尚未記錄' },
+                  { label: '與前次差異', value: weightDelta == null ? '—' : `${weightDelta > 0 ? '+' : ''}${weightDelta} kg`, sub: previousWeight ? `${previousWeight.catWeight} kg → ${latestWeight?.catWeight} kg` : '至少需要 2 筆紀錄' },
+                  { label: '近 5 筆平均', value: recentWeightAverage == null ? '—' : `${recentWeightAverage} kg`, sub: weights.length ? `共 ${weights.length} 筆紀錄` : '尚未記錄' },
+                ].map((item) => (
+                  <div key={item.label} style={{ borderRadius: '16px', padding: '12px', background: 'rgba(61,44,53,0.03)', border: '1px solid rgba(61,44,53,0.04)' }}>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{item.label}</div>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{item.value}</div>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>{item.sub}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            {weights.length ? (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ color: 'var(--text-muted)' }}>
-                      <th style={{ padding: '8px 6px' }}>日期</th>
-                      <th style={{ padding: '8px 6px' }}>人重</th>
-                      <th style={{ padding: '8px 6px' }}>抱貓重</th>
-                      <th style={{ padding: '8px 6px' }}>{catName} 體重</th>
-                      <th style={{ padding: '8px 6px' }}>備註</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...weights].reverse().map((row) => (
-                      <tr key={row.id || row.measuredAt} style={{ borderTop: '1px solid rgba(15,23,42,0.05)' }}>
-                        <td style={{ padding: '8px 6px' }}>{toDateTime(row.measuredAt)}</td>
-                        <td style={{ padding: '8px 6px' }}>{row.personWeight} kg</td>
-                        <td style={{ padding: '8px 6px' }}>{row.carryWeight} kg</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: 'var(--primary)' }}>{row.catWeight} kg</td>
-                        <td style={{ padding: '8px 6px', color: 'var(--text-muted)' }}>{row.note || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <EmptyState title="目前沒有體重紀錄" subtitle="照護者完成體重任務後，這裡會自動累積記錄。" />
-            )}
+            <div style={sectionCard}>
+              {weights.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {[...weights].reverse().map((row) => (
+                    <RecordCard
+                      key={row.id || row.measuredAt}
+                      title={<>{catName} {row.catWeight} kg</>}
+                      meta={<>{toDateTime(row.measuredAt)}</>}
+                      chips={<><span style={badgeStyle('purple')}>人重 {row.personWeight} kg</span><span style={badgeStyle('neutral')}>抱貓重 {row.carryWeight} kg</span></>}
+                      onClick={() => setDetailModal({
+                        title: <>{catName} 體重紀錄</>,
+                        meta: <>{toDateTime(row.measuredAt)}</>,
+                        chips: <><span style={badgeStyle('purple')}>{row.catWeight} kg</span></>,
+                        body: <div style={{ display: 'grid', gap: '8px' }}><div>人重：{row.personWeight} kg</div><div>抱貓重：{row.carryWeight} kg</div><div>備註：{row.note || '—'}</div></div>,
+                      })}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="目前沒有體重紀錄" subtitle="照護者完成體重任務後，這裡會自動累積記錄。" />
+              )}
+            </div>
           </div>
         )}
 
@@ -1349,6 +1458,24 @@ export function AdminPage() {
           </div>
         )}
       </div>
+
+      {detailModal && (
+        <div onClick={() => setDetailModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(29, 19, 28, 0.48)', backdropFilter: 'blur(10px)', display: 'grid', alignItems: 'end', zIndex: 40 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '18px 16px 22px', boxShadow: '0 -18px 40px rgba(15,23,42,0.18)', display: 'grid', gap: '12px' }}>
+            <div style={{ width: '42px', height: '4px', borderRadius: '999px', background: 'rgba(61,44,53,0.14)', margin: '0 auto' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '1rem', fontWeight: 800, lineHeight: 1.4 }}>{detailModal.title}</div>
+                {detailModal.meta && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.6 }}>{detailModal.meta}</div>}
+              </div>
+              <button onClick={() => setDetailModal(null)} style={{ ...subtleButton, padding: '6px 10px' }}>關閉</button>
+            </div>
+            {detailModal.chips && <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{detailModal.chips}</div>}
+            {detailModal.body && <div style={{ borderRadius: '16px', padding: '12px', background: 'rgba(61,44,53,0.03)', color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.7 }}>{detailModal.body}</div>}
+            {detailModal.actions && <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{detailModal.actions}</div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
