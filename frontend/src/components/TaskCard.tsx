@@ -2,12 +2,16 @@ import { useState } from 'react';
 import type { Task, Checkin } from '../store/useAppStore';
 import { post } from '../api/client';
 import { useAppStore } from '../store/useAppStore';
+import { useT } from '../i18n';
 import { confetti } from '../utils/confetti';
 import { WeightPanel } from './WeightPanel';
 import {
   getTaskStatus,
-  STATUS_LABEL, STATUS_COLOR, STATUS_BG,
-  STATUS_BADGE_BG, STATUS_BADGE_COLOR,
+  getStatusLabel,
+  STATUS_COLOR,
+  STATUS_BG,
+  STATUS_BADGE_BG,
+  STATUS_BADGE_COLOR,
 } from '../utils/taskStatus';
 
 interface TaskCardProps {
@@ -24,11 +28,11 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const lang = useAppStore((s) => s.lang);
+  const t = useT(lang);
 
   const isWeight = task.type === 'weight';
-
   const status = getTaskStatus(checkin, task.scheduledTimes);
-  const statusLabel = STATUS_LABEL[status];
+  const statusLabel = getStatusLabel(status, t);
 
   const handleSubmit = async () => {
     if (isDone === null) return;
@@ -46,7 +50,7 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
       if (isDone) confetti();
       onCheckinUpdate();
     } catch {
-      alert('提交失敗，請重試');
+      alert(t('incidentSubmitFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -63,12 +67,8 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
         ? '0 2px 12px rgba(245,158,11,0.2)'
         : '0 2px 12px rgba(255,133,161,0.1)',
     }}>
-      {/* Header */}
       <div
-        style={{
-          display: 'flex', alignItems: 'center', gap: '14px',
-          padding: '14px 16px', cursor: 'pointer',
-        }}
+        style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', cursor: 'pointer' }}
         onClick={() => setOpen((o) => !o)}
       >
         <div style={{
@@ -88,21 +88,19 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
             {task.scheduledTimes?.[0] || ''}
             {checkin?.time && (
               <span style={{ color: checkin.isDone ? '#4ade80' : '#e8679a', marginLeft: '6px', fontWeight: 600 }}>
-                {checkin.isDone ? '✔' : '⏭'} {new Date(checkin.time).toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' })}
+                {checkin.isDone ? '✔' : '⏭'} {new Date(checkin.time).toLocaleTimeString(lang === 'en' ? 'en-CA' : 'zh-HK', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
           </div>
         </div>
         <div style={{
           padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600,
-          background: STATUS_BADGE_BG[status],
-          color: STATUS_BADGE_COLOR[status],
+          background: STATUS_BADGE_BG[status], color: STATUS_BADGE_COLOR[status],
         }}>
           {statusLabel}
         </div>
       </div>
 
-      {/* Weight task — special panel */}
       {open && isWeight && (
         <WeightPanel
           taskId={task.id}
@@ -113,29 +111,23 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
         />
       )}
 
-      {/* Normal task — expanded panel */}
       {open && !isWeight && (
         <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,133,161,0.15)', background: '#fff9fb' }}>
-          {/* Show recorded info if already checked in */}
           {checkin ? (
             <div style={{
               margin: '14px 0',
               background: checkin.isDone ? 'rgba(74,222,128,0.08)' : 'rgba(245,158,11,0.06)',
               border: `1px solid ${checkin.isDone ? 'rgba(74,222,128,0.25)' : 'rgba(245,158,11,0.25)'}`,
-              borderRadius: '12px',
-              padding: '12px 14px',
+              borderRadius: '12px', padding: '12px 14px',
             }}>
               <div style={{ fontWeight: 600, marginBottom: '4px' }}>
-                {checkin.isDone ? '✅ 已完成' : '⏭️ 已略過'}
+                {checkin.isDone ? t('statusDone') : t('statusSkip')}
                 {checkin.result && <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '8px', fontSize: '0.85rem' }}>{checkin.result}</span>}
               </div>
-              {checkin.note && (
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>📝 {checkin.note}</div>
-              )}
+              {checkin.note && <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>📝 {checkin.note}</div>}
             </div>
           ) : (
             <>
-              {/* Done / Skip toggle */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', margin: '14px 0' }}>
                 <button
                   onClick={() => setIsDone(true)}
@@ -146,7 +138,7 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
                     color: isDone === true ? '#3aaa63' : 'var(--text-secondary)',
                     fontFamily: 'var(--font)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer',
                   }}
-                >✅ 完成</button>
+                >{t('doneBtn')}</button>
                 <button
                   onClick={() => setIsDone(false)}
                   style={{
@@ -156,10 +148,9 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
                     color: isDone === false ? '#e05555' : 'var(--text-secondary)',
                     fontFamily: 'var(--font)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer',
                   }}
-                >⏭️ 略過</button>
+                >{t('skipBtn')}</button>
               </div>
 
-              {/* Result options */}
               {task.resultOptions && task.resultOptions.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
                   {task.resultOptions.map((opt) => (
@@ -174,28 +165,25 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
                         fontFamily: 'var(--font)', fontSize: '0.82rem', fontWeight: 500, cursor: 'pointer',
                       }}
                     >
-                      {opt.label}
+                      {lang === 'en' && 'labelEn' in opt && typeof opt.labelEn === 'string' && opt.labelEn ? opt.labelEn : opt.label}
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Note */}
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="備註（選填）"
+                placeholder={t('noteOptional')}
                 rows={2}
                 style={{
                   width: '100%', padding: '10px 14px',
                   background: 'var(--bg-card2)', border: '1px solid var(--glass-border)',
                   borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)',
-                  fontFamily: 'var(--font)', fontSize: '0.9rem',
-                  resize: 'none', marginBottom: '14px',
+                  fontFamily: 'var(--font)', fontSize: '0.9rem', resize: 'none', marginBottom: '14px',
                 }}
               />
 
-              {/* Submit / Cancel */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <button
                   onClick={handleSubmit}
@@ -207,7 +195,7 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
                     fontWeight: 600, cursor: 'pointer', opacity: isDone === null ? 0.5 : 1,
                   }}
                 >
-                  {submitting ? '⏳ 提交中...' : '✅ 確認提交'}
+                  {submitting ? t('submitting') : t('submitBtn')}
                 </button>
                 <button
                   onClick={() => setOpen(false)}
@@ -217,13 +205,12 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
                     color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer',
                   }}
                 >
-                  取消
+                  {t('cancelBtn')}
                 </button>
               </div>
             </>
           )}
 
-          {/* Close button for already-checked-in tasks */}
           {checkin && (
             <button
               onClick={() => setOpen(false)}
@@ -234,7 +221,7 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
                 cursor: 'pointer', marginTop: '8px',
               }}
             >
-              關閉
+              {t('closeBtn')}
             </button>
           )}
         </div>

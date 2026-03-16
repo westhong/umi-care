@@ -32,6 +32,7 @@ export interface Settings {
   lastPersonWeight: number;
   catName: string;
   appVersion?: string;
+  adminGranularTimeGrouping?: boolean;
 }
 
 export interface AdhocRequest {
@@ -116,7 +117,7 @@ const urlLang = new URL(location.href).searchParams.get('lang');
 export const useAppStore = create<AppState>((set) => ({
   tasks: [],
   checkins: [],
-  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.1.2' },
+  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.3.0', adminGranularTimeGrouping: false },
   cat: { name: '屋咪' },
   catName: '屋咪',
   weightsList: [],

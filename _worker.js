@@ -134,12 +134,38 @@ async function handleApi(request, env, url) {
     if (path === '/settings') {
       if (method === 'GET') {
         const raw = await KV.get('settings');
-        return json(raw ? JSON.parse(raw) : DEFAULT_SETTINGS);
+        return json(normalizeSettings(raw ? JSON.parse(raw) : {}));
       }
       if (method === 'POST') {
         const body = await request.json();
-        await KV.put('settings', JSON.stringify(body));
+        await KV.put('settings', JSON.stringify(normalizeSettings(body)));
         return json({ ok: true });
+      }
+    }
+
+    if (path === '/resolution-templates') {
+      if (method === 'GET') {
+        const raw = await KV.get('resolution:templates');
+        const list = raw ? JSON.parse(raw) : [];
+        return json(Array.isArray(list) && list.length ? list : DEFAULT_RESOLUTION_TEMPLATES);
+      }
+      if (method === 'POST') {
+        const body = await request.json();
+        if (!Array.isArray(body)) return json({ error: 'array required' }, 400);
+        const cleaned = body
+          .map((item, index) => ({
+            id: String(item?.id || `template_${Date.now()}_${index}`)
+              .trim()
+              .toLowerCase()
+              .replace(/[^a-z0-9_-]+/g, '_')
+              .replace(/^_+|_+$/g, ''),
+            label: String(item?.label || '').trim(),
+            note: String(item?.note || '').trim(),
+          }))
+          .filter((item) => item.id && item.label && item.note);
+        if (!cleaned.length) return json({ error: 'at least one valid template required' }, 400);
+        await KV.put('resolution:templates', JSON.stringify(cleaned));
+        return json({ ok: true, templates: cleaned });
       }
     }
 
@@ -245,7 +271,7 @@ async function handleApi(request, env, url) {
         if (list.length > 365) list.splice(0, list.length - 365);
         await KV.put('weights:list', JSON.stringify(list));
         const sRaw = await KV.get('settings');
-        const settings = sRaw ? JSON.parse(sRaw) : DEFAULT_SETTINGS;
+        const settings = normalizeSettings(sRaw ? JSON.parse(sRaw) : {});
         settings.lastPersonWeight = personWeight;
         await KV.put('settings', JSON.stringify(settings));
         return json({ ok: true, record });
@@ -949,6 +975,39 @@ async function handlePushApi(path, method, request, env) {
     const overdue = [];
     for (const task of activeTasks) {
       if (doneIds.has(task.id)) continue;
+      const times = task.scheduledTimes || [];
+      for (const t of times) {
+        const [th, tm] = t.split(':').map(Number);
+        const taskMin = th * 60 + tm;
+        if (calgaryTotalMin >= taskMin) { overdue.push({ id: task.id, name: task.name, time: t }); break; }
+      }
+    }
+
+    let pushResult = null;
+    if (overdue.length > 0) {
+      const firstName = overdue[0].name;
+      const body = overdue.length === 1 ? `${firstName} 尚未完成，請盡快記錄！` : `${firstName}，還有 ${overdue.length} 項任務尚未完成`;
+      try {
+        pushResult = await sendWebPush(env, sub, { title: `🐾 ${catName} 照護提醒 (simulate)`, body, tag: 'umicare-reminder', icon: '/icon-192.png' });
+      } catch(e) { pushResult = { error: e.message }; }
+    }
+
+    return json({
+      calgaryTime: `${calgaryHour}:${String(calgaryMin).padStart(2,'0')}`,
+      isDST,
+      calgaryDate: today,  // now Calgary local date
+      catName,
+      totalTasks: activeTasks.length,
+      doneToday: checkins.length,
+      overdueCount: overdue.length,
+      overdueTasks: overdue,
+      pushResult,
+    });
+  }
+
+  return null;
+}
+    if (doneIds.has(task.id)) continue;
       const times = task.scheduledTimes || [];
       for (const t of times) {
         const [th, tm] = t.split(':').map(Number);

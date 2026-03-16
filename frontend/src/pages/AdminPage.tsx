@@ -76,6 +76,12 @@ interface SpecialPreset {
   note?: string;
 }
 
+interface ResolutionTemplate {
+  id: string;
+  label: string;
+  note: string;
+}
+
 interface TimelineRow {
   task: Task;
   checkin?: Checkin;
@@ -178,7 +184,7 @@ function getSeverityBadge(severity?: string) {
   return <span style={badgeStyle(config.tone)}>🚨 {config.label}</span>;
 }
 
-const RESOLUTION_TEMPLATES = [
+const DEFAULT_RESOLUTION_TEMPLATES: ResolutionTemplate[] = [
   { id: 'monitor', label: '持續觀察', note: '已知悉，將持續觀察狀況變化' },
   { id: 'vet_contact', label: '聯絡獸醫', note: '已聯絡獸醫諮詢，待進一步指示' },
   { id: 'med_given', label: '已給藥', note: '已按處方給予藥物' },
@@ -353,11 +359,13 @@ export function AdminPage() {
   const [selfReports, setSelfReports] = useState<SelfReportRow[]>([]);
   const [incidents, setIncidents] = useState<IncidentRow[]>([]);
   const [specialPresets, setSpecialPresets] = useState<SpecialPreset[]>(DEFAULT_PRESETS);
+  const [resolutionTemplates, setResolutionTemplates] = useState<ResolutionTemplate[]>(DEFAULT_RESOLUTION_TEMPLATES);
   const [detailModal, setDetailModal] = useState<DetailModalState | null>(null);
   const [recordsFilter, setRecordsFilter] = useState<'all' | 'attention' | 'checkins' | 'reports' | 'incidents' | 'special'>('all');
   const [granularTime, setGranularTime] = useState(false);
 
   const [specialForm, setSpecialForm] = useState({ icon: '📌', name: '', note: '' });
+  const [templateDraft, setTemplateDraft] = useState<ResolutionTemplate>({ id: '', label: '', note: '' });
   const [catForm, setCatForm] = useState<CatProfile>({ name: catName, breed: '', birthdate: '', notes: '' });
   const [pinForm, setPinForm] = useState({ oldPin: '', newPin: '' });
   const [taskForm, setTaskForm] = useState<{
@@ -440,9 +448,14 @@ export function AdminPage() {
     setSpecialPresets(Array.isArray(presetData) && presetData.length ? presetData : DEFAULT_PRESETS);
   }, []);
 
+  const loadResolutionTemplates = useCallback(async () => {
+    const templateData = await get<ResolutionTemplate[]>('/api/resolution-templates').catch(() => DEFAULT_RESOLUTION_TEMPLATES);
+    setResolutionTemplates(Array.isArray(templateData) && templateData.length ? templateData : DEFAULT_RESOLUTION_TEMPLATES);
+  }, []);
+
   useEffect(() => {
-    Promise.all([loadBaseData(), loadOverview(), loadWeights(), loadSpecialPresets()]).catch(() => undefined);
-  }, [loadBaseData, loadOverview, loadWeights, loadSpecialPresets, refreshKey]);
+    Promise.all([loadBaseData(), loadOverview(), loadWeights(), loadSpecialPresets(), loadResolutionTemplates()]).catch(() => undefined);
+  }, [loadBaseData, loadOverview, loadWeights, loadSpecialPresets, loadResolutionTemplates, refreshKey]);
 
   useEffect(() => {
     if (activeTab === 'records') {
@@ -583,16 +596,16 @@ export function AdminPage() {
           <span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>
           {row.severity && getSeverityBadge(row.severity)}
           {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
-          {row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</span>}
+          {row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{resolutionTemplates.find((t) => t.id === row.resolutionTemplate)?.label}</span>}
         </>,
-      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>嚴重程度：{row.severity ? getSeverityBadge(row.severity) : '未標記'}</div><div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}{row.resolutionTemplate ? <div>使用範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</div> : null}</div>,
+      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>嚴重程度：{row.severity ? getSeverityBadge(row.severity) : '未標記'}</div><div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}{row.resolutionTemplate ? <div>使用範本：{resolutionTemplates.find((t) => t.id === row.resolutionTemplate)?.label}</div> : null}</div>,
       actions: <>
         {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
         {!row.resolved && (
           <div style={{ display: 'grid', gap: '8px', width: '100%' }}>
             <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>快速處理範本：</div>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              {RESOLUTION_TEMPLATES.map((tpl) => (
+              {resolutionTemplates.map((tpl) => (
                 <ActionButton key={tpl.id} tone="success" onClick={() => resolveIncident(row.id, tpl.id)}>
                   {tpl.label}
                 </ActionButton>
@@ -789,14 +802,14 @@ export function AdminPage() {
   const resolveIncident = async (id: string, template?: string) => {
     let note = '';
     if (template) {
-      const tpl = RESOLUTION_TEMPLATES.find((t) => t.id === template);
+      const tpl = resolutionTemplates.find((t) => t.id === template);
       note = tpl?.note || '';
     } else {
       note = window.prompt('可選：留下處理註記（例如已聯絡照護者、已清理）', '') ?? '';
     }
     await withBusy(async () => {
       await post(`/api/incidents/${id}/resolve`, { note: note.trim(), template });
-      flash(template ? `已使用範本「${RESOLUTION_TEMPLATES.find((t) => t.id === template)?.label}」標記完成` : (note.trim() ? '已標記完成並附上註記' : '已標記為處理完成'));
+      flash(template ? `已使用範本「${resolutionTemplates.find((t) => t.id === template)?.label}」標記完成` : (note.trim() ? '已標記完成並附上註記' : '已標記為處理完成'));
       setDetailModal(null);
       await Promise.all([loadRecords(recordsDate), loadOverview()]);
     });
@@ -865,11 +878,75 @@ export function AdminPage() {
       const nextSettings = {
         ...settings,
         catName: catForm.name.trim() || catName,
+        adminGranularTimeGrouping: granularTime,
       } as Settings;
       await post('/api/settings', nextSettings);
       setSettings(nextSettings);
       flash('設定已更新');
     });
+  };
+
+  const persistGranularTimeSetting = async (checked: boolean) => {
+    setGranularTime(checked);
+    const nextSettings = {
+      ...settings,
+      catName: catForm.name.trim() || catName,
+      adminGranularTimeGrouping: checked,
+    } as Settings;
+    try {
+      await post('/api/settings', nextSettings);
+      setSettings(nextSettings);
+      flash(checked ? '已切換為細粒度時間分組' : '已切換為預設時間分組');
+    } catch {
+      setGranularTime(!!settings?.adminGranularTimeGrouping);
+      flash('時間分組偏好儲存失敗');
+    }
+  };
+
+  const resetTemplateDraft = () => {
+    setTemplateDraft({ id: '', label: '', note: '' });
+  };
+
+  const saveResolutionTemplates = async (nextTemplates: ResolutionTemplate[], successMessage: string) => {
+    await withBusy(async () => {
+      await post('/api/resolution-templates', nextTemplates);
+      setResolutionTemplates(nextTemplates);
+      flash(successMessage);
+      resetTemplateDraft();
+      await loadResolutionTemplates();
+    });
+  };
+
+  const addResolutionTemplate = async () => {
+    const label = templateDraft.label.trim();
+    const note = templateDraft.note.trim();
+    if (!label || !note) {
+      flash('請先填好範本名稱與內容');
+      return;
+    }
+    const id = (templateDraft.id.trim() || label)
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    if (!id) {
+      flash('請輸入有效的範本代號');
+      return;
+    }
+    if (resolutionTemplates.some((template) => template.id === id)) {
+      flash('範本代號已存在，請換一個');
+      return;
+    }
+    await saveResolutionTemplates([...resolutionTemplates, { id, label, note }], '處理範本已新增');
+  };
+
+  const removeResolutionTemplate = async (id: string) => {
+    if (resolutionTemplates.length <= 1) {
+      flash('至少保留一個處理範本');
+      return;
+    }
+    const target = resolutionTemplates.find((template) => template.id === id);
+    if (!target || !window.confirm(`移除範本：${target.label}？`)) return;
+    await saveResolutionTemplates(resolutionTemplates.filter((template) => template.id !== id), '處理範本已移除');
   };
 
   const changePin = async () => {
@@ -1066,7 +1143,7 @@ export function AdminPage() {
                               <div style={{ display: 'grid', gap: '8px', width: '100%' }}>
                                 <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>快速處理範本：</div>
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                  {RESOLUTION_TEMPLATES.slice(0, 3).map((tpl) => (
+                                  {resolutionTemplates.slice(0, 3).map((tpl) => (
                                     <ActionButton key={tpl.id} tone="success" onClick={() => resolveIncident(row.id, tpl.id)}>
                                       {tpl.label}
                                     </ActionButton>
@@ -1091,7 +1168,7 @@ export function AdminPage() {
                                     <div style={{ display: 'grid', gap: '8px', width: '100%' }}>
                                       <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>快速處理範本：</div>
                                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                        {RESOLUTION_TEMPLATES.map((tpl) => (
+                                        {resolutionTemplates.map((tpl) => (
                                           <ActionButton key={tpl.id} tone="success" onClick={() => resolveIncident(row.id, tpl.id)}>
                                             {tpl.label}
                                           </ActionButton>
@@ -1428,7 +1505,7 @@ export function AdminPage() {
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={granularTime} onChange={(e) => setGranularTime(e.target.checked)} />
+                  <input type="checkbox" checked={granularTime} onChange={(e) => persistGranularTimeSetting(e.target.checked)} />
                   使用細粒度時間分組（小時級別）
                 </label>
               </div>
@@ -1625,22 +1702,22 @@ export function AdminPage() {
                           <span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>
                           {row.severity && getSeverityBadge(row.severity)}
                           {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
-                          {row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</span>}
+                          {row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{resolutionTemplates.find((t) => t.id === row.resolutionTemplate)?.label}</span>}
                         </>
                       }
                       onClick={() => setDetailModal({
                         tone: row.resolved ? 'success' : 'danger',
                         title: <>{row.resolved ? '✅' : '🆘'} {row.type}</>,
                         meta: <>{toDateTime(row.reportedAt)}</>,
-                        chips: <><span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>{row.severity && getSeverityBadge(row.severity)}{row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}{row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</span>}</>,
-                        body: <div style={{ display: 'grid', gap: '8px' }}>{row.severity && <div>嚴重程度：{getSeverityBadge(row.severity)}</div>}<div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}{row.resolutionTemplate ? <div>使用範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</div> : null}</div>,
+                        chips: <><span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>{row.severity && getSeverityBadge(row.severity)}{row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}{row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{resolutionTemplates.find((t) => t.id === row.resolutionTemplate)?.label}</span>}</>,
+                        body: <div style={{ display: 'grid', gap: '8px' }}>{row.severity && <div>嚴重程度：{getSeverityBadge(row.severity)}</div>}<div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}{row.resolutionTemplate ? <div>使用範本：{resolutionTemplates.find((t) => t.id === row.resolutionTemplate)?.label}</div> : null}</div>,
                         actions: <>
                           {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
                           {!row.resolved && (
                             <div style={{ display: 'grid', gap: '8px', width: '100%' }}>
                               <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>快速處理範本：</div>
                               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                {RESOLUTION_TEMPLATES.map((tpl) => (
+                                {resolutionTemplates.map((tpl) => (
                                   <ActionButton key={tpl.id} tone="success" onClick={() => resolveIncident(row.id, tpl.id)}>
                                     {tpl.label}
                                   </ActionButton>
@@ -1926,6 +2003,40 @@ export function AdminPage() {
                   <button onClick={saveQuickSettings} style={subtleButton}>⚙️ 同步系統設定</button>
                 </div>
               </div>
+            </div>
+
+            <div style={sectionCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>🧩 異常處理範本</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>改成由後端保存；若沒有自訂資料，系統會自動回填預設範本。</div>
+                </div>
+                <span style={badgeStyle('purple')}>{resolutionTemplates.length} 個</span>
+              </div>
+              <div style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <input value={templateDraft.label} onChange={(e) => setTemplateDraft((s) => ({ ...s, label: e.target.value, id: s.id || e.target.value }))} style={inputStyle} placeholder="範本名稱（例：聯絡獸醫）" />
+                  <input value={templateDraft.id} onChange={(e) => setTemplateDraft((s) => ({ ...s, id: e.target.value }))} style={inputStyle} placeholder="代號（英文，可選）" />
+                </div>
+                <textarea value={templateDraft.note} onChange={(e) => setTemplateDraft((s) => ({ ...s, note: e.target.value }))} rows={3} style={inputStyle} placeholder="預設處理內容" />
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button onClick={addResolutionTemplate} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>➕ 新增範本</button>
+                  <button onClick={resetTemplateDraft} style={subtleButton}>↺ 清空</button>
+                </div>
+              </div>
+              {resolutionTemplates.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {resolutionTemplates.map((template) => (
+                    <RecordCard
+                      key={template.id}
+                      title={<>{template.label}</>}
+                      meta={<>{template.note}</>}
+                      chips={<><span style={badgeStyle('neutral')}>{template.id}</span></>}
+                      actions={<ActionButton tone="danger" onClick={() => removeResolutionTemplate(template.id)}>✕ 移除</ActionButton>}
+                    />
+                  ))}
+                </div>
+              ) : <EmptyState title="尚未建立處理範本" subtitle="至少保留一個範本，異常紀錄頁才有快速處理捷徑。" />}
             </div>
 
             <div style={sectionCard}>

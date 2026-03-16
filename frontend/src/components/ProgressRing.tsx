@@ -1,3 +1,6 @@
+import { useAppStore } from '../store/useAppStore';
+import { useT } from '../i18n';
+
 interface ProgressRingProps {
   pct: number;
   done: number;
@@ -7,6 +10,8 @@ interface ProgressRingProps {
 }
 
 export function ProgressRing({ pct, done, total, catName, sub }: ProgressRingProps) {
+  const lang = useAppStore((s) => s.lang);
+  const t = useT(lang);
   const circumference = 2 * Math.PI * 33;
   const offset = circumference - (pct / 100) * circumference;
 
@@ -30,18 +35,15 @@ export function ProgressRing({ pct, done, total, catName, sub }: ProgressRingPro
               <stop offset="100%" stopColor="#ffb347" />
             </linearGradient>
           </defs>
-          <circle
-            fill="none"
-            stroke="var(--glass-border)"
-            strokeWidth="6"
-            cx="40" cy="40" r="33"
-          />
+          <circle fill="none" stroke="var(--glass-border)" strokeWidth="6" cx="40" cy="40" r="33" />
           <circle
             fill="none"
             strokeWidth="6"
             strokeLinecap="round"
             stroke="url(#ringGrad)"
-            cx="40" cy="40" r="33"
+            cx="40"
+            cy="40"
+            r="33"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             style={{ transition: 'stroke-dashoffset 0.6s ease' }}
@@ -55,7 +57,7 @@ export function ProgressRing({ pct, done, total, catName, sub }: ProgressRingPro
           <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--primary)', lineHeight: 1 }}>
             {pct}%
           </div>
-          <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '2px' }}>完成</div>
+          <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '2px' }}>{t('progressLabel')}</div>
         </div>
       </div>
 
@@ -63,7 +65,7 @@ export function ProgressRing({ pct, done, total, catName, sub }: ProgressRingPro
         <h2 style={{ fontSize: '1.3rem', fontWeight: 600 }}>{catName}</h2>
         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{sub}</div>
         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)', marginTop: '2px' }}>
-          {done} / {total} 完成
+          {t('progressCount', done, total)}
         </div>
       </div>
     </div>

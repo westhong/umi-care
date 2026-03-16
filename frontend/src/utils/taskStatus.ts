@@ -25,12 +25,18 @@ export function getTaskStatus(
   return 'pending';
 }
 
-export const STATUS_LABEL: Record<TaskStatus, string> = {
-  done: '✅ 完成',
-  skip: '⏭️ 略過',
-  overdue: '⚠️ 已過時',
-  pending: '待完成',
-};
+export function getStatusLabel(status: TaskStatus, t: (key: string, ...args: unknown[]) => string): string {
+  switch (status) {
+    case 'done':
+      return t('statusDone');
+    case 'skip':
+      return t('statusSkip');
+    case 'overdue':
+      return t('statusOverdue');
+    default:
+      return t('statusPending');
+  }
+}
 
 export const STATUS_COLOR: Record<TaskStatus, string> = {
   done: 'rgba(82,199,126,0.4)',
