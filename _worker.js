@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v5.2.0 – Cloudflare Worker with Static Assets
+// UmiCare v5.3.2 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -54,7 +54,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', icon: '🏥', name: '健康檢查', nameEn: 'Health Checkup', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.2.0' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.3.2' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -65,7 +65,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '5.2.0', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '5.3.2', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -975,39 +975,6 @@ async function handlePushApi(path, method, request, env) {
     const overdue = [];
     for (const task of activeTasks) {
       if (doneIds.has(task.id)) continue;
-      const times = task.scheduledTimes || [];
-      for (const t of times) {
-        const [th, tm] = t.split(':').map(Number);
-        const taskMin = th * 60 + tm;
-        if (calgaryTotalMin >= taskMin) { overdue.push({ id: task.id, name: task.name, time: t }); break; }
-      }
-    }
-
-    let pushResult = null;
-    if (overdue.length > 0) {
-      const firstName = overdue[0].name;
-      const body = overdue.length === 1 ? `${firstName} 尚未完成，請盡快記錄！` : `${firstName}，還有 ${overdue.length} 項任務尚未完成`;
-      try {
-        pushResult = await sendWebPush(env, sub, { title: `🐾 ${catName} 照護提醒 (simulate)`, body, tag: 'umicare-reminder', icon: '/icon-192.png' });
-      } catch(e) { pushResult = { error: e.message }; }
-    }
-
-    return json({
-      calgaryTime: `${calgaryHour}:${String(calgaryMin).padStart(2,'0')}`,
-      isDST,
-      calgaryDate: today,  // now Calgary local date
-      catName,
-      totalTasks: activeTasks.length,
-      doneToday: checkins.length,
-      overdueCount: overdue.length,
-      overdueTasks: overdue,
-      pushResult,
-    });
-  }
-
-  return null;
-}
-    if (doneIds.has(task.id)) continue;
       const times = task.scheduledTimes || [];
       for (const t of times) {
         const [th, tm] = t.split(':').map(Number);

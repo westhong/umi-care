@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { get, post } from '../api/client';
 import { ProgressRing } from '../components/ProgressRing';
 import { TaskCard } from '../components/TaskCard';
 import { useT } from '../i18n';
-import type { Task, Checkin } from '../store/useAppStore';
+import type { Task, Checkin, SelfReport } from '../store/useAppStore';
 import { getTaskStatus } from '../utils/taskStatus';
 import { requestPushPermission, isSubscribed, listenPushSound } from '../utils/pushNotify';
 
@@ -12,10 +12,37 @@ interface TasksPageProps {
   onAdminOpen: () => void;
 }
 
+type IncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
+type SelfReportType = 'treat' | 'canned' | 'other';
+
 const weekdayLabels = {
   zh: ['日', '一', '二', '三', '四', '五', '六'],
   en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
 } as const;
+
+const selfReportTypeConfig: Record<SelfReportType, { icon: string; severity: 'low' | 'medium'; defaultTitle: Record<'zh' | 'en', string>; unit: Record<'zh' | 'en', string>; quickQuantities: number[] }> = {
+  treat: {
+    icon: '🦴',
+    severity: 'low',
+    defaultTitle: { zh: '吃了零食 / 貓條', en: 'Had treats / Churu' },
+    unit: { zh: '條', en: 'pcs' },
+    quickQuantities: [1, 2, 3, 4],
+  },
+  canned: {
+    icon: '🥫',
+    severity: 'low',
+    defaultTitle: { zh: '吃了主食罐 / 濕食', en: 'Had wet food / canned food' },
+    unit: { zh: '份', en: 'servings' },
+    quickQuantities: [0.5, 1, 1.5, 2],
+  },
+  other: {
+    icon: '📝',
+    severity: 'medium',
+    defaultTitle: { zh: '其他主動回報', en: 'Other caregiver report' },
+    unit: { zh: '次', en: 'times' },
+    quickQuantities: [1, 2, 3],
+  },
+};
 
 export function TasksPage({ onAdminOpen }: TasksPageProps) {
   const { tasks, checkins, cat, catName, currentDate, setTasks, setCheckins, lang, setLang } = useAppStore();
@@ -25,7 +52,29 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
   const [todayDate, setTodayDate] = useState('');
   const [pushStatus, setPushStatus] = useState<'unknown' | 'subscribed' | 'denied' | 'unsupported'>('unknown');
   const [showIncidentModal, setShowIncidentModal] = useState(false);
-  const [incidentForm, setIncidentForm] = useState({ type: '', severity: 'medium' as 'low' | 'medium' | 'high' | 'critical', note: '' });
+  const [showSelfReportModal, setShowSelfReportModal] = useState(false);
+  const [incidentForm, setIncidentForm] = useState({ type: '', severity: 'medium' as IncidentSeverity, note: '' });
+  const [selfReports, setSelfReports] = useState<SelfReport[]>([]);
+  const [submittingSelfReport, setSubmittingSelfReport] = useState(false);
+  const [selfReportForm, setSelfReportForm] = useState({
+    type: 'treat' as SelfReportType,
+    title: '',
+    quantity: '1',
+    note: '',
+  });
+
+  const applySelfReportPreset = useCallback((type: SelfReportType) => {
+    const preset = selfReportTypeConfig[type];
+    setSelfReportForm((prev) => ({
+      ...prev,
+      type,
+      title: preset.defaultTitle[lang],
+      quantity: String(preset.quickQuantities[0] ?? 1),
+      note: type === 'canned'
+        ? (lang === 'zh' ? '可補充口味 / 吃了多少' : 'You can add flavor / how much was eaten')
+        : '',
+    }));
+  }, [lang]);
 
   useEffect(() => {
     const now = new Date();
@@ -48,6 +97,17 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
 
     listenPushSound();
   }, [lang, t]);
+
+  useEffect(() => {
+    setSelfReportForm((prev) => {
+      const preset = selfReportTypeConfig[prev.type];
+      const prevPresetTitles = Object.values(preset.defaultTitle);
+      const title = prev.title && !prevPresetTitles.includes(prev.title)
+        ? prev.title
+        : preset.defaultTitle[lang];
+      return { ...prev, title };
+    });
+  }, [lang]);
 
   const handlePushEnable = async () => {
     if (!('Notification' in window)) { setPushStatus('unsupported'); return; }
@@ -79,12 +139,14 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [tasksData, checkinsData] = await Promise.all([
+      const [tasksData, checkinsData, selfReportData] = await Promise.all([
         get<Task[]>('/api/tasks'),
         get<Checkin[]>(`/api/checkins?date=${currentDate}`),
+        get<SelfReport[]>(`/api/selfreports?date=${currentDate}`).catch(() => []),
       ]);
       setTasks(tasksData);
       setCheckins(checkinsData);
+      setSelfReports(selfReportData);
     } finally {
       setLoading(false);
     }
@@ -121,6 +183,46 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     const status = getTaskStatus(getCheckin(task), task.scheduledTimes);
     return status === 'done' || status === 'skip';
   });
+
+  const recentSelfReports = useMemo(() => selfReports.slice(0, 4), [selfReports]);
+  const activeSelfReportPreset = selfReportTypeConfig[selfReportForm.type];
+
+  const submitSelfReport = async () => {
+    const type = selfReportForm.type;
+    const title = selfReportForm.title.trim();
+    const quantity = Number(selfReportForm.quantity);
+    if (!type) {
+      alert(t('selfReportTypeRequired'));
+      return;
+    }
+    if (!title) {
+      alert(t('selfReportTitleRequired'));
+      return;
+    }
+
+    setSubmittingSelfReport(true);
+    try {
+      await post('/api/selfreports', {
+        type,
+        severity: activeSelfReportPreset.severity,
+        title,
+        icon: activeSelfReportPreset.icon,
+        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+        unit: activeSelfReportPreset.unit[lang],
+        note: selfReportForm.note.trim(),
+        reportedAt: new Date().toISOString(),
+      });
+      setShowSelfReportModal(false);
+      applySelfReportPreset(type);
+      setSelfReportForm((prev) => ({ ...prev, note: '' }));
+      await loadData();
+      alert(t('selfReportSubmitted'));
+    } catch {
+      alert(t('selfReportSubmitFailed'));
+    } finally {
+      setSubmittingSelfReport(false);
+    }
+  };
 
   return (
     <div style={{ paddingBottom: '80px' }}>
@@ -169,7 +271,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             </button>
           </div>
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
-            v5.3.1
+            v5.3.2
           </span>
           <div
             onClick={onAdminOpen}
@@ -202,9 +304,33 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
           <button onClick={() => setShowIncidentModal(true)} style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer' }}>
             {t('incidentBtn')}
           </button>
-          <button onClick={() => alert(t('feedReportSoon'))} style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer' }}>
+          <button onClick={() => { applySelfReportPreset('treat'); setShowSelfReportModal(true); }} style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer' }}>
             {t('feedReportBtn')}
           </button>
+        </div>
+        <div style={{ marginTop: '12px', background: 'rgba(255,255,255,0.68)', border: '1px solid rgba(255,133,161,0.14)', borderRadius: '16px', padding: '12px 12px 10px' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '10px' }}>{t('selfReportRecentTitle')}</div>
+          {recentSelfReports.length ? (
+            <div style={{ display: 'grid', gap: '8px' }}>
+              {recentSelfReports.map((report) => (
+                <div key={report.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start', background: 'rgba(255,133,161,0.06)', borderRadius: '12px', padding: '10px 12px' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {report.icon} {report.title}{report.quantity ? ` ×${report.quantity}${report.unit || ''}` : ''}
+                    </div>
+                    {report.note && (
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>{report.note}</div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--mono)' }}>
+                    {new Date(report.reportedAt).toLocaleTimeString(lang === 'zh' ? 'zh-HK' : 'en-CA', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('selfReportRecentEmpty')}</div>
+          )}
         </div>
       </div>
 
@@ -252,6 +378,123 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
         )}
       </div>
 
+      {showSelfReportModal && (
+        <div onClick={() => setShowSelfReportModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(29, 19, 28, 0.48)', backdropFilter: 'blur(10px)', display: 'grid', alignItems: 'end', zIndex: 999 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '18px 16px 28px', boxShadow: '0 -18px 40px rgba(15,23,42,0.18)', display: 'grid', gap: '14px' }}>
+            <div style={{ width: '42px', height: '4px', borderRadius: '999px', background: 'rgba(61,44,53,0.14)', margin: '0 auto' }} />
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{t('selfReportModalTitle')}</div>
+
+            <div style={{ display: 'grid', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>{t('selfReportTypeLabel')}</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {([
+                    { value: 'treat', label: t('selfReportTypeTreat'), icon: '🦴' },
+                    { value: 'canned', label: t('selfReportTypeCanned'), icon: '🥫' },
+                    { value: 'other', label: t('selfReportTypeOther'), icon: '📝' },
+                  ] as const).map((type) => {
+                    const active = selfReportForm.type === type.value;
+                    return (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => applySelfReportPreset(type.value)}
+                        style={{
+                          padding: '11px 10px',
+                          border: active ? '2px solid var(--primary)' : '1px solid var(--glass-border)',
+                          borderRadius: '12px',
+                          background: active ? 'rgba(255,133,161,0.12)' : 'var(--glass)',
+                          color: active ? 'var(--primary)' : 'var(--text-secondary)',
+                          fontFamily: 'var(--font)',
+                          fontSize: '0.82rem',
+                          fontWeight: active ? 700 : 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {type.icon} {type.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>{t('selfReportQuickAmount')}</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {activeSelfReportPreset.quickQuantities.map((qty) => {
+                    const active = selfReportForm.quantity === String(qty);
+                    return (
+                      <button
+                        key={qty}
+                        type="button"
+                        onClick={() => setSelfReportForm((prev) => ({ ...prev, quantity: String(qty) }))}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '999px',
+                          border: active ? '1px solid var(--primary)' : '1px solid var(--glass-border)',
+                          background: active ? 'rgba(255,133,161,0.12)' : 'var(--glass)',
+                          color: active ? 'var(--primary)' : 'var(--text-secondary)',
+                          fontFamily: 'var(--font)',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {qty}{activeSelfReportPreset.unit[lang]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>{t('selfReportQtyLabel')}</label>
+                  <input
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    value={selfReportForm.quantity}
+                    onChange={(e) => setSelfReportForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                    style={{ width: '100%', padding: '11px 12px', background: 'var(--bg-card2)', border: '1px solid var(--glass-border)', borderRadius: '12px', color: 'var(--text-primary)', boxSizing: 'border-box', fontFamily: 'var(--font)', fontSize: '0.9rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>{t('selfReportTitleLabel')}</label>
+                  <input
+                    type="text"
+                    value={selfReportForm.title}
+                    onChange={(e) => setSelfReportForm((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder={t('selfReportTitlePlaceholder')}
+                    style={{ width: '100%', padding: '11px 12px', background: 'var(--bg-card2)', border: '1px solid var(--glass-border)', borderRadius: '12px', color: 'var(--text-primary)', boxSizing: 'border-box', fontFamily: 'var(--font)', fontSize: '0.9rem' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>{t('selfReportNoteLabel')}</label>
+                <textarea
+                  value={selfReportForm.note}
+                  onChange={(e) => setSelfReportForm((prev) => ({ ...prev, note: e.target.value }))}
+                  rows={3}
+                  placeholder={t('selfReportNotePlaceholder')}
+                  style={{ width: '100%', padding: '11px 12px', background: 'var(--bg-card2)', border: '1px solid var(--glass-border)', borderRadius: '12px', color: 'var(--text-primary)', boxSizing: 'border-box', fontFamily: 'var(--font)', fontSize: '0.9rem', resize: 'vertical' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+              <button onClick={submitSelfReport} disabled={submittingSelfReport} style={{ flex: 1, padding: '13px', border: 'none', borderRadius: '16px', background: 'linear-gradient(135deg, #ff85a1, #c8a8e9)', color: '#fff', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)', opacity: submittingSelfReport ? 0.7 : 1 }}>
+                {submittingSelfReport ? t('submitting') : t('selfReportSubmitBtn')}
+              </button>
+              <button onClick={() => setShowSelfReportModal(false)} style={{ padding: '13px 18px', border: '1px solid var(--glass-border)', borderRadius: '16px', background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)' }}>
+                {t('cancelBtn')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showIncidentModal && (
         <div onClick={() => setShowIncidentModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(29, 19, 28, 0.48)', backdropFilter: 'blur(10px)', display: 'grid', alignItems: 'end', zIndex: 999 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '18px 16px 28px', boxShadow: '0 -18px 40px rgba(15,23,42,0.18)', display: 'grid', gap: '14px' }}>
@@ -282,7 +525,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
                     <button
                       key={sev.value}
                       type="button"
-                      onClick={() => setIncidentForm((s) => ({ ...s, severity: sev.value as typeof incidentForm.severity }))}
+                      onClick={() => setIncidentForm((s) => ({ ...s, severity: sev.value as IncidentSeverity }))}
                       style={{
                         padding: '10px', border: incidentForm.severity === sev.value ? `2px solid ${sev.color}` : '1px solid var(--glass-border)',
                         borderRadius: '12px', background: incidentForm.severity === sev.value ? sev.bg : 'var(--glass)', color: incidentForm.severity === sev.value ? sev.color : 'var(--text-secondary)',
