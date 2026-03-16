@@ -9,7 +9,7 @@ export interface Task {
   scheduleType: string;
   scheduledTimes: string[];
   weekDays?: number[];
-  resultOptions?: { label: string; value: string }[];
+  resultOptions?: { label: string; labelEn?: string; value: string }[];
   requireNote?: boolean;
 }
 
@@ -57,7 +57,6 @@ export interface SelfReport {
 }
 
 export interface AppState {
-  // Data
   tasks: Task[];
   checkins: Checkin[];
   settings: Settings;
@@ -69,16 +68,12 @@ export interface AppState {
   selfReports: SelfReport[];
   yesterdayCheckins: Checkin[];
   yesterdayBacklog: Task[];
-
-  // UI State
   adminMode: boolean;
   currentDate: string;
   caregiverDate: string;
   caregiverMode: 'today' | 'backlog';
   expandedTask: string | null;
   lang: 'zh' | 'en';
-
-  // Actions
   setTasks: (tasks: Task[]) => void;
   setCheckins: (checkins: Checkin[]) => void;
   setSettings: (settings: Settings) => void;
@@ -96,19 +91,22 @@ function todayStr(): string {
   const dstStart = (() => {
     const d = new Date(Date.UTC(year, 2, 1));
     let sundays = 0;
-    while (sundays < 2) { if (d.getUTCDay() === 0) sundays++; if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1); }
-    d.setUTCHours(9, 0, 0, 0); return d;
+    while (sundays < 2) {
+      if (d.getUTCDay() === 0) sundays++;
+      if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1);
+    }
+    d.setUTCHours(9, 0, 0, 0);
+    return d;
   })();
   const dstEnd = (() => {
     const d = new Date(Date.UTC(year, 10, 1));
     while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
-    d.setUTCHours(8, 0, 0, 0); return d;
+    d.setUTCHours(8, 0, 0, 0);
+    return d;
   })();
   const offset = (now >= dstStart && now < dstEnd) ? -6 : -7;
   const c = new Date(now.getTime() + offset * 3600000);
-  return c.getUTCFullYear() + '-' +
-    String(c.getUTCMonth() + 1).padStart(2, '0') + '-' +
-    String(c.getUTCDate()).padStart(2, '0');
+  return `${c.getUTCFullYear()}-${String(c.getUTCMonth() + 1).padStart(2, '0')}-${String(c.getUTCDate()).padStart(2, '0')}`;
 }
 
 const today = todayStr();
@@ -117,7 +115,7 @@ const urlLang = new URL(location.href).searchParams.get('lang');
 export const useAppStore = create<AppState>((set) => ({
   tasks: [],
   checkins: [],
-  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.3.0', adminGranularTimeGrouping: false },
+  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.2.1', adminGranularTimeGrouping: false },
   cat: { name: '屋咪' },
   catName: '屋咪',
   weightsList: [],
@@ -126,14 +124,12 @@ export const useAppStore = create<AppState>((set) => ({
   selfReports: [],
   yesterdayCheckins: [],
   yesterdayBacklog: [],
-
   adminMode: false,
   currentDate: today,
   caregiverDate: today,
   caregiverMode: 'today',
   expandedTask: null,
   lang: (urlLang === 'en' ? 'en' : 'zh') as 'zh' | 'en',
-
   setTasks: (tasks) => set({ tasks }),
   setCheckins: (checkins) => set({ checkins }),
   setSettings: (settings) => set({ settings }),
