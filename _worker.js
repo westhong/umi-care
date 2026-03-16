@@ -663,17 +663,19 @@ export default {
 
     if (overdue.length === 0) return; // nothing to remind
 
-    // De-duplicate: only notify for tasks not already notified today
+    // Repeat-notify every 30 min as long as tasks are overdue
+    // Track last push time to avoid double-firing within same 30-min window
     const notifiedRaw = await KV.get('debug:notified_today');
-    const notifiedData = notifiedRaw ? JSON.parse(notifiedRaw) : { date: '', ids: [] };
-    const notifiedIds = new Set(notifiedData.date === today ? notifiedData.ids : []);
-    const newOverdue = overdue.filter(t => !notifiedIds.has(t.id));
-    if (newOverdue.length === 0) return; // already notified for all overdue tasks
+    const notifiedData = notifiedRaw ? JSON.parse(notifiedRaw) : { date: '', lastPushMs: 0 };
+    const lastPushMs = notifiedData.date === today ? (notifiedData.lastPushMs || 0) : 0;
+    const nowMs = now.getTime();
+    const minGapMs = 25 * 60 * 1000; // 25 min gap to allow for cron jitter
+    if (nowMs - lastPushMs < minGapMs) return; // already pushed recently
 
-    const firstName = newOverdue[0].name;
-    const body = newOverdue.length === 1
+    const firstName = overdue[0].name;
+    const body = overdue.length === 1
       ? (pi.body1 ? pi.body1(firstName) : `${firstName} 尚未完成，請盡快記錄！`)
-      : (pi.bodyN ? pi.bodyN(firstName, newOverdue.length) : `${firstName}，還有 ${newOverdue.length} 項任務尚未完成`);
+      : (pi.bodyN ? pi.bodyN(firstName, overdue.length - 1) : `${firstName}，還有 ${overdue.length - 1} 項任務尚未完成`);
 
     const result = await sendWebPush(env, sub, {
       title: pi.title ? pi.title(catName) : `🐾 ${catName} 照護提醒`,
@@ -682,9 +684,8 @@ export default {
       icon: '/icon-192.png',
     });
 
-    // Record which tasks were notified to avoid spamming
-    const allNotifiedIds = [...notifiedIds, ...newOverdue.map(t => t.id)];
-    await KV.put('debug:notified_today', JSON.stringify({ date: today, ids: allNotifiedIds }), { expirationTtl: 86400 });
+    // Record push time (not task IDs) — allows repeat every 30 min
+    await KV.put('debug:notified_today', JSON.stringify({ date: today, lastPushMs: nowMs }), { expirationTtl: 86400 });
 
     await KV.put('debug:last_push', JSON.stringify({
       time: new Date().toISOString(),
