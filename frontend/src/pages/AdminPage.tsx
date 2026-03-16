@@ -30,6 +30,7 @@ interface AdhocTask {
 interface SelfReportRow {
   id: string;
   type: string;
+  severity?: 'low' | 'medium' | 'high';
   title: string;
   icon?: string;
   quantity?: number;
@@ -58,12 +59,14 @@ interface RecordStreamItem {
 interface IncidentRow {
   id: string;
   type: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
   note?: string;
   hasPhoto?: boolean;
   reportedAt: string;
   resolved?: boolean;
   resolvedAt?: string;
   resolvedNote?: string;
+  resolutionTemplate?: string | null;
 }
 
 interface SpecialPreset {
@@ -140,9 +143,21 @@ function toDateTime(value?: string) {
   }
 }
 
-function getTimeGroup(timestamp: string): string {
+function getTimeGroup(timestamp: string, granular = false): string {
   try {
     const hour = new Date(timestamp).getHours();
+    if (granular) {
+      // Hourly buckets for more granular view
+      if (hour >= 0 && hour < 3) return '🌙 深夜 (00:00-02:59)';
+      if (hour >= 3 && hour < 6) return '🌃 清晨 (03:00-05:59)';
+      if (hour >= 6 && hour < 9) return '🌅 早晨 (06:00-08:59)';
+      if (hour >= 9 && hour < 12) return '☀️ 上午 (09:00-11:59)';
+      if (hour >= 12 && hour < 15) return '☀️ 中午 (12:00-14:59)';
+      if (hour >= 15 && hour < 18) return '🌤️ 下午 (15:00-17:59)';
+      if (hour >= 18 && hour < 21) return '🌆 傍晚 (18:00-20:59)';
+      return '🌙 晚上 (21:00-23:59)';
+    }
+    // Default 4-period grouping
     if (hour >= 5 && hour < 12) return '🌅 早上 (05:00-11:59)';
     if (hour >= 12 && hour < 17) return '☀️ 下午 (12:00-16:59)';
     if (hour >= 17 && hour < 21) return '🌆 傍晚 (17:00-20:59)';
@@ -151,6 +166,26 @@ function getTimeGroup(timestamp: string): string {
     return '🕐 時間未知';
   }
 }
+
+function getSeverityBadge(severity?: string) {
+  const severityMap = {
+    low: { label: '低', tone: 'neutral' as const },
+    medium: { label: '中', tone: 'warning' as const },
+    high: { label: '高', tone: 'danger' as const },
+    critical: { label: '緊急', tone: 'danger' as const },
+  };
+  const config = severityMap[severity as keyof typeof severityMap] || severityMap.medium;
+  return <span style={badgeStyle(config.tone)}>🚨 {config.label}</span>;
+}
+
+const RESOLUTION_TEMPLATES = [
+  { id: 'monitor', label: '持續觀察', note: '已知悉，將持續觀察狀況變化' },
+  { id: 'vet_contact', label: '聯絡獸醫', note: '已聯絡獸醫諮詢，待進一步指示' },
+  { id: 'med_given', label: '已給藥', note: '已按處方給予藥物' },
+  { id: 'cleaned', label: '已清理', note: '已清理現場並消毒' },
+  { id: 'diet_adjust', label: '調整飲食', note: '已調整飲食內容，暫停零食' },
+  { id: 'resolved', label: '問題解決', note: '問題已獲解決，恢復正常' },
+];
 
 function isTaskVisible(task: Task, date = new Date()) {
   const type = task.scheduleType || 'daily';
@@ -320,6 +355,7 @@ export function AdminPage() {
   const [specialPresets, setSpecialPresets] = useState<SpecialPreset[]>(DEFAULT_PRESETS);
   const [detailModal, setDetailModal] = useState<DetailModalState | null>(null);
   const [recordsFilter, setRecordsFilter] = useState<'all' | 'attention' | 'checkins' | 'reports' | 'incidents' | 'special'>('all');
+  const [granularTime, setGranularTime] = useState(false);
 
   const [specialForm, setSpecialForm] = useState({ icon: '📌', name: '', note: '' });
   const [catForm, setCatForm] = useState<CatProfile>({ name: catName, breed: '', birthdate: '', notes: '' });
@@ -499,16 +535,20 @@ export function AdminPage() {
     const selfReportItems = selfReports.map((row) => {
       const statusLabel = row.processingStatus === 'in-progress' ? '處理中' : row.processingStatus === 'completed' ? '已完成' : row.acknowledged ? '已確認' : '待確認';
       const statusTone = row.processingStatus === 'completed' ? 'success' : row.processingStatus === 'in-progress' ? 'purple' : row.acknowledged ? 'neutral' : 'warning';
+      const needsAttention = !row.acknowledged || row.severity === 'high' || row.severity === 'medium';
+      const itemTone: 'default' | 'danger' | 'warning' | 'success' = row.severity === 'high' ? 'danger' : row.acknowledged ? 'default' : 'warning';
+      const itemLane: 'attention' | 'report' | 'routine' = needsAttention ? 'attention' : 'report';
       return {
         id: `selfreport-${row.id}`,
         kind: 'selfReport' as const,
         timestamp: row.reportedAt,
-        tone: row.acknowledged ? 'default' as const : 'warning' as const,
-        lane: row.acknowledged ? 'report' as const : 'attention' as const,
+        tone: itemTone,
+        lane: itemLane,
         title: <>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>,
         meta: <>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>,
         chips: <>
           <span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>
+          {row.severity && getSeverityBadge(row.severity)}
           {row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}
           <span style={badgeStyle(statusTone)}>{statusLabel}</span>
         </>,
@@ -527,25 +567,44 @@ export function AdminPage() {
       };
     });
 
-    const incidentItems = incidents.map((row) => ({
-      id: `incident-${row.id}`,
-      kind: 'incident' as const,
-      timestamp: row.reportedAt,
-      tone: row.resolved ? 'success' as const : 'danger' as const,
-      lane: row.resolved ? 'report' as const : 'attention' as const,
-      title: <>{row.resolved ? '✅' : '🆘'} {row.type}</>,
-      meta: <>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}{row.resolvedAt ? ` · 已於 ${toDateTime(row.resolvedAt)} 處理` : ''}</>,
-      chips: <>
-        <span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>
-        {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
-      </>,
-      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}</div>,
+    const incidentItems = incidents.map((row) => {
+      const isCritical = row.severity === 'critical' || row.severity === 'high';
+      const itemTone: 'default' | 'danger' | 'warning' | 'success' = row.resolved ? 'success' : isCritical ? 'danger' : 'warning';
+      const itemLane: 'attention' | 'report' | 'routine' = row.resolved ? 'report' : 'attention';
+      return {
+        id: `incident-${row.id}`,
+        kind: 'incident' as const,
+        timestamp: row.reportedAt,
+        tone: itemTone,
+        lane: itemLane,
+        title: <>{row.resolved ? '✅' : '🆘'} {row.type}</>,
+        meta: <>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}{row.resolvedAt ? ` · 已於 ${toDateTime(row.resolvedAt)} 處理` : ''}</>,
+        chips: <>
+          <span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>
+          {row.severity && getSeverityBadge(row.severity)}
+          {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
+          {row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</span>}
+        </>,
+      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>嚴重程度：{row.severity ? getSeverityBadge(row.severity) : '未標記'}</div><div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}{row.resolutionTemplate ? <div>使用範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</div> : null}</div>,
       actions: <>
         {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
-        {!row.resolved && <ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 處理</ActionButton>}
+        {!row.resolved && (
+          <div style={{ display: 'grid', gap: '8px', width: '100%' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>快速處理範本：</div>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {RESOLUTION_TEMPLATES.map((tpl) => (
+                <ActionButton key={tpl.id} tone="success" onClick={() => resolveIncident(row.id, tpl.id)}>
+                  {tpl.label}
+                </ActionButton>
+              ))}
+            </div>
+            <ActionButton onClick={() => resolveIncident(row.id)}>✏️ 自訂處理</ActionButton>
+          </div>
+        )}
         <ActionButton tone="danger" onClick={() => deleteIncident(row.id)}>🗑 刪除</ActionButton>
       </>,
-    }));
+    };
+    });
 
     const specialItems = selectedDateSpecial.map((row) => ({
       id: `adhoc-${row.id}`,
@@ -727,11 +786,17 @@ export function AdminPage() {
     });
   };
 
-  const resolveIncident = async (id: string) => {
-    const note = window.prompt('可選：留下處理註記（例如已聯絡照護者、已清理）', '') ?? '';
+  const resolveIncident = async (id: string, template?: string) => {
+    let note = '';
+    if (template) {
+      const tpl = RESOLUTION_TEMPLATES.find((t) => t.id === template);
+      note = tpl?.note || '';
+    } else {
+      note = window.prompt('可選：留下處理註記（例如已聯絡照護者、已清理）', '') ?? '';
+    }
     await withBusy(async () => {
-      await post(`/api/incidents/${id}/resolve`, { note: note.trim() });
-      flash(note.trim() ? '已標記完成並附上註記' : '已標記為處理完成');
+      await post(`/api/incidents/${id}/resolve`, { note: note.trim(), template });
+      flash(template ? `已使用範本「${RESOLUTION_TEMPLATES.find((t) => t.id === template)?.label}」標記完成` : (note.trim() ? '已標記完成並附上註記' : '已標記為處理完成'));
       setDetailModal(null);
       await Promise.all([loadRecords(recordsDate), loadOverview()]);
     });
@@ -995,13 +1060,48 @@ export function AdminPage() {
                             title: <>{row.hasPhoto ? '📷 ' : ''}{row.type}</>,
                             meta: <>{toDateTime(row.reportedAt)}</>,
                             chips: <><span style={badgeStyle('danger')}>待處理</span>{row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}</>,
-                            body: <>{row.note ? <div>說明：{row.note}</div> : <div>沒有附加說明。</div>}</>,
-                            actions: <>{row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}<ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 標記完成</ActionButton></>,
+                            body: <div style={{ display: 'grid', gap: '8px' }}>{row.severity && <div>嚴重程度：{getSeverityBadge(row.severity)}</div>}{row.note ? <div>說明：{row.note}</div> : <div>沒有附加說明。</div>}</div>,
+                            actions: <>
+                              {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
+                              <div style={{ display: 'grid', gap: '8px', width: '100%' }}>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>快速處理範本：</div>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                  {RESOLUTION_TEMPLATES.slice(0, 3).map((tpl) => (
+                                    <ActionButton key={tpl.id} tone="success" onClick={() => resolveIncident(row.id, tpl.id)}>
+                                      {tpl.label}
+                                    </ActionButton>
+                                  ))}
+                                </div>
+                                <ActionButton onClick={() => resolveIncident(row.id)}>✏️ 更多選項...</ActionButton>
+                              </div>
+                            </>,
                           })}
                           actions={
                             <>
                               {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
-                              <ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 標記完成</ActionButton>
+                              <ActionButton tone="success" onClick={() => {
+                                setDetailModal({
+                                  tone: 'danger',
+                                  title: <>{row.hasPhoto ? '📷 ' : ''}{row.type}</>,
+                                  meta: <>{toDateTime(row.reportedAt)}</>,
+                                  chips: <><span style={badgeStyle('danger')}>待處理</span>{row.severity && getSeverityBadge(row.severity)}{row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}</>,
+                                  body: <div style={{ display: 'grid', gap: '8px' }}>{row.severity && <div>嚴重程度：{getSeverityBadge(row.severity)}</div>}{row.note ? <div>說明：{row.note}</div> : <div>沒有附加說明。</div>}</div>,
+                                  actions: <>
+                                    {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
+                                    <div style={{ display: 'grid', gap: '8px', width: '100%' }}>
+                                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>快速處理範本：</div>
+                                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                        {RESOLUTION_TEMPLATES.map((tpl) => (
+                                          <ActionButton key={tpl.id} tone="success" onClick={() => resolveIncident(row.id, tpl.id)}>
+                                            {tpl.label}
+                                          </ActionButton>
+                                        ))}
+                                      </div>
+                                      <ActionButton onClick={() => resolveIncident(row.id)}>✏️ 自訂處理</ActionButton>
+                                    </div>
+                                  </>,
+                                });
+                              }}>⚡ 快速處理</ActionButton>
                             </>
                           }
                         />
@@ -1326,16 +1426,24 @@ export function AdminPage() {
                   </button>
                 ))}
               </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={granularTime} onChange={(e) => setGranularTime(e.target.checked)} />
+                  使用細粒度時間分組（小時級別）
+                </label>
+              </div>
               {filteredRecordStream.length ? (
                 <div style={{ display: 'grid', gap: '10px' }}>
                   {(() => {
                     const grouped: Record<string, RecordStreamItem[]> = {};
                     filteredRecordStream.forEach((item) => {
-                      const group = getTimeGroup(item.timestamp);
+                      const group = getTimeGroup(item.timestamp, granularTime);
                       if (!grouped[group]) grouped[group] = [];
                       grouped[group].push(item);
                     });
-                    const groupOrder = ['🌅 早上 (05:00-11:59)', '☀️ 下午 (12:00-16:59)', '🌆 傍晚 (17:00-20:59)', '🌙 晚上 (21:00-04:59)', '🕐 時間未知'];
+                    const groupOrder = granularTime 
+                      ? ['🌙 深夜 (00:00-02:59)', '🌃 清晨 (03:00-05:59)', '🌅 早晨 (06:00-08:59)', '☀️ 上午 (09:00-11:59)', '☀️ 中午 (12:00-14:59)', '🌤️ 下午 (15:00-17:59)', '🌆 傍晚 (18:00-20:59)', '🌙 晚上 (21:00-23:59)', '🕐 時間未知']
+                      : ['🌅 早上 (05:00-11:59)', '☀️ 下午 (12:00-16:59)', '🌆 傍晚 (17:00-20:59)', '🌙 晚上 (21:00-04:59)', '🕐 時間未知'];
                     return groupOrder.flatMap((groupLabel) => {
                       const items = grouped[groupLabel];
                       if (!items || items.length === 0) return [];
@@ -1515,21 +1623,44 @@ export function AdminPage() {
                       chips={
                         <>
                           <span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>
+                          {row.severity && getSeverityBadge(row.severity)}
                           {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
+                          {row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</span>}
                         </>
                       }
                       onClick={() => setDetailModal({
                         tone: row.resolved ? 'success' : 'danger',
                         title: <>{row.resolved ? '✅' : '🆘'} {row.type}</>,
                         meta: <>{toDateTime(row.reportedAt)}</>,
-                        chips: <><span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>{row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}</>,
-                        body: <div style={{ display: 'grid', gap: '8px' }}><div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}</div>,
-                        actions: <>{row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}{!row.resolved && <ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 處理</ActionButton>}<ActionButton tone="danger" onClick={() => deleteIncident(row.id)}>🗑 刪除</ActionButton></>,
+                        chips: <><span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>{row.severity && getSeverityBadge(row.severity)}{row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}{row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</span>}</>,
+                        body: <div style={{ display: 'grid', gap: '8px' }}>{row.severity && <div>嚴重程度：{getSeverityBadge(row.severity)}</div>}<div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}{row.resolutionTemplate ? <div>使用範本：{RESOLUTION_TEMPLATES.find((t) => t.id === row.resolutionTemplate)?.label}</div> : null}</div>,
+                        actions: <>
+                          {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
+                          {!row.resolved && (
+                            <div style={{ display: 'grid', gap: '8px', width: '100%' }}>
+                              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>快速處理範本：</div>
+                              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                {RESOLUTION_TEMPLATES.map((tpl) => (
+                                  <ActionButton key={tpl.id} tone="success" onClick={() => resolveIncident(row.id, tpl.id)}>
+                                    {tpl.label}
+                                  </ActionButton>
+                                ))}
+                              </div>
+                              <ActionButton onClick={() => resolveIncident(row.id)}>✏️ 自訂處理</ActionButton>
+                            </div>
+                          )}
+                          <ActionButton tone="danger" onClick={() => deleteIncident(row.id)}>🗑 刪除</ActionButton>
+                        </>,
                       })}
                       actions={
                         <>
                           {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
-                          {!row.resolved && <ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 處理</ActionButton>}
+                          {!row.resolved && (
+                            <>
+                              <ActionButton tone="success" onClick={() => resolveIncident(row.id, 'monitor')}>👁 觀察</ActionButton>
+                              <ActionButton tone="success" onClick={() => resolveIncident(row.id, 'resolved')}>✅ 處理</ActionButton>
+                            </>
+                          )}
                           <ActionButton tone="danger" onClick={() => deleteIncident(row.id)}>🗑 刪除</ActionButton>
                         </>
                       }

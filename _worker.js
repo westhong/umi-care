@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v4.2.1 – Cloudflare Worker with Static Assets
+// UmiCare v5.2.0 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -54,7 +54,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', icon: '🏥', name: '健康檢查', nameEn: 'Health Checkup', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '4.2.1' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.2.0' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -65,7 +65,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '4.2.1', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '5.2.0', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -387,6 +387,7 @@ async function handleApi(request, env, url) {
       const item = {
         id: 'sr_' + Date.now(),
         type: body.type || 'other',
+        severity: body.severity || 'low',  // low | medium | high
         title: body.title || '',
         icon: body.icon || '📝',
         quantity,
@@ -398,6 +399,7 @@ async function handleApi(request, env, url) {
         acknowledged: false,
         acknowledgedAt: null,
         acknowledgedNote: '',
+        processingStatus: null  // pending | in-progress | completed (set by admin ack)
       };
       list.unshift(item);
       if (list.length > 120) list.splice(120);
@@ -432,6 +434,22 @@ async function handleApi(request, env, url) {
       item.acknowledged = true;
       item.acknowledgedAt = new Date().toISOString();
       item.acknowledgedNote = body.note || '';
+      item.processingStatus = body.processingStatus || 'pending';  // pending | in-progress | completed
+      await KV.put('selfreports:list', JSON.stringify(list));
+      return json({ ok: true, item });
+    }
+
+    const selfReportUnackMatch = path.match(/^\/selfreports\/(sr_\d+)\/unack$/);
+    if (selfReportUnackMatch && method === 'POST') {
+      const id = selfReportUnackMatch[1];
+      const raw = await KV.get('selfreports:list');
+      const list = raw ? JSON.parse(raw) : [];
+      const item = list.find((x) => x.id === id);
+      if (!item) return json({ ok: false, error: 'Not found' }, 404);
+      item.acknowledged = false;
+      item.acknowledgedAt = null;
+      item.acknowledgedNote = '';
+      item.processingStatus = null;
       await KV.put('selfreports:list', JSON.stringify(list));
       return json({ ok: true, item });
     }
@@ -473,13 +491,15 @@ async function handleApi(request, env, url) {
       const incident = {
         id: incId,
         type: body.type || 'vomit',
+        severity: body.severity || 'medium',  // low | medium | high | critical
         note: body.note || '',
         hasPhoto: !!body.photo,   // flag only — no base64 in list
         reportedAt: new Date().toISOString(),
         reportedBy: body.reportedBy || 'caregiver',
         resolved: false,
         resolvedAt: null,
-        resolvedNote: ''
+        resolvedNote: '',
+        resolutionTemplate: null  // used when admin uses a template
       };
       list.unshift(incident);
       if (list.length > 50) list.splice(50);
@@ -525,6 +545,7 @@ async function handleApi(request, env, url) {
       item.resolved = true;
       item.resolvedAt = new Date().toISOString();
       item.resolvedNote = body.note || '';
+      item.resolutionTemplate = body.template || null;  // track which template was used
       await KV.put('incidents:list', JSON.stringify(list));
       return json({ ok: true, item });
     }
