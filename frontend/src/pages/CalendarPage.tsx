@@ -1,10 +1,13 @@
-// CalendarPage — placeholder for v5.0.0
-// Full implementation coming in v5.1
+import { useT } from '../i18n';
+import { useAppStore } from '../store/useAppStore';
 
 export function CalendarPage() {
+  const lang = useAppStore((s) => s.lang);
+  const t = useT(lang);
+
   return (
     <div style={{ padding: '20px', paddingBottom: '80px' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '16px' }}>📅 日曆</h1>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '16px' }}>{t('calendarTitle')}</h1>
       <div style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--glass-border)',
@@ -13,7 +16,7 @@ export function CalendarPage() {
         textAlign: 'center',
         color: 'var(--text-muted)',
       }}>
-        日曆功能將在 v5.1 完整實作
+        {t('calendarPlaceholder')}
       </div>
     </div>
   );

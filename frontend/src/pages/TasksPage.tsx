@@ -18,7 +18,7 @@ const weekdayLabels = {
 } as const;
 
 export function TasksPage({ onAdminOpen }: TasksPageProps) {
-  const { tasks, checkins, cat, catName, currentDate, setTasks, setCheckins, lang } = useAppStore();
+  const { tasks, checkins, cat, catName, currentDate, setTasks, setCheckins, lang, setLang } = useAppStore();
   const t = useT(lang);
 
   const [loading, setLoading] = useState(true);
@@ -132,8 +132,44 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>{todayDate}</div>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px', background: 'rgba(255,255,255,0.72)', border: '1px solid rgba(255,133,161,0.2)', borderRadius: '999px' }} aria-label={t('caregiverLanguageHint')}>
+            <button
+              type="button"
+              onClick={() => setLang('zh')}
+              style={{
+                border: 'none',
+                borderRadius: '999px',
+                padding: '7px 10px',
+                background: lang === 'zh' ? 'linear-gradient(135deg, #ff85a1, #c8a8e9)' : 'transparent',
+                color: lang === 'zh' ? '#fff' : 'var(--text-secondary)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'var(--font)',
+              }}
+            >
+              中
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang('en')}
+              style={{
+                border: 'none',
+                borderRadius: '999px',
+                padding: '7px 10px',
+                background: lang === 'en' ? 'linear-gradient(135deg, #ff85a1, #c8a8e9)' : 'transparent',
+                color: lang === 'en' ? '#fff' : 'var(--text-secondary)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'var(--font)',
+              }}
+            >
+              EN
+            </button>
+          </div>
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
-            v5.2.1
+            v5.3.1
           </span>
           <div
             onClick={onAdminOpen}
@@ -166,7 +202,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
           <button onClick={() => setShowIncidentModal(true)} style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer' }}>
             {t('incidentBtn')}
           </button>
-          <button style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer' }}>
+          <button onClick={() => alert(t('feedReportSoon'))} style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer' }}>
             {t('feedReportBtn')}
           </button>
         </div>

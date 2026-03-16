@@ -110,12 +110,25 @@ function todayStr(): string {
 }
 
 const today = todayStr();
-const urlLang = new URL(location.href).searchParams.get('lang');
+
+function getInitialLang(): 'zh' | 'en' {
+  const urlLang = new URL(location.href).searchParams.get('lang');
+  if (urlLang === 'zh' || urlLang === 'en') return urlLang;
+
+  try {
+    const savedLang = window.localStorage.getItem('umi-care-lang');
+    if (savedLang === 'zh' || savedLang === 'en') return savedLang;
+  } catch {
+    // ignore storage errors
+  }
+
+  return 'zh';
+}
 
 export const useAppStore = create<AppState>((set) => ({
   tasks: [],
   checkins: [],
-  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.2.1', adminGranularTimeGrouping: false },
+  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.3.1', adminGranularTimeGrouping: false },
   cat: { name: '屋咪' },
   catName: '屋咪',
   weightsList: [],
@@ -129,14 +142,24 @@ export const useAppStore = create<AppState>((set) => ({
   caregiverDate: today,
   caregiverMode: 'today',
   expandedTask: null,
-  lang: (urlLang === 'en' ? 'en' : 'zh') as 'zh' | 'en',
+  lang: getInitialLang(),
   setTasks: (tasks) => set({ tasks }),
   setCheckins: (checkins) => set({ checkins }),
   setSettings: (settings) => set({ settings }),
   setCat: (cat) => set({ cat, catName: cat.name }),
   setAdminMode: (adminMode) => set({ adminMode }),
   setExpandedTask: (expandedTask) => set({ expandedTask }),
-  setLang: (lang) => set({ lang }),
+  setLang: (lang) => {
+    try {
+      window.localStorage.setItem('umi-care-lang', lang);
+      const url = new URL(window.location.href);
+      url.searchParams.set('lang', lang);
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // ignore persistence errors
+    }
+    set({ lang });
+  },
   setAdhocRequests: (adhocRequests) => set({ adhocRequests }),
   setSelfReports: (selfReports) => set({ selfReports }),
 }));
