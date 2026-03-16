@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { get } from '../api/client';
+import { get, post } from '../api/client';
 import { ProgressRing } from '../components/ProgressRing';
 import { TaskCard } from '../components/TaskCard';
 import type { Task, Checkin } from '../store/useAppStore';
@@ -20,6 +20,12 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
   const [loading, setLoading] = useState(true);
   const [todayDate, setTodayDate] = useState('');
   const [pushStatus, setPushStatus] = useState<'unknown' | 'subscribed' | 'denied' | 'unsupported'>('unknown');
+  const [showIncidentModal, setShowIncidentModal] = useState(false);
+  const [incidentForm, setIncidentForm] = useState({
+    type: '',
+    severity: 'medium' as 'low' | 'medium' | 'high' | 'critical',
+    note: '',
+  });
 
   useEffect(() => {
     const now = new Date();
@@ -43,6 +49,26 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     if (Notification.permission === 'denied') { setPushStatus('denied'); return; }
     const ok = await requestPushPermission();
     setPushStatus(ok ? 'subscribed' : 'denied');
+  };
+
+  const submitIncident = async () => {
+    if (!incidentForm.type.trim()) {
+      alert('請輸入異常類型（例如：嘔吐、食慾不振）');
+      return;
+    }
+    try {
+      await post('/api/incidents', {
+        type: incidentForm.type.trim(),
+        severity: incidentForm.severity,
+        note: incidentForm.note.trim(),
+        reportedAt: new Date().toISOString(),
+      });
+      setShowIncidentModal(false);
+      setIncidentForm({ type: '', severity: 'medium', note: '' });
+      alert('異常回報已提交，管理員會儘快處理');
+    } catch (error) {
+      alert('提交失敗，請稍後再試');
+    }
   };
 
   const loadData = useCallback(async () => {
@@ -120,7 +146,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px',
             padding: '2px 7px',
           }}>
-            v5.1.2
+            v5.2.0
           </span>
           <div
             onClick={onAdminOpen}
@@ -200,11 +226,14 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
           ⚡ 主動回報
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-          <button style={{
-            padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)',
-            background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)',
-            fontSize: '0.9rem', cursor: 'pointer',
-          }}>
+          <button
+            onClick={() => setShowIncidentModal(true)}
+            style={{
+              padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)',
+              background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)',
+              fontSize: '0.9rem', cursor: 'pointer',
+            }}
+          >
             🤢 嘔吐 / 異常狀況
           </button>
           <button style={{
@@ -310,6 +339,167 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
           </>
         )}
       </div>
+
+      {/* Incident Report Modal */}
+      {showIncidentModal && (
+        <div
+          onClick={() => setShowIncidentModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(29, 19, 28, 0.48)',
+            backdropFilter: 'blur(10px)',
+            display: 'grid',
+            alignItems: 'end',
+            zIndex: 999,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)',
+              borderTopLeftRadius: '24px',
+              borderTopRightRadius: '24px',
+              padding: '18px 16px 28px',
+              boxShadow: '0 -18px 40px rgba(15,23,42,0.18)',
+              display: 'grid',
+              gap: '14px',
+            }}
+          >
+            <div
+              style={{
+                width: '42px',
+                height: '4px',
+                borderRadius: '999px',
+                background: 'rgba(61,44,53,0.14)',
+                margin: '0 auto',
+              }}
+            />
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              🆘 異常狀況回報
+            </div>
+            
+            <div style={{ display: 'grid', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                  異常類型 *
+                </label>
+                <input
+                  type="text"
+                  value={incidentForm.type}
+                  onChange={(e) => setIncidentForm((s) => ({ ...s, type: e.target.value }))}
+                  placeholder="例如：嘔吐、食慾不振、精神不佳"
+                  style={{
+                    width: '100%',
+                    padding: '11px 12px',
+                    background: 'var(--bg-card2)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: '12px',
+                    color: 'var(--text-primary)',
+                    boxSizing: 'border-box',
+                    fontFamily: 'var(--font)',
+                    fontSize: '0.9rem',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
+                  嚴重程度 *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                  {[
+                    { value: 'low', label: '低', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
+                    { value: 'medium', label: '中', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+                    { value: 'high', label: '高', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+                    { value: 'critical', label: '緊急', color: '#dc2626', bg: 'rgba(220,38,38,0.15)' },
+                  ].map((sev) => (
+                    <button
+                      key={sev.value}
+                      type="button"
+                      onClick={() => setIncidentForm((s) => ({ ...s, severity: sev.value as typeof incidentForm.severity }))}
+                      style={{
+                        padding: '10px',
+                        border: incidentForm.severity === sev.value ? `2px solid ${sev.color}` : '1px solid var(--glass-border)',
+                        borderRadius: '12px',
+                        background: incidentForm.severity === sev.value ? sev.bg : 'var(--glass)',
+                        color: incidentForm.severity === sev.value ? sev.color : 'var(--text-secondary)',
+                        fontFamily: 'var(--font)',
+                        fontSize: '0.88rem',
+                        fontWeight: incidentForm.severity === sev.value ? 700 : 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      🚨 {sev.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                  詳細說明（選填）
+                </label>
+                <textarea
+                  value={incidentForm.note}
+                  onChange={(e) => setIncidentForm((s) => ({ ...s, note: e.target.value }))}
+                  rows={3}
+                  placeholder="例如：吐了兩次、有未消化的食物、精神還可以"
+                  style={{
+                    width: '100%',
+                    padding: '11px 12px',
+                    background: 'var(--bg-card2)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: '12px',
+                    color: 'var(--text-primary)',
+                    boxSizing: 'border-box',
+                    fontFamily: 'var(--font)',
+                    fontSize: '0.9rem',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+              <button
+                onClick={submitIncident}
+                style={{
+                  flex: 1,
+                  padding: '13px',
+                  border: 'none',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  color: '#fff',
+                  fontSize: '0.95rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font)',
+                }}
+              >
+                🆘 立即回報
+              </button>
+              <button
+                onClick={() => setShowIncidentModal(false)}
+                style={{
+                  padding: '13px 18px',
+                  border: '1px solid var(--glass-border)',
+                  borderRadius: '16px',
+                  background: 'var(--glass)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font)',
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
