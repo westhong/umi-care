@@ -39,6 +39,7 @@ interface SelfReportRow {
   acknowledged?: boolean;
   acknowledgedAt?: string;
   acknowledgedNote?: string;
+  processingStatus?: 'pending' | 'in-progress' | 'completed';
 }
 
 interface RecordStreamItem {
@@ -136,6 +137,18 @@ function toDateTime(value?: string) {
     return new Date(value).toLocaleString('zh-HK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   } catch {
     return value;
+  }
+}
+
+function getTimeGroup(timestamp: string): string {
+  try {
+    const hour = new Date(timestamp).getHours();
+    if (hour >= 5 && hour < 12) return '🌅 早上 (05:00-11:59)';
+    if (hour >= 12 && hour < 17) return '☀️ 下午 (12:00-16:59)';
+    if (hour >= 17 && hour < 21) return '🌆 傍晚 (17:00-20:59)';
+    return '🌙 晚上 (21:00-04:59)';
+  } catch {
+    return '🕐 時間未知';
   }
 }
 
@@ -483,25 +496,36 @@ export function AdminPage() {
       };
     });
 
-    const selfReportItems = selfReports.map((row) => ({
-      id: `selfreport-${row.id}`,
-      kind: 'selfReport' as const,
-      timestamp: row.reportedAt,
-      tone: row.acknowledged ? 'default' as const : 'warning' as const,
-      lane: row.acknowledged ? 'report' as const : 'attention' as const,
-      title: <>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>,
-      meta: <>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>,
-      chips: <>
-        <span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>
-        {row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}
-        <span style={badgeStyle(row.acknowledged ? 'neutral' : 'warning')}>{row.acknowledged ? '已確認' : '待確認'}</span>
-      </>,
-      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>備註：{row.note || '—'}</div><div>管理員確認：{row.acknowledgedAt ? `${toDateTime(row.acknowledgedAt)}${row.acknowledgedNote ? ` · ${row.acknowledgedNote}` : ''}` : '尚未確認'}</div></div>,
-      actions: <>
-        {!row.acknowledged && <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id)}>👀 確認收到</ActionButton>}
-        <ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>
-      </>,
-    }));
+    const selfReportItems = selfReports.map((row) => {
+      const statusLabel = row.processingStatus === 'in-progress' ? '處理中' : row.processingStatus === 'completed' ? '已完成' : row.acknowledged ? '已確認' : '待確認';
+      const statusTone = row.processingStatus === 'completed' ? 'success' : row.processingStatus === 'in-progress' ? 'purple' : row.acknowledged ? 'neutral' : 'warning';
+      return {
+        id: `selfreport-${row.id}`,
+        kind: 'selfReport' as const,
+        timestamp: row.reportedAt,
+        tone: row.acknowledged ? 'default' as const : 'warning' as const,
+        lane: row.acknowledged ? 'report' as const : 'attention' as const,
+        title: <>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>,
+        meta: <>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>,
+        chips: <>
+          <span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>
+          {row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}
+          <span style={badgeStyle(statusTone)}>{statusLabel}</span>
+        </>,
+        detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>備註：{row.note || '—'}</div><div>管理員確認：{row.acknowledgedAt ? `${toDateTime(row.acknowledgedAt)}${row.acknowledgedNote ? ` · ${row.acknowledgedNote}` : ''}` : '尚未確認'}</div>{row.processingStatus && <div>處理狀態：{statusLabel}</div>}</div>,
+        actions: <>
+          {!row.acknowledged && (
+            <>
+              <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'pending')}>👀 確認收到</ActionButton>
+              <ActionButton onClick={() => acknowledgeSelfReport(row.id, 'in-progress')}>⚙️ 處理中</ActionButton>
+              <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'completed')}>✅ 已完成</ActionButton>
+            </>
+          )}
+          {row.acknowledged && <ActionButton onClick={() => cancelAcknowledgment(row.id)}>↩️ 取消確認</ActionButton>}
+          <ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>
+        </>,
+      };
+    });
 
     const incidentItems = incidents.map((row) => ({
       id: `incident-${row.id}`,
@@ -673,11 +697,22 @@ export function AdminPage() {
     });
   };
 
-  const acknowledgeSelfReport = async (id: string) => {
-    const note = window.prompt('可選：留下確認註記（例如已查看、稍後補貨）', '') ?? '';
+  const acknowledgeSelfReport = async (id: string, processingStatus?: 'pending' | 'in-progress' | 'completed') => {
+    const note = window.prompt('可選：留下確認註記（例如已查看、稍後補貨、正在處理）', '') ?? '';
     await withBusy(async () => {
-      await post(`/api/selfreports/${id}/ack`, { note: note.trim() });
-      flash(note.trim() ? '已確認回報並附上註記' : '已確認收到回報');
+      await post(`/api/selfreports/${id}/ack`, { note: note.trim(), processingStatus });
+      const statusLabel = processingStatus === 'in-progress' ? '（處理中）' : processingStatus === 'completed' ? '（已完成）' : '';
+      flash(note.trim() ? `已確認回報並附上註記${statusLabel}` : `已確認收到回報${statusLabel}`);
+      setDetailModal(null);
+      await Promise.all([loadRecords(recordsDate), loadOverview()]);
+    });
+  };
+
+  const cancelAcknowledgment = async (id: string) => {
+    if (!window.confirm('取消這個回報的確認狀態？之後可以重新確認。')) return;
+    await withBusy(async () => {
+      await post(`/api/selfreports/${id}/unack`, {});
+      flash('已取消確認狀態');
       setDetailModal(null);
       await Promise.all([loadRecords(recordsDate), loadOverview()]);
     });
@@ -985,16 +1020,27 @@ export function AdminPage() {
                       <span style={badgeStyle(unacknowledgedSelfReports.length ? 'warning' : 'neutral')}>{unacknowledgedSelfReports.length}/{selfReports.length} 待確認 / 全部</span>
                     </div>
                     <div style={{ display: 'grid', gap: '10px' }}>
-                      {selfReports.map((row) => (
-                        <RecordCard
-                          key={row.id}
-                          tone="warning"
-                          title={<>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>}
-                          meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
-                          chips={<><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span><span style={badgeStyle(row.acknowledged ? 'neutral' : 'warning')}>{row.acknowledged ? '已確認' : '待確認'}</span></>}
-                          actions={!row.acknowledged ? <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id)}>👀 確認收到</ActionButton> : undefined}
-                        />
-                      ))}
+                      {selfReports.map((row) => {
+                        const statusLabel = row.processingStatus === 'in-progress' ? '處理中' : row.processingStatus === 'completed' ? '已完成' : row.acknowledged ? '已確認' : '待確認';
+                        const statusTone = row.processingStatus === 'completed' ? 'success' : row.processingStatus === 'in-progress' ? 'purple' : row.acknowledged ? 'neutral' : 'warning';
+                        return (
+                          <RecordCard
+                            key={row.id}
+                            tone="warning"
+                            title={<>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>}
+                            meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
+                            chips={<><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span><span style={badgeStyle(statusTone)}>{statusLabel}</span></>}
+                            actions={!row.acknowledged ? (
+                              <>
+                                <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'pending')}>👀 確認</ActionButton>
+                                <ActionButton onClick={() => acknowledgeSelfReport(row.id, 'in-progress')}>⚙️ 處理中</ActionButton>
+                              </>
+                            ) : row.processingStatus === 'in-progress' ? (
+                              <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'completed')}>✅ 標記完成</ActionButton>
+                            ) : undefined}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1114,6 +1160,81 @@ export function AdminPage() {
               )}
             </div>
 
+            <div style={{ ...sectionCard, display: 'grid', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>📰 最近事件流</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>今天最新的 5 筆紀錄，讓你快速掌握最近發生的事。</div>
+                </div>
+                <button onClick={() => setActiveTab('records')} style={subtleButton}>📋 查看完整紀錄</button>
+              </div>
+              {(() => {
+                const allTodayEvents = [
+                  ...todayCheckins.map((row) => ({ timestamp: row.time, kind: 'checkin' as const, data: row })),
+                  ...selfReports.map((row) => ({ timestamp: row.reportedAt, kind: 'selfReport' as const, data: row })),
+                  ...incidents.map((row) => ({ timestamp: row.reportedAt, kind: 'incident' as const, data: row })),
+                  ...todayDoneSpecial.map((row) => ({ timestamp: row.doneAt || row.createdAt, kind: 'adhoc' as const, data: row })),
+                ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
+
+                return allTodayEvents.length ? (
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    {allTodayEvents.map((event, idx) => {
+                      if (event.kind === 'checkin') {
+                        const row = event.data as Checkin;
+                        const task = taskMap[row.taskId] || { id: row.taskId, name: row.taskId, icon: '📋' };
+                        return (
+                          <div key={`mini-checkin-${idx}`} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '10px', borderRadius: '12px', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.15)' }}>
+                            <div style={{ fontSize: '1.4rem' }}>{task.icon}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{task.name}</div>
+                              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{toClock(row.time)} · {row.isDone ? '完成' : '略過'}</div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (event.kind === 'selfReport') {
+                        const row = event.data as SelfReportRow;
+                        return (
+                          <div key={`mini-report-${idx}`} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '10px', borderRadius: '12px', background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                            <div style={{ fontSize: '1.4rem' }}>{row.icon || '📝'}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{row.title}</div>
+                              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{toClock(row.reportedAt)} · {row.acknowledged ? '已確認' : '待確認'}</div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (event.kind === 'incident') {
+                        const row = event.data as IncidentRow;
+                        return (
+                          <div key={`mini-incident-${idx}`} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '10px', borderRadius: '12px', background: 'rgba(248,113,113,0.05)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                            <div style={{ fontSize: '1.4rem' }}>🆘</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{row.type}</div>
+                              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{toClock(row.reportedAt)} · {row.resolved ? '已處理' : '待處理'}</div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (event.kind === 'adhoc') {
+                        const row = event.data as AdhocTask;
+                        return (
+                          <div key={`mini-adhoc-${idx}`} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '10px', borderRadius: '12px', background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                            <div style={{ fontSize: '1.4rem' }}>{row.icon}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{row.name}</div>
+                              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{toClock(row.doneAt || row.createdAt)} · 特殊任務完成</div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                ) : <EmptyState title="今天還沒有事件紀錄" subtitle="完成任務、回報、異常會即時顯示在這裡。" />;
+              })()}
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
               <div style={{ ...sectionCard, display: 'grid', gap: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
@@ -1207,17 +1328,36 @@ export function AdminPage() {
               </div>
               {filteredRecordStream.length ? (
                 <div style={{ display: 'grid', gap: '10px' }}>
-                  {filteredRecordStream.map((item) => (
-                    <RecordCard
-                      key={item.id}
-                      tone={item.tone}
-                      title={item.title}
-                      meta={item.meta}
-                      chips={item.chips}
-                      actions={item.actions}
-                      onClick={() => setDetailModal({ title: item.title, meta: item.meta, chips: item.chips, body: item.detailBody, actions: item.actions, tone: item.tone === 'default' ? undefined : item.tone })}
-                    />
-                  ))}
+                  {(() => {
+                    const grouped: Record<string, RecordStreamItem[]> = {};
+                    filteredRecordStream.forEach((item) => {
+                      const group = getTimeGroup(item.timestamp);
+                      if (!grouped[group]) grouped[group] = [];
+                      grouped[group].push(item);
+                    });
+                    const groupOrder = ['🌅 早上 (05:00-11:59)', '☀️ 下午 (12:00-16:59)', '🌆 傍晚 (17:00-20:59)', '🌙 晚上 (21:00-04:59)', '🕐 時間未知'];
+                    return groupOrder.flatMap((groupLabel) => {
+                      const items = grouped[groupLabel];
+                      if (!items || items.length === 0) return [];
+                      return [
+                        <div key={`header-${groupLabel}`} style={{ position: 'sticky', top: '0', zIndex: 10, background: 'linear-gradient(135deg, rgba(155,135,245,0.08), rgba(192,132,252,0.08))', borderRadius: '12px', padding: '8px 12px', fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backdropFilter: 'blur(8px)' }}>
+                          <span>{groupLabel}</span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>{items.length} 筆</span>
+                        </div>,
+                        ...items.map((item) => (
+                          <RecordCard
+                            key={item.id}
+                            tone={item.tone}
+                            title={item.title}
+                            meta={item.meta}
+                            chips={item.chips}
+                            actions={item.actions}
+                            onClick={() => setDetailModal({ title: item.title, meta: item.meta, chips: item.chips, body: item.detailBody, actions: item.actions, tone: item.tone === 'default' ? undefined : item.tone })}
+                          />
+                        ))
+                      ];
+                    });
+                  })()}
                 </div>
               ) : <EmptyState title="這個篩選條件下沒有紀錄" subtitle="換個 chip 或改日期，就能快速切回完整流水。" />}
             </div>
@@ -1273,24 +1413,47 @@ export function AdminPage() {
               </div>
               {selfReports.length ? (
                 <div style={{ display: 'grid', gap: '10px' }}>
-                  {selfReports.map((row) => (
-                    <RecordCard
-                      key={row.id}
-                      tone="warning"
-                      title={<>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>}
-                      meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
-                      chips={<><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>{row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}<span style={badgeStyle(row.acknowledged ? 'neutral' : 'warning')}>{row.acknowledged ? '已確認' : '待確認'}</span></>}
-                      onClick={() => setDetailModal({
-                        tone: 'warning',
-                        title: <>{row.icon || '📝'} {row.title}</>,
-                        meta: <>{toDateTime(row.reportedAt)}</>,
-                        chips: <><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>{row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}<span style={badgeStyle(row.acknowledged ? 'neutral' : 'warning')}>{row.acknowledged ? '已確認' : '待確認'}</span></>,
-                        body: <div style={{ display: 'grid', gap: '8px' }}><div>備註：{row.note || '—'}</div><div>管理員確認：{row.acknowledgedAt ? `${toDateTime(row.acknowledgedAt)}${row.acknowledgedNote ? ` · ${row.acknowledgedNote}` : ''}` : '尚未確認'}</div></div>,
-                        actions: <>{!row.acknowledged && <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id)}>👀 確認收到</ActionButton>}<ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton></>,
-                      })}
-                      actions={<>{!row.acknowledged && <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id)}>👀 確認收到</ActionButton>}<ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton></>}
-                    />
-                  ))}
+                  {selfReports.map((row) => {
+                    const statusLabel = row.processingStatus === 'in-progress' ? '處理中' : row.processingStatus === 'completed' ? '已完成' : row.acknowledged ? '已確認' : '待確認';
+                    const statusTone = row.processingStatus === 'completed' ? 'success' : row.processingStatus === 'in-progress' ? 'purple' : row.acknowledged ? 'neutral' : 'warning';
+                    return (
+                      <RecordCard
+                        key={row.id}
+                        tone="warning"
+                        title={<>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>}
+                        meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
+                        chips={<><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>{row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}<span style={badgeStyle(statusTone)}>{statusLabel}</span></>}
+                        onClick={() => setDetailModal({
+                          tone: 'warning',
+                          title: <>{row.icon || '📝'} {row.title}</>,
+                          meta: <>{toDateTime(row.reportedAt)}</>,
+                          chips: <><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>{row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}<span style={badgeStyle(statusTone)}>{statusLabel}</span></>,
+                          body: <div style={{ display: 'grid', gap: '8px' }}><div>備註：{row.note || '—'}</div><div>管理員確認：{row.acknowledgedAt ? `${toDateTime(row.acknowledgedAt)}${row.acknowledgedNote ? ` · ${row.acknowledgedNote}` : ''}` : '尚未確認'}</div>{row.processingStatus && <div>處理狀態：{statusLabel}</div>}</div>,
+                          actions: <>
+                            {!row.acknowledged && (
+                              <>
+                                <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'pending')}>👀 確認收到</ActionButton>
+                                <ActionButton onClick={() => acknowledgeSelfReport(row.id, 'in-progress')}>⚙️ 處理中</ActionButton>
+                                <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'completed')}>✅ 已完成</ActionButton>
+                              </>
+                            )}
+                            {row.acknowledged && <ActionButton onClick={() => cancelAcknowledgment(row.id)}>↩️ 取消確認</ActionButton>}
+                            <ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>
+                          </>,
+                        })}
+                        actions={<>
+                          {!row.acknowledged && (
+                            <>
+                              <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'pending')}>👀 確認</ActionButton>
+                              <ActionButton onClick={() => acknowledgeSelfReport(row.id, 'in-progress')}>⚙️ 處理中</ActionButton>
+                            </>
+                          )}
+                          {row.acknowledged && <ActionButton onClick={() => cancelAcknowledgment(row.id)}>↩️ 取消確認</ActionButton>}
+                          <ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>
+                        </>}
+                      />
+                    );
+                  })}
                 </div>
               ) : <EmptyState title="這天沒有主動回報" subtitle="餵食、零食或其他自動回報會統一整理在這裡。" />}
             </div>
