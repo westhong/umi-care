@@ -36,6 +36,22 @@ interface SelfReportRow {
   unit?: string;
   note?: string;
   reportedAt: string;
+  acknowledged?: boolean;
+  acknowledgedAt?: string;
+  acknowledgedNote?: string;
+}
+
+interface RecordStreamItem {
+  id: string;
+  kind: 'checkin' | 'selfReport' | 'incident' | 'adhoc';
+  timestamp: string;
+  tone: 'default' | 'danger' | 'warning' | 'success';
+  lane: 'attention' | 'report' | 'routine';
+  title: React.ReactNode;
+  meta?: React.ReactNode;
+  chips?: React.ReactNode;
+  detailBody?: React.ReactNode;
+  actions?: React.ReactNode;
 }
 
 interface IncidentRow {
@@ -290,6 +306,7 @@ export function AdminPage() {
   const [incidents, setIncidents] = useState<IncidentRow[]>([]);
   const [specialPresets, setSpecialPresets] = useState<SpecialPreset[]>(DEFAULT_PRESETS);
   const [detailModal, setDetailModal] = useState<DetailModalState | null>(null);
+  const [recordsFilter, setRecordsFilter] = useState<'all' | 'attention' | 'checkins' | 'reports' | 'incidents' | 'special'>('all');
 
   const [specialForm, setSpecialForm] = useState({ icon: '📌', name: '', note: '' });
   const [catForm, setCatForm] = useState<CatProfile>({ name: catName, breed: '', birthdate: '', notes: '' });
@@ -408,6 +425,8 @@ export function AdminPage() {
   const taskMap = useMemo(() => Object.fromEntries(tasks.map((task) => [task.id, task])), [tasks]);
   const unresolvedIncidents = incidents.filter((row) => !row.resolved);
   const resolvedIncidents = incidents.filter((row) => row.resolved);
+  const unacknowledgedSelfReports = selfReports.filter((row) => !row.acknowledged);
+  const acknowledgedSelfReports = selfReports.filter((row) => row.acknowledged);
 
   const timelineRows = useMemo<TimelineRow[]>(() => {
     const rows = visibleTasks.map((task) => {
@@ -442,6 +461,98 @@ export function AdminPage() {
     if (skipCount) bits.push(`${skipCount} 項已略過`);
     return bits.join('，');
   }, [overdueCount, pendingCount, pendingFreshCount, skipCount, totalCount]);
+
+  const recordStream = useMemo<RecordStreamItem[]>(() => {
+    const checkinItems = recordCheckins.map((row) => {
+      const task = taskMap[row.taskId] || { id: row.taskId, name: row.taskId, icon: '📋', type: 'other', scheduleType: 'daily', scheduledTimes: [] };
+      return {
+        id: `checkin-${row.taskId}-${row.time}`,
+        kind: 'checkin' as const,
+        timestamp: row.time,
+        tone: row.isDone ? 'success' as const : 'default' as const,
+        lane: 'routine' as const,
+        title: <>{task.icon || '📋'} {task.name}</>,
+        meta: <>{toDateTime(row.time)}{row.note ? ` · ${row.note}` : ''}</>,
+        chips: <>
+          <span style={badgeStyle(row.isDone ? 'success' : 'neutral')}>{row.isDone ? '完成' : '略過'}</span>
+          {row.result && <span style={badgeStyle('purple')}>{row.result}</span>}
+          {!!task.scheduledTimes?.length && <span style={badgeStyle('neutral')}>預定 {(task.scheduledTimes || []).join(' / ')}</span>}
+        </>,
+        detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>預定時間：{(task.scheduledTimes || []).join(' / ') || '—'}</div><div>備註：{row.note || '—'}</div></div>,
+        actions: <ActionButton tone="danger" onClick={() => deleteCheckin(row.taskId)}>🗑 刪除</ActionButton>,
+      };
+    });
+
+    const selfReportItems = selfReports.map((row) => ({
+      id: `selfreport-${row.id}`,
+      kind: 'selfReport' as const,
+      timestamp: row.reportedAt,
+      tone: row.acknowledged ? 'default' as const : 'warning' as const,
+      lane: row.acknowledged ? 'report' as const : 'attention' as const,
+      title: <>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>,
+      meta: <>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>,
+      chips: <>
+        <span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>
+        {row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}
+        <span style={badgeStyle(row.acknowledged ? 'neutral' : 'warning')}>{row.acknowledged ? '已確認' : '待確認'}</span>
+      </>,
+      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>備註：{row.note || '—'}</div><div>管理員確認：{row.acknowledgedAt ? `${toDateTime(row.acknowledgedAt)}${row.acknowledgedNote ? ` · ${row.acknowledgedNote}` : ''}` : '尚未確認'}</div></div>,
+      actions: <>
+        {!row.acknowledged && <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id)}>👀 確認收到</ActionButton>}
+        <ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>
+      </>,
+    }));
+
+    const incidentItems = incidents.map((row) => ({
+      id: `incident-${row.id}`,
+      kind: 'incident' as const,
+      timestamp: row.reportedAt,
+      tone: row.resolved ? 'success' as const : 'danger' as const,
+      lane: row.resolved ? 'report' as const : 'attention' as const,
+      title: <>{row.resolved ? '✅' : '🆘'} {row.type}</>,
+      meta: <>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}{row.resolvedAt ? ` · 已於 ${toDateTime(row.resolvedAt)} 處理` : ''}</>,
+      chips: <>
+        <span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>
+        {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
+      </>,
+      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}</div>,
+      actions: <>
+        {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
+        {!row.resolved && <ActionButton tone="success" onClick={() => resolveIncident(row.id)}>✅ 處理</ActionButton>}
+        <ActionButton tone="danger" onClick={() => deleteIncident(row.id)}>🗑 刪除</ActionButton>
+      </>,
+    }));
+
+    const specialItems = selectedDateSpecial.map((row) => ({
+      id: `adhoc-${row.id}`,
+      kind: 'adhoc' as const,
+      timestamp: row.doneAt || row.createdAt,
+      tone: 'default' as const,
+      lane: 'routine' as const,
+      title: <>{row.icon} {row.name}</>,
+      meta: <>{toDateTime(row.doneAt)}</>,
+      chips: <>
+        <span style={badgeStyle('success')}>已完成</span>
+        {row.note && <span style={badgeStyle('neutral')}>派發：{row.note}</span>}
+        {row.doneNote && <span style={badgeStyle('success')}>完成：{row.doneNote}</span>}
+      </>,
+      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>派發備註：{row.note || '—'}</div><div>完成備註：{row.doneNote || '—'}</div></div>,
+      actions: <ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 刪除</ActionButton>,
+    }));
+
+    return [...incidentItems, ...selfReportItems, ...checkinItems, ...specialItems]
+      .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+  }, [recordCheckins, selfReports, incidents, selectedDateSpecial, taskMap]);
+
+  const filteredRecordStream = useMemo(() => recordStream.filter((item) => {
+    if (recordsFilter === 'all') return true;
+    if (recordsFilter === 'attention') return item.lane === 'attention';
+    if (recordsFilter === 'checkins') return item.kind === 'checkin';
+    if (recordsFilter === 'reports') return item.kind === 'selfReport';
+    if (recordsFilter === 'incidents') return item.kind === 'incident';
+    if (recordsFilter === 'special') return item.kind === 'adhoc';
+    return true;
+  }), [recordStream, recordsFilter]);
 
   const flash = (text: string) => {
     setMessage(text);
@@ -558,6 +669,16 @@ export function AdminPage() {
     await withBusy(async () => {
       await del(`/api/checkins?date=${recordsDate}&taskId=${encodeURIComponent(taskId)}`);
       flash('已刪除紀錄');
+      await Promise.all([loadRecords(recordsDate), loadOverview()]);
+    });
+  };
+
+  const acknowledgeSelfReport = async (id: string) => {
+    const note = window.prompt('可選：留下確認註記（例如已查看、稍後補貨）', '') ?? '';
+    await withBusy(async () => {
+      await post(`/api/selfreports/${id}/ack`, { note: note.trim() });
+      flash(note.trim() ? '已確認回報並附上註記' : '已確認收到回報');
+      setDetailModal(null);
       await Promise.all([loadRecords(recordsDate), loadOverview()]);
     });
   };
@@ -784,6 +905,32 @@ export function AdminPage() {
 
         {activeTab === 'overview' && (
           <div style={{ display: 'grid', gap: '14px' }}>
+            <div style={{ ...sectionCard, display: 'grid', gap: '12px', borderTop: `4px solid ${overdueCount || unresolvedIncidents.length ? '#ef4444' : unacknowledgedSelfReports.length ? '#f59e0b' : '#22c55e'}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>📌 置頂摘要 / Urgency Bands</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>先把需要反應的事情釘在最上面，再往下看完整流水。</div>
+                </div>
+                <span style={badgeStyle(overdueCount || unresolvedIncidents.length ? 'danger' : unacknowledgedSelfReports.length ? 'warning' : 'success')}>
+                  {overdueCount || unresolvedIncidents.length ? '需要立即注意' : unacknowledgedSelfReports.length ? '有待確認回報' : '目前平穩'}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                {[
+                  { label: '立即處理', value: overdueCount + unresolvedIncidents.length, sub: overdueCount ? `${overdueCount} 項逾時` : '沒有逾時任務', tone: overdueCount + unresolvedIncidents.length ? 'danger' as const : 'success' as const },
+                  { label: '待確認回報', value: unacknowledgedSelfReports.length, sub: selfReports.length ? `${acknowledgedSelfReports.length} 則已確認` : '今天沒有回報', tone: unacknowledgedSelfReports.length ? 'warning' as const : 'neutral' as const },
+                  { label: '日常流程', value: `${doneCount}/${totalCount || 0}`, sub: skipCount ? `${skipCount} 項略過` : '沒有略過項目', tone: pendingFreshCount ? 'warning' as const : 'success' as const },
+                ].map((item) => (
+                  <div key={item.label} style={{ borderRadius: '16px', padding: '12px', background: 'rgba(61,44,53,0.03)', border: '1px solid rgba(61,44,53,0.05)' }}>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{item.label}</div>
+                    <div style={{ fontSize: '1.18rem', fontWeight: 800, marginTop: '4px' }}>{item.value}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '6px' }}>{item.sub}</div>
+                    <div style={{ marginTop: '8px' }}><span style={badgeStyle(item.tone)}>{item.label}</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {(unresolvedIncidents.length > 0 || selfReports.length > 0) && (
               <div style={{ display: 'grid', gap: '12px' }}>
                 {!!unresolvedIncidents.length && (
@@ -835,7 +982,7 @@ export function AdminPage() {
                         <div style={{ fontWeight: 800, color: '#92400e' }}>📝 今日主動回報</div>
                         <div style={{ fontSize: '0.8rem', color: 'rgba(146,64,14,0.78)' }}>沿用舊版 pinned 提醒感，先看回報再看一般流水帳。</div>
                       </div>
-                      <span style={badgeStyle('warning')}>{selfReports.length} 則回報</span>
+                      <span style={badgeStyle(unacknowledgedSelfReports.length ? 'warning' : 'neutral')}>{unacknowledgedSelfReports.length}/{selfReports.length} 待確認 / 全部</span>
                     </div>
                     <div style={{ display: 'grid', gap: '10px' }}>
                       {selfReports.map((row) => (
@@ -844,7 +991,8 @@ export function AdminPage() {
                           tone="warning"
                           title={<>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>}
                           meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
-                          chips={<span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>}
+                          chips={<><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span><span style={badgeStyle(row.acknowledged ? 'neutral' : 'warning')}>{row.acknowledged ? '已確認' : '待確認'}</span></>}
+                          actions={!row.acknowledged ? <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id)}>👀 確認收到</ActionButton> : undefined}
                         />
                       ))}
                     </div>
@@ -1026,6 +1174,54 @@ export function AdminPage() {
               </div>
             </div>
 
+            <div style={{ ...sectionCard, display: 'grid', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>🧵 統一流水紀錄</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>把打卡、回報、異常、特殊任務拉成同一條 stream，先看 attention，再依類型過濾。</div>
+                </div>
+                <span style={badgeStyle(filteredRecordStream.some((item) => item.lane === 'attention') ? 'danger' : 'neutral')}>{filteredRecordStream.length} / {recordStream.length} 筆顯示中</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {[
+                  ['all', `全部 ${recordStream.length}`],
+                  ['attention', `待注意 ${recordStream.filter((item) => item.lane === 'attention').length}`],
+                  ['checkins', `打卡 ${recordCheckins.length}`],
+                  ['reports', `回報 ${selfReports.length}`],
+                  ['incidents', `異常 ${incidents.length}`],
+                  ['special', `特殊 ${selectedDateSpecial.length}`],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setRecordsFilter(key as typeof recordsFilter)}
+                    style={{
+                      ...buttonBase,
+                      padding: '8px 12px',
+                      background: recordsFilter === key ? 'linear-gradient(135deg, var(--primary), #c084fc)' : 'var(--glass)',
+                      color: recordsFilter === key ? '#fff' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {filteredRecordStream.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {filteredRecordStream.map((item) => (
+                    <RecordCard
+                      key={item.id}
+                      tone={item.tone}
+                      title={item.title}
+                      meta={item.meta}
+                      chips={item.chips}
+                      actions={item.actions}
+                      onClick={() => setDetailModal({ title: item.title, meta: item.meta, chips: item.chips, body: item.detailBody, actions: item.actions, tone: item.tone === 'default' ? undefined : item.tone })}
+                    />
+                  ))}
+                </div>
+              ) : <EmptyState title="這個篩選條件下沒有紀錄" subtitle="換個 chip 或改日期，就能快速切回完整流水。" />}
+            </div>
+
             <div style={sectionCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
                 <div>
@@ -1073,7 +1269,7 @@ export function AdminPage() {
                   <div style={{ fontWeight: 800 }}>📝 主動回報</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>加上類型 tag 與數量資訊，接近舊版 records 的辨識方式。</div>
                 </div>
-                <span style={badgeStyle('warning')}>{selfReports.length} 筆</span>
+                <span style={badgeStyle(unacknowledgedSelfReports.length ? 'warning' : 'neutral')}>{unacknowledgedSelfReports.length}/{selfReports.length} 待確認 / 全部</span>
               </div>
               {selfReports.length ? (
                 <div style={{ display: 'grid', gap: '10px' }}>
@@ -1083,16 +1279,16 @@ export function AdminPage() {
                       tone="warning"
                       title={<>{row.icon || '📝'} {row.title}{row.quantity ? ` ×${row.quantity}${row.unit || ''}` : ''}</>}
                       meta={<>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</>}
-                      chips={<span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>}
+                      chips={<><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>{row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}<span style={badgeStyle(row.acknowledged ? 'neutral' : 'warning')}>{row.acknowledged ? '已確認' : '待確認'}</span></>}
                       onClick={() => setDetailModal({
                         tone: 'warning',
                         title: <>{row.icon || '📝'} {row.title}</>,
                         meta: <>{toDateTime(row.reportedAt)}</>,
-                        chips: <><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>{row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}</>,
-                        body: <div>備註：{row.note || '—'}</div>,
-                        actions: <ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>,
+                        chips: <><span style={badgeStyle('warning')}>{row.type || 'self-report'}</span>{row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}<span style={badgeStyle(row.acknowledged ? 'neutral' : 'warning')}>{row.acknowledged ? '已確認' : '待確認'}</span></>,
+                        body: <div style={{ display: 'grid', gap: '8px' }}><div>備註：{row.note || '—'}</div><div>管理員確認：{row.acknowledgedAt ? `${toDateTime(row.acknowledgedAt)}${row.acknowledgedNote ? ` · ${row.acknowledgedNote}` : ''}` : '尚未確認'}</div></div>,
+                        actions: <>{!row.acknowledged && <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id)}>👀 確認收到</ActionButton>}<ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton></>,
                       })}
-                      actions={<ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>}
+                      actions={<>{!row.acknowledged && <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id)}>👀 確認收到</ActionButton>}<ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton></>}
                     />
                   ))}
                 </div>

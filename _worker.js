@@ -395,6 +395,9 @@ async function handleApi(request, env, url) {
         photo: body.photo || null,
         reportedAt: new Date().toISOString(),
         reportedBy: body.reportedBy || 'caregiver',
+        acknowledged: false,
+        acknowledgedAt: null,
+        acknowledgedNote: '',
       };
       list.unshift(item);
       if (list.length > 120) list.splice(120);
@@ -418,6 +421,21 @@ async function handleApi(request, env, url) {
 
       return json({ ok: true, item });
     }
+    const selfReportAckMatch = path.match(/^\/selfreports\/(sr_\d+)\/ack$/);
+    if (selfReportAckMatch && method === 'POST') {
+      const id = selfReportAckMatch[1];
+      const body = await request.json().catch(() => ({}));
+      const raw = await KV.get('selfreports:list');
+      const list = raw ? JSON.parse(raw) : [];
+      const item = list.find((x) => x.id === id);
+      if (!item) return json({ ok: false, error: 'Not found' }, 404);
+      item.acknowledged = true;
+      item.acknowledgedAt = new Date().toISOString();
+      item.acknowledgedNote = body.note || '';
+      await KV.put('selfreports:list', JSON.stringify(list));
+      return json({ ok: true, item });
+    }
+
     const selfReportDelMatch = path.match(/^\/selfreports\/(sr_\d+)$/);
     if (selfReportDelMatch && method === 'DELETE') {
       const id = selfReportDelMatch[1];

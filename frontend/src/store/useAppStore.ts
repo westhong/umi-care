@@ -116,7 +116,7 @@ const urlLang = new URL(location.href).searchParams.get('lang');
 export const useAppStore = create<AppState>((set) => ({
   tasks: [],
   checkins: [],
-  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.1.0' },
+  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.1.1' },
   cat: { name: '屋咪' },
   catName: '屋咪',
   weightsList: [],
