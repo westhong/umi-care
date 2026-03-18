@@ -597,7 +597,7 @@ async function handleApi(request, env, url) {
   }
 }
 
-const VAPID_PUBLIC_KEY = 'BKxdGI0ffaWrjM1mmewRQ7nEBkGFDmbQXrVH-jk--HBjf1uBVZdjvQHfTc16Ggn_0r5K6pK1pHckX_zJMHgTq3w';
+const VAPID_PUBLIC_KEY = 'BFt4HKcvmSKh52zl8p7_Q1yLsyWxT_8WTSvNigtkTVXFkKGf5nWtkKKyAr_8yHYRImKoXDENU6Jd-leWTku9jMQ';
 const VAPID_SUBJECT = 'mailto:west.wong@westech.com.hk';
 
 // ─── Calgary DST helper (single source of truth) ──────────────────────────
@@ -767,8 +767,8 @@ export default {
 // ─── WEB PUSH HELPERS ──────────────────────────────────────────
 
 // VAPID key coordinates (derived from current public key)
-const VAPID_KEY_X = 'rF0YjR99pauMzWaZ7BFDucQGQYUOZtBetUf6OT74cGM';
-const VAPID_KEY_Y = 'f1uBVZdjvQHfTc16Ggn_0r5K6pK1pHckX_zJMHgTq3w';
+const VAPID_KEY_X = 'W3gcpy-ZIqHnbOXynv9DXIuzJbFP_xZNK82KC2RNVcU';
+const VAPID_KEY_Y = 'kKGf5nWtkKKyAr_8yHYRImKoXDENU6Jd-leWTku9jMQ';
 
 function b64url(buf) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)))
