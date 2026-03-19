@@ -122,6 +122,14 @@ const zh: LangStrings = {
   saveRecordBtn: '✅ 確認記錄',
   savingBtn: '⏳ 儲存中...',
   skippedDefaultNote: '略過',
+  litterCountLabel: '這次清了什麼？',
+  litterPoopLabel: '便便',
+  litterPeeLabel: '尿尿',
+  litterClean: '都沒有',
+  litterReportBtn: '🪣 鏟貓砂回報',
+  pushDisableBtn: '關閉通知',
+  pushDisabling: '正在關閉...',
+  pushDisabled: '🔕 通知已關閉',
 };
 
 const en: LangStrings = {
@@ -244,6 +252,14 @@ const en: LangStrings = {
   saveRecordBtn: '✅ Save record',
   savingBtn: '⏳ Saving...',
   skippedDefaultNote: 'Skipped',
+  litterCountLabel: "What did you find?",
+  litterPoopLabel: 'Poop',
+  litterPeeLabel: 'Pee',
+  litterClean: 'Nothing — all clean',
+  litterReportBtn: '🪣 Litter report',
+  pushDisableBtn: 'Turn off',
+  pushDisabling: 'Turning off...',
+  pushDisabled: '🔕 Notifications turned off',
 };
 
 const translations: Record<string, LangStrings> = { zh, en };

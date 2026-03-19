@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v5.3.2 – Cloudflare Worker with Static Assets
+// UmiCare v5.4.0 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -29,18 +29,18 @@ function json(data, status = 200) {
 }
 
 const DEFAULT_TASKS = [
-  { id: 't1', name: '第一餐', nameEn: 'Meal 1', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['05:30'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
+  { id: 't1', name: '第一餐', nameEn: 'Meal 1', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['05:30'], resultOptions: [{ label: '正常進食 ✅', labelEn: 'Ate normally ✅', value: 'normal' }, { label: '少量進食', labelEn: 'Ate a little', value: 'little' }, { label: '完全不吃', labelEn: 'Refused to eat', value: 'none' }] },
   { id: 't2', name: '量體重', nameEn: 'Weigh Cat', icon: '⚖️', type: 'weight', scheduleType: 'weekly', weekDays: [0], scheduledTimes: ['07:00'], resultOptions: [] },
-  { id: 't3', name: '早上清貓砂', nameEn: 'Clean Litter Box (AM)', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['08:00'], resultOptions: [{ label: '💩 有便便', value: 'poop' }, { label: '💦 有尿尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
-  { id: 't4', name: '更換新鮮飲水', nameEn: 'Refresh Water', icon: '💧', type: 'water', scheduleType: 'daily', scheduledTimes: ['08:30'], resultOptions: [{ label: '已更換 ✅', value: 'done' }, { label: '僅補水', value: 'topped' }] },
-  { id: 't5', name: '第二餐', nameEn: 'Meal 2', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['09:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
-  { id: 't6', name: '第三餐', nameEn: 'Meal 3', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['12:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
-  { id: 't7', name: '下午清貓砂', nameEn: 'Clean Litter Box (PM)', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['14:00'], resultOptions: [{ label: '💩 有便便', value: 'poop' }, { label: '💦 有尿尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
-  { id: 't8', name: '第四餐', nameEn: 'Meal 4', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['16:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
-  { id: 't9', name: '貓薄荷', nameEn: 'Catnip', icon: '🌿', type: 'other', scheduleType: 'daily', scheduledTimes: ['19:00'], resultOptions: [{ label: '已給予 ✅', value: 'given' }, { label: '略過', value: 'skip' }] },
-  { id: 't10', name: '第五餐(睡前)', nameEn: 'Meal 5 (Bedtime)', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['21:00'], resultOptions: [{ label: '正常進食 ✅', value: 'normal' }, { label: '少量進食', value: 'little' }, { label: '完全不吃', value: 'none' }] },
-  { id: 't11', name: '晚上清貓砂', nameEn: 'Clean Litter Box (Night)', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['21:30'], resultOptions: [{ label: '💩 有便便', value: 'poop' }, { label: '💦 有尿尿', value: 'urine' }, { label: '💩💦 都有', value: 'both' }, { label: '✨ 都沒有', value: 'none' }] },
-  { id: 't12', name: '刷牙', nameEn: 'Brush Teeth', icon: '🦷', type: 'groom', scheduleType: 'daily', scheduledTimes: ['22:00'], resultOptions: [{ label: '完成 ✅', value: 'done' }, { label: '部分完成', value: 'partial' }, { label: '略過', value: 'skip' }] },
+  { id: 't3', name: '早上清貓砂', nameEn: 'Clean Litter Box (AM)', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['08:00'], resultOptions: [] },
+  { id: 't4', name: '更換新鮮飲水', nameEn: 'Refresh Water', icon: '💧', type: 'water', scheduleType: 'daily', scheduledTimes: ['08:30'], resultOptions: [{ label: '已更換 ✅', labelEn: 'Replaced ✅', value: 'done' }, { label: '僅補水', labelEn: 'Topped up only', value: 'topped' }] },
+  { id: 't5', name: '第二餐', nameEn: 'Meal 2', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['09:00'], resultOptions: [{ label: '正常進食 ✅', labelEn: 'Ate normally ✅', value: 'normal' }, { label: '少量進食', labelEn: 'Ate a little', value: 'little' }, { label: '完全不吃', labelEn: 'Refused to eat', value: 'none' }] },
+  { id: 't6', name: '第三餐', nameEn: 'Meal 3', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['12:00'], resultOptions: [{ label: '正常進食 ✅', labelEn: 'Ate normally ✅', value: 'normal' }, { label: '少量進食', labelEn: 'Ate a little', value: 'little' }, { label: '完全不吃', labelEn: 'Refused to eat', value: 'none' }] },
+  { id: 't7', name: '下午清貓砂', nameEn: 'Clean Litter Box (PM)', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['14:00'], resultOptions: [] },
+  { id: 't8', name: '第四餐', nameEn: 'Meal 4', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['16:00'], resultOptions: [{ label: '正常進食 ✅', labelEn: 'Ate normally ✅', value: 'normal' }, { label: '少量進食', labelEn: 'Ate a little', value: 'little' }, { label: '完全不吃', labelEn: 'Refused to eat', value: 'none' }] },
+  { id: 't9', name: '貓薄荷', nameEn: 'Catnip', icon: '🌿', type: 'other', scheduleType: 'daily', scheduledTimes: ['19:00'], resultOptions: [{ label: '已給予 ✅', labelEn: 'Given ✅', value: 'given' }, { label: '略過', labelEn: 'Skipped', value: 'skip' }] },
+  { id: 't10', name: '第五餐(睡前)', nameEn: 'Meal 5 (Bedtime)', icon: '🍽️', type: 'meal', scheduleType: 'daily', scheduledTimes: ['21:00'], resultOptions: [{ label: '正常進食 ✅', labelEn: 'Ate normally ✅', value: 'normal' }, { label: '少量進食', labelEn: 'Ate a little', value: 'little' }, { label: '完全不吃', labelEn: 'Refused to eat', value: 'none' }] },
+  { id: 't11', name: '晚上清貓砂', nameEn: 'Clean Litter Box (Night)', icon: '🪣', type: 'litter', scheduleType: 'daily', scheduledTimes: ['21:30'], resultOptions: [] },
+  { id: 't12', name: '刷牙', nameEn: 'Brush Teeth', icon: '🦷', type: 'groom', scheduleType: 'daily', scheduledTimes: ['22:00'], resultOptions: [{ label: '完成 ✅', labelEn: 'Done ✅', value: 'done' }, { label: '部分完成', labelEn: 'Partially done', value: 'partial' }, { label: '略過', labelEn: 'Skipped', value: 'skip' }] },
 ];
 
 
@@ -54,7 +54,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', icon: '🏥', name: '健康檢查', nameEn: 'Health Checkup', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.3.2' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.4.0' };
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -65,7 +65,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '5.3.2', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '5.4.0', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {

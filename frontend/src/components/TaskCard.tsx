@@ -21,27 +21,112 @@ interface TaskCardProps {
   onCheckinUpdate: () => void;
 }
 
+function Counter({
+  label,
+  emoji,
+  value,
+  onChange,
+}: {
+  label: string;
+  emoji: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flex: 1 }}>
+      <div style={{ fontSize: '1.5rem' }}>{emoji}</div>
+      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          type="button"
+          onClick={() => onChange(Math.max(0, value - 1))}
+          style={{
+            width: '30px', height: '30px', borderRadius: '50%', border: '1px solid var(--glass-border)',
+            background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '1.1rem',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font)',
+          }}
+        >−</button>
+        <span style={{ fontSize: '1.2rem', fontWeight: 700, minWidth: '24px', textAlign: 'center', color: value > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{value}</span>
+        <button
+          type="button"
+          onClick={() => onChange(value + 1)}
+          style={{
+            width: '30px', height: '30px', borderRadius: '50%', border: '1px solid var(--glass-border)',
+            background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '1.1rem',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font)',
+          }}
+        >+</button>
+      </div>
+    </div>
+  );
+}
+
+function buildLitterResult(poop: number, pee: number): string {
+  const parts: string[] = [];
+  if (poop > 0) parts.push(`poop:${poop}`);
+  if (pee > 0) parts.push(`pee:${pee}`);
+  if (parts.length === 0) return 'clean';
+  return parts.join(',');
+}
+
+function parseLitterResult(result: string | null): { poop: number; pee: number } {
+  if (!result || result === 'clean') return { poop: 0, pee: 0 };
+  // legacy values
+  if (result === 'both') return { poop: 1, pee: 1 };
+  if (result === 'poop') return { poop: 1, pee: 0 };
+  if (result === 'urine') return { poop: 0, pee: 1 };
+  if (result === 'none') return { poop: 0, pee: 0 };
+  const obj: { poop: number; pee: number } = { poop: 0, pee: 0 };
+  result.split(',').forEach((part) => {
+    const [k, v] = part.split(':');
+    if (k === 'poop') obj.poop = parseInt(v, 10) || 0;
+    if (k === 'pee') obj.pee = parseInt(v, 10) || 0;
+  });
+  return obj;
+}
+
+function formatLitterResult(result: string | null, t: (key: string, ...args: unknown[]) => string): string {
+  const { poop, pee } = parseLitterResult(result);
+  const parts: string[] = [];
+  if (poop > 0) parts.push(`💩×${poop}`);
+  if (pee > 0) parts.push(`💦×${pee}`);
+  return parts.length > 0 ? parts.join(' ') : t('litterClean');
+}
+
 export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: TaskCardProps) {
   const [open, setOpen] = useState(false);
   const [isDone, setIsDone] = useState<boolean | null>(null);
   const [result, setResult] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [litterPoop, setLitterPoop] = useState(0);
+  const [litterPee, setLitterPee] = useState(0);
   const lang = useAppStore((s) => s.lang);
   const t = useT(lang);
 
   const isWeight = task.type === 'weight';
+  const isLitter = task.type === 'litter';
   const status = getTaskStatus(checkin, task.scheduledTimes);
   const statusLabel = getStatusLabel(status, t);
+
+  const handleOpen = () => {
+    if (!open && isLitter) {
+      // reset counters on open
+      setLitterPoop(0);
+      setLitterPee(0);
+    }
+    setOpen((o) => !o);
+  };
 
   const handleSubmit = async () => {
     if (isDone === null) return;
     setSubmitting(true);
+    const finalResult = isLitter && isDone ? buildLitterResult(litterPoop, litterPee) : (result || null);
     try {
       await post('/api/checkins', {
         taskId: task.id,
         isDone,
-        result: result || null,
+        result: finalResult,
         note,
         date: caregiverDate,
         time: new Date().toISOString(),
@@ -69,7 +154,7 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
     }}>
       <div
         style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', cursor: 'pointer' }}
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleOpen}
       >
         <div style={{
           width: '44px', height: '44px',
@@ -89,6 +174,11 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
             {checkin?.time && (
               <span style={{ color: checkin.isDone ? '#4ade80' : '#e8679a', marginLeft: '6px', fontWeight: 600 }}>
                 {checkin.isDone ? '✔' : '⏭'} {new Date(checkin.time).toLocaleTimeString(lang === 'en' ? 'en-CA' : 'zh-HK', { hour: '2-digit', minute: '2-digit' })}
+                {isLitter && checkin.isDone && checkin.result && (
+                  <span style={{ marginLeft: '6px', color: 'var(--text-muted)' }}>
+                    {formatLitterResult(checkin.result, t)}
+                  </span>
+                )}
               </span>
             )}
           </div>
@@ -122,7 +212,11 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
             }}>
               <div style={{ fontWeight: 600, marginBottom: '4px' }}>
                 {checkin.isDone ? t('statusDone') : t('statusSkip')}
-                {checkin.result && <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '8px', fontSize: '0.85rem' }}>{checkin.result}</span>}
+                {checkin.result && (
+                  <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '8px', fontSize: '0.85rem' }}>
+                    {isLitter ? formatLitterResult(checkin.result, t) : checkin.result}
+                  </span>
+                )}
               </div>
               {checkin.note && <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>📝 {checkin.note}</div>}
             </div>
@@ -151,7 +245,39 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
                 >{t('skipBtn')}</button>
               </div>
 
-              {task.resultOptions && task.resultOptions.length > 0 && (
+              {/* Litter poo/pee counters */}
+              {isLitter && isDone === true && (
+                <div style={{
+                  background: 'rgba(255,133,161,0.06)', border: '1px solid rgba(255,133,161,0.18)',
+                  borderRadius: '14px', padding: '14px 12px', marginBottom: '14px',
+                }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {t('litterCountLabel')}
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <Counter
+                      emoji="💩"
+                      label={t('litterPoopLabel')}
+                      value={litterPoop}
+                      onChange={setLitterPoop}
+                    />
+                    <Counter
+                      emoji="💦"
+                      label={t('litterPeeLabel')}
+                      value={litterPee}
+                      onChange={setLitterPee}
+                    />
+                  </div>
+                  <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {litterPoop === 0 && litterPee === 0
+                      ? `🧹 ${t('litterClean')}`
+                      : [litterPoop > 0 ? `💩×${litterPoop}` : '', litterPee > 0 ? `💦×${litterPee}` : ''].filter(Boolean).join('  ')}
+                  </div>
+                </div>
+              )}
+
+              {/* Standard result options (non-litter) */}
+              {!isLitter && task.resultOptions && task.resultOptions.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
                   {task.resultOptions.map((opt) => (
                     <button
@@ -181,6 +307,7 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
                   background: 'var(--bg-card2)', border: '1px solid var(--glass-border)',
                   borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)',
                   fontFamily: 'var(--font)', fontSize: '0.9rem', resize: 'none', marginBottom: '14px',
+                  boxSizing: 'border-box',
                 }}
               />
 
