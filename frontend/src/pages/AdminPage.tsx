@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, del, get, post } from '../api/client';
+import { del, get, post } from '../api/client';
 import { getTaskStatus, type TaskStatus } from '../utils/taskStatus';
 import { useAppStore } from '../store/useAppStore';
 import type { CatProfile, Checkin, Settings, Task } from '../store/useAppStore';
@@ -714,6 +714,9 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     setBusy(true);
     try {
       await fn();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      flash(`❌ 操作失敗：${msg}`);
     } finally {
       setBusy(false);
     }
@@ -925,7 +928,9 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       const tpl = resolutionTemplates.find((t) => t.id === template);
       note = tpl?.note || '';
     } else {
-      note = window.prompt('可選：留下處理註記（例如已聯絡照護者、已清理）', '') ?? '';
+      const prompted = window.prompt('可選：留下處理註記（例如已聯絡照護者、已清理）', '');
+      if (prompted === null) return; // user cancelled
+      note = prompted;
     }
     await withBusy(async () => {
       await post(`/api/incidents/${id}/resolve`, { note: note.trim(), template });
@@ -1080,15 +1085,25 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       flash('請輸入舊 PIN 與新 PIN');
       return;
     }
-    await withBusy(async () => {
-      const res = await api<{ ok?: boolean; error?: string }>('/api/pin/change', {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/pin/change', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pinForm),
       });
-      if (!res.ok) throw new Error(res.error || 'PIN 變更失敗');
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        flash(`❌ PIN 變更失敗：${data.error || '舊 PIN 不正確'}`);
+        return;
+      }
       setPinForm({ oldPin: '', newPin: '' });
-      flash('PIN 已更新');
-    });
+      flash('✅ PIN 已更新');
+    } catch {
+      flash('❌ PIN 變更失敗，請重試');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const savePresets = async (nextPresets: SpecialPreset[]) => {
