@@ -1,5 +1,5 @@
 // deploy-ts:1772862037
-// UmiCare v5.6.5 – Cloudflare Worker with Static Assets
+// UmiCare v5.6.6 – Cloudflare Worker with Static Assets
 // ⚠️  DATA PROTECTION: Do NOT add KV.delete() calls on user data keys.
 //     Protected keys: tasks:list, checkins:*, weights:list, periodic:list,
 //                     settings, cat:profile, pin
@@ -54,7 +54,11 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', icon: '🏥', name: '健康檢查', nameEn: 'Health Checkup', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.6.5' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.6.6' };
+
+function normalizeSettings(raw) {
+  return { ...DEFAULT_SETTINGS, ...raw };
+}
 
 async function handleApi(request, env, url) {
   const KV = env.UMICARE_DATA;
@@ -65,7 +69,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '5.6.5', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '5.6.6', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -571,6 +575,19 @@ async function handleApi(request, env, url) {
     if (incPhotoMatch && method === 'GET') {
       const photo = await KV.get('incident:photo:' + incPhotoMatch[1]);
       if (!photo) return json({ error: 'not found' }, 404);
+      // If data URL (data:image/...;base64,...), serve as actual image
+      const dataUrlMatch = photo.match(/^data:(image\/[^;]+);base64,(.+)$/);
+      if (dataUrlMatch) {
+        const mimeType = dataUrlMatch[1];
+        const base64Data = dataUrlMatch[2];
+        const binaryStr = atob(base64Data);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+        return new Response(bytes, {
+          status: 200,
+          headers: { 'Content-Type': mimeType, ...CORS },
+        });
+      }
       return json({ photo });
     }
     // POST /api/incidents/:id/resolve
@@ -773,7 +790,7 @@ export default {
       isDST,
       calgaryDate: today,
       result,
-      overdue: newOverdue.length,
+      overdue: overdue.length,
       firstTask: firstName,
     }), { expirationTtl: 86400 });
   },

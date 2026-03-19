@@ -480,6 +480,9 @@ export function AdminPage() {
   }, [loadBaseData, loadOverview, loadWeights, loadSpecialPresets, loadResolutionTemplates, refreshKey]);
 
   useEffect(() => {
+    if (activeTab === 'overview') {
+      loadOverview().catch(() => undefined);
+    }
     if (activeTab === 'records') {
       loadRecords(recordsDate).catch(() => undefined);
     }
