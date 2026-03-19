@@ -312,7 +312,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             </button>
           </div>
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
-            v5.6.1
+            v5.6.2
           </span>
           <div
             onClick={onAdminOpen}
@@ -348,18 +348,30 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
         <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary)', fontWeight: 700, marginBottom: '10px' }}>
           {t('quickReportTitle')}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
-          <button onClick={() => setShowIncidentModal(true)} style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer' }}>
-            {t('incidentBtn')}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+          {/* Incident */}
+          <button
+            onClick={() => setShowIncidentModal(true)}
+            style={{ padding: '14px 6px', border: '1.5px solid rgba(239,68,68,0.35)', borderRadius: '14px', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontFamily: 'var(--font)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', lineHeight: 1.3 }}
+          >
+            <span style={{ fontSize: '1.5rem' }}>🆘</span>
+            <span>{lang === 'en' ? 'Incident' : '異常上報'}</span>
           </button>
-          <button onClick={() => { applySelfReportPreset('treat'); setShowSelfReportModal(true); }} style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer' }}>
-            {t('feedReportBtn')}
+          {/* Feed */}
+          <button
+            onClick={() => { applySelfReportPreset('treat'); setShowSelfReportModal(true); }}
+            style={{ padding: '14px 6px', border: '1.5px solid rgba(251,146,60,0.35)', borderRadius: '14px', background: 'rgba(251,146,60,0.07)', color: '#f97316', fontFamily: 'var(--font)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', lineHeight: 1.3 }}
+          >
+            <span style={{ fontSize: '1.5rem' }}>🍽️</span>
+            <span>{lang === 'en' ? 'Fed cat' : '餵食紀錄'}</span>
           </button>
+          {/* Litter */}
           <button
             onClick={() => { setLitterCounts({ poop: 0, pee: 0 }); setShowLitterModal(true); }}
-            style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer', gridColumn: '1 / -1' }}
+            style={{ padding: '14px 6px', border: '1.5px solid rgba(161,161,170,0.35)', borderRadius: '14px', background: 'rgba(161,161,170,0.07)', color: '#71717a', fontFamily: 'var(--font)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', lineHeight: 1.3 }}
           >
-            {t('litterReportBtn')}
+            <span style={{ fontSize: '1.5rem' }}>🪣</span>
+            <span>{lang === 'en' ? 'Litter' : '清貓砂'}</span>
           </button>
         </div>
         <div style={{ marginTop: '12px', background: 'rgba(255,255,255,0.68)', border: '1px solid rgba(255,133,161,0.14)', borderRadius: '16px', padding: '12px 12px 10px' }}>
