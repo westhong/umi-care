@@ -16,6 +16,19 @@ interface WeightRecord {
   measuredAt: string;
 }
 
+interface PeriodicTask {
+  id: string;
+  icon: string;
+  name: string;
+  nameEn?: string;
+  note?: string;
+  intervalDays?: number;
+  weeklyMax?: number;
+  weeklyCount?: number;
+  weekStart?: string | null;
+  lastDoneAt: string | null;
+}
+
 interface AdhocTask {
   id: string;
   icon: string;
@@ -386,6 +399,9 @@ export function AdminPage() {
   const [recordsFilter, setRecordsFilter] = useState<'all' | 'attention' | 'checkins' | 'reports' | 'incidents' | 'special'>('all');
   const [granularTime, setGranularTime] = useState(false);
 
+  const [periodicTasks, setPeriodicTasks] = useState<PeriodicTask[]>([]);
+  const [weightForm, setWeightForm] = useState({ personWeight: '', carryWeight: '', note: '' });
+
   const [specialForm, setSpecialForm] = useState({ icon: '📌', name: '', note: '' });
   const [templateDraft, setTemplateDraft] = useState<ResolutionTemplate>({ id: '', label: '', note: '' });
   const [catForm, setCatForm] = useState<CatProfile>({ name: catName, breed: '', birthdate: '', notes: '' });
@@ -475,9 +491,14 @@ export function AdminPage() {
     setResolutionTemplates(Array.isArray(templateData) && templateData.length ? templateData : DEFAULT_RESOLUTION_TEMPLATES);
   }, []);
 
+  const loadPeriodicTasks = useCallback(async () => {
+    const data = await get<PeriodicTask[]>('/api/periodic').catch(() => []);
+    setPeriodicTasks(Array.isArray(data) ? data : []);
+  }, []);
+
   useEffect(() => {
-    Promise.all([loadBaseData(), loadOverview(), loadWeights(), loadSpecialPresets(), loadResolutionTemplates()]).catch(() => undefined);
-  }, [loadBaseData, loadOverview, loadWeights, loadSpecialPresets, loadResolutionTemplates, refreshKey]);
+    Promise.all([loadBaseData(), loadOverview(), loadWeights(), loadSpecialPresets(), loadResolutionTemplates(), loadPeriodicTasks()]).catch(() => undefined);
+  }, [loadBaseData, loadOverview, loadWeights, loadSpecialPresets, loadResolutionTemplates, loadPeriodicTasks, refreshKey]);
 
   useEffect(() => {
     if (activeTab === 'overview') {
@@ -490,9 +511,9 @@ export function AdminPage() {
       loadWeights().catch(() => undefined);
     }
     if (activeTab === 'periodic') {
-      Promise.all([loadSpecialPresets(), loadOverview()]).catch(() => undefined);
+      Promise.all([loadSpecialPresets(), loadOverview(), loadPeriodicTasks()]).catch(() => undefined);
     }
-  }, [activeTab, recordsDate, loadRecords, loadSpecialPresets, loadOverview, loadWeights, refreshKey]);
+  }, [activeTab, recordsDate, loadRecords, loadSpecialPresets, loadOverview, loadWeights, loadPeriodicTasks, refreshKey]);
 
   const visibleTasks = useMemo(() => tasks.filter((task) => isTaskVisible(task)), [tasks]);
   const visibleIds = useMemo(() => new Set(visibleTasks.map((task) => task.id)), [visibleTasks]);
@@ -788,12 +809,65 @@ export function AdminPage() {
     });
   };
 
+  const addWeight = async () => {
+    const person = parseFloat(weightForm.personWeight);
+    const carry = parseFloat(weightForm.carryWeight);
+    if (isNaN(person) || isNaN(carry)) {
+      flash('請輸入有效的體重數字');
+      return;
+    }
+    if (carry <= person) {
+      flash('抱貓重必須大於人重');
+      return;
+    }
+    await withBusy(async () => {
+      await post('/api/weights', { personWeight: person, carryWeight: carry, note: weightForm.note.trim() });
+      setWeightForm({ personWeight: '', carryWeight: '', note: '' });
+      flash(`已新增體重紀錄（${(carry - person).toFixed(2)} kg）`);
+      await loadWeights();
+    });
+  };
+
   const deleteWeight = async (id: string) => {
     if (!window.confirm('確定刪除此體重紀錄？')) return;
     await withBusy(async () => {
       await del(`/api/weights?id=${encodeURIComponent(id)}`);
       flash('已刪除體重紀錄');
       await loadWeights();
+    });
+  };
+
+  const markPeriodicDone = async (task: PeriodicTask) => {
+    const note = window.prompt(`標記「${task.name}」已完成？\n可選：加上備註`, '') ?? null;
+    if (note === null) return; // cancelled
+    const now = new Date().toISOString();
+    const updatedTask: PeriodicTask = {
+      ...task,
+      lastDoneAt: now,
+      weeklyCount: task.weeklyMax
+        ? (() => {
+            const currentWeekStart = new Date();
+            currentWeekStart.setHours(0, 0, 0, 0);
+            currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+            const taskWeekStart = task.weekStart ? new Date(task.weekStart) : null;
+            const isSameWeek = taskWeekStart && currentWeekStart.toDateString() === taskWeekStart.toDateString();
+            return isSameWeek ? (task.weeklyCount || 0) + 1 : 1;
+          })()
+        : task.weeklyCount,
+      weekStart: task.weeklyMax
+        ? (() => {
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() - d.getDay());
+            return d.toISOString();
+          })()
+        : task.weekStart,
+    };
+    const nextList = periodicTasks.map((t) => (t.id === task.id ? updatedTask : t));
+    await withBusy(async () => {
+      await post('/api/periodic', nextList);
+      setPeriodicTasks(nextList);
+      flash(`已標記「${task.name}」完成`);
     });
   };
 
@@ -1794,6 +1868,49 @@ export function AdminPage() {
 
         {activeTab === 'weights' && (
           <div style={{ display: 'grid', gap: '14px' }}>
+            <div style={sectionCard}>
+              <div style={{ fontWeight: 800, marginBottom: '12px' }}>➕ 手動新增體重紀錄</div>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>人重 (kg)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={weightForm.personWeight}
+                      onChange={(e) => setWeightForm((s) => ({ ...s, personWeight: e.target.value }))}
+                      style={inputStyle}
+                      placeholder={`例：${settings?.lastPersonWeight ?? 66.5}`}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>抱貓重 (kg)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={weightForm.carryWeight}
+                      onChange={(e) => setWeightForm((s) => ({ ...s, carryWeight: e.target.value }))}
+                      style={inputStyle}
+                      placeholder="例：70.3"
+                    />
+                  </div>
+                </div>
+                {weightForm.personWeight && weightForm.carryWeight && !isNaN(parseFloat(weightForm.carryWeight) - parseFloat(weightForm.personWeight)) && (
+                  <div style={{ fontSize: '0.84rem', color: 'var(--primary)', fontWeight: 700 }}>
+                    貓重：{(parseFloat(weightForm.carryWeight) - parseFloat(weightForm.personWeight)).toFixed(2)} kg
+                  </div>
+                )}
+                <input
+                  value={weightForm.note}
+                  onChange={(e) => setWeightForm((s) => ({ ...s, note: e.target.value }))}
+                  style={inputStyle}
+                  placeholder="備註（選填）"
+                />
+                <button onClick={addWeight} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff', width: 'fit-content' }}>
+                  💾 新增紀錄
+                </button>
+              </div>
+            </div>
             <div style={{ ...sectionCard, display: 'grid', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
@@ -1976,6 +2093,69 @@ export function AdminPage() {
 
         {activeTab === 'periodic' && (
           <div style={{ display: 'grid', gap: '14px' }}>
+            <div style={sectionCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>🔁 週期護理任務</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>剪指甲、洗澡、清耳朵等週期任務，點按完成後會更新紀錄。</div>
+                </div>
+                <button onClick={() => loadPeriodicTasks()} style={subtleButton}>🔄 刷新</button>
+              </div>
+              {periodicTasks.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {periodicTasks.map((task) => {
+                    const now = new Date();
+                    let dueDate: Date | null = null;
+                    let isOverdue = false;
+                    let daysLeft: number | null = null;
+                    if (task.intervalDays && task.lastDoneAt) {
+                      dueDate = new Date(task.lastDoneAt);
+                      dueDate.setDate(dueDate.getDate() + task.intervalDays);
+                      const diffMs = dueDate.getTime() - now.getTime();
+                      daysLeft = Math.ceil(diffMs / 86400000);
+                      isOverdue = daysLeft < 0;
+                    } else if (task.intervalDays && !task.lastDoneAt) {
+                      isOverdue = true;
+                    }
+                    // Weekly max logic
+                    let weeklyInfo = '';
+                    if (task.weeklyMax) {
+                      const currentWeekStart = new Date();
+                      currentWeekStart.setHours(0, 0, 0, 0);
+                      currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+                      const taskWeekStart = task.weekStart ? new Date(task.weekStart) : null;
+                      const isSameWeek = taskWeekStart && currentWeekStart.toDateString() === taskWeekStart.toDateString();
+                      const count = isSameWeek ? (task.weeklyCount || 0) : 0;
+                      weeklyInfo = `本週 ${count}/${task.weeklyMax}`;
+                      isOverdue = isSameWeek ? count >= task.weeklyMax : false;
+                    }
+                    const tone: 'danger' | 'warning' | 'success' | 'default' = isOverdue ? 'danger' : (daysLeft !== null && daysLeft <= 3) ? 'warning' : task.lastDoneAt ? 'success' : 'warning';
+                    return (
+                      <RecordCard
+                        key={task.id}
+                        tone={tone}
+                        title={<>{task.icon} {task.name}</>}
+                        meta={<>{task.lastDoneAt ? `上次完成：${toDateTime(task.lastDoneAt)}` : '尚未完成過'}{task.note ? ` · ${task.note}` : ''}</>}
+                        chips={<>
+                          {task.intervalDays && (
+                            <span style={badgeStyle(isOverdue ? 'danger' : daysLeft !== null && daysLeft <= 3 ? 'warning' : 'success')}>
+                              {isOverdue
+                                ? `已逾期 ${Math.abs(daysLeft ?? 0)} 天`
+                                : daysLeft === 0 ? '今天到期'
+                                : daysLeft !== null ? `還有 ${daysLeft} 天`
+                                : `每 ${task.intervalDays} 天一次`}
+                            </span>
+                          )}
+                          {task.weeklyMax && <span style={badgeStyle(isOverdue ? 'neutral' : 'warning')}>{weeklyInfo}</span>}
+                          {dueDate && !isOverdue && <span style={badgeStyle('neutral')}>到期：{toDateTime(dueDate.toISOString())}</span>}
+                        </>}
+                        actions={<ActionButton tone="success" onClick={() => markPeriodicDone(task)}>✅ 標記完成</ActionButton>}
+                      />
+                    );
+                  })}
+                </div>
+              ) : <EmptyState title="載入週期任務中…" subtitle="如沒顯示請重新整理。" />}
+            </div>
             <div style={sectionCard}>
               <div style={{ fontWeight: 800, marginBottom: '12px' }}>✨ 派發特殊任務</div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
