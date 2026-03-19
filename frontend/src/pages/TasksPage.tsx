@@ -15,7 +15,7 @@ interface TasksPageProps {
 }
 
 type IncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
-type SelfReportType = 'treat' | 'canned' | 'other';
+type SelfReportType = 'treat' | 'dry' | 'canned' | 'other';
 
 const weekdayLabels = {
   zh: ['日', '一', '二', '三', '四', '五', '六'],
@@ -29,6 +29,13 @@ const selfReportTypeConfig: Record<SelfReportType, { icon: string; severity: 'lo
     defaultTitle: { zh: '吃了零食 / 貓條', en: 'Had treats / Churu' },
     unit: { zh: '條', en: 'pcs' },
     quickQuantities: [1, 2, 3, 4],
+  },
+  dry: {
+    icon: '🍚',
+    severity: 'low',
+    defaultTitle: { zh: '吃了乾糧', en: 'Had dry food / kibble' },
+    unit: { zh: '份', en: 'servings' },
+    quickQuantities: [0.5, 1, 1.5, 2],
   },
   canned: {
     icon: '🥫',
@@ -55,7 +62,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
   const [pushStatus, setPushStatus] = useState<'unknown' | 'subscribed' | 'denied' | 'unsupported'>('unknown');
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [showSelfReportModal, setShowSelfReportModal] = useState(false);
-  const [incidentForm, setIncidentForm] = useState({ type: '', severity: 'medium' as IncidentSeverity, note: '' });
+  const [incidentForm, setIncidentForm] = useState({ type: '', severity: 'medium' as IncidentSeverity, note: '', photo: '' });
   const [selfReports, setSelfReports] = useState<SelfReport[]>([]);
   const [submittingSelfReport, setSubmittingSelfReport] = useState(false);
   const [showLitterModal, setShowLitterModal] = useState(false);
@@ -167,10 +174,11 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
         type: incidentForm.type.trim(),
         severity: incidentForm.severity,
         note: incidentForm.note.trim(),
+        photo: incidentForm.photo || undefined,
         reportedAt: new Date().toISOString(),
       });
       setShowIncidentModal(false);
-      setIncidentForm({ type: '', severity: 'medium', note: '' });
+      setIncidentForm({ type: '', severity: 'medium', note: '', photo: '' });
       alert(t('incidentSubmitted'));
     } catch {
       alert(t('incidentSubmitFailed'));
@@ -312,7 +320,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             </button>
           </div>
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
-            v5.6.3
+            v5.6.4
           </span>
           <div
             onClick={onAdminOpen}
@@ -486,9 +494,10 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
                 <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>{t('selfReportTypeLabel')}</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                   {([
                     { value: 'treat', label: t('selfReportTypeTreat'), icon: '🦴' },
+                    { value: 'dry', label: t('selfReportTypeDry'), icon: '🍚' },
                     { value: 'canned', label: t('selfReportTypeCanned'), icon: '🥫' },
                     { value: 'other', label: t('selfReportTypeOther'), icon: '📝' },
                   ] as const).map((type) => {
@@ -647,13 +656,47 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
                   style={{ width: '100%', padding: '11px 12px', background: 'var(--bg-card2)', border: '1px solid var(--glass-border)', borderRadius: '12px', color: 'var(--text-primary)', boxSizing: 'border-box', fontFamily: 'var(--font)', fontSize: '0.9rem', resize: 'vertical' }}
                 />
               </div>
+
+              <div>
+                <label
+                  htmlFor="incident-photo-input"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '12px', border: incidentForm.photo ? '2px solid #f59e0b' : '1px solid var(--glass-border)', background: incidentForm.photo ? 'rgba(245,158,11,0.1)' : 'var(--glass)', color: incidentForm.photo ? '#f59e0b' : 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  {incidentForm.photo ? t('incidentPhotoAdded') : t('incidentAddPhoto')}
+                </label>
+                <input
+                  id="incident-photo-input"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => setIncidentForm((s) => ({ ...s, photo: reader.result as string }));
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
+                  }}
+                />
+                {incidentForm.photo && (
+                  <div style={{ marginTop: '8px', position: 'relative', display: 'inline-block' }}>
+                    <img src={incidentForm.photo} alt="preview" style={{ maxWidth: '100%', maxHeight: '160px', borderRadius: '10px', objectFit: 'cover' }} />
+                    <button
+                      type="button"
+                      onClick={() => setIncidentForm((s) => ({ ...s, photo: '' }))}
+                      style={{ position: 'absolute', top: '4px', right: '4px', border: 'none', borderRadius: '999px', background: 'rgba(0,0,0,0.55)', color: '#fff', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.75rem' }}
+                    >✕</button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
               <button onClick={submitIncident} style={{ flex: 1, padding: '13px', border: 'none', borderRadius: '16px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}>
                 {t('incidentSubmitBtn')}
               </button>
-              <button onClick={() => setShowIncidentModal(false)} style={{ padding: '13px 18px', border: '1px solid var(--glass-border)', borderRadius: '16px', background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)' }}>
+              <button onClick={() => { setShowIncidentModal(false); setIncidentForm({ type: '', severity: 'medium', note: '', photo: '' }); }} style={{ padding: '13px 18px', border: '1px solid var(--glass-border)', borderRadius: '16px', background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)' }}>
                 {t('cancelBtn')}
               </button>
             </div>
