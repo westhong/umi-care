@@ -122,7 +122,7 @@ function getInitialLang(): 'zh' | 'en' {
 export const useAppStore = create<AppState>((set) => ({
   tasks: [],
   checkins: [],
-  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.6.4', adminGranularTimeGrouping: false },
+  settings: { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.6.5', adminGranularTimeGrouping: false },
   cat: { name: '屋咪' },
   catName: '屋咪',
   weightsList: [],

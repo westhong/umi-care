@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, del, get, post } from '../api/client';
 import { getTaskStatus, type TaskStatus } from '../utils/taskStatus';
 import { useAppStore } from '../store/useAppStore';
@@ -367,6 +367,7 @@ export function AdminPage() {
   } = useAppStore();
 
   const catName = cat?.name || settings?.catName || '屋咪';
+  const taskFormRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -714,6 +715,9 @@ export function AdminPage() {
       resultPreset: task.type && resultPresetMap[task.type] ? task.type : 'none',
     });
     setActiveTab('tasks');
+    setTimeout(() => {
+      taskFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   };
 
   const saveTask = async () => {
@@ -778,6 +782,15 @@ export function AdminPage() {
       if (taskForm.id === taskId) resetTaskForm();
       flash('任務已刪除');
       setRefreshKey((value) => value + 1);
+    });
+  };
+
+  const deleteWeight = async (id: string) => {
+    if (!window.confirm('確定刪除此體重紀錄？')) return;
+    await withBusy(async () => {
+      await del(`/api/weights?id=${encodeURIComponent(id)}`);
+      flash('已刪除體重紀錄');
+      await loadWeights();
     });
   };
 
@@ -889,6 +902,12 @@ export function AdminPage() {
       };
       await post('/api/cat', payload);
       setCat(payload);
+      // Sync catName in settings to keep system summary consistent
+      if (settings && payload.name !== settings.catName) {
+        const nextSettings = { ...settings, catName: payload.name } as Settings;
+        await post('/api/settings', nextSettings);
+        setSettings(nextSettings);
+      }
       flash('貓咪資料已儲存');
       setRefreshKey((value) => value + 1);
     });
@@ -1803,6 +1822,7 @@ export function AdminPage() {
                       title={<>{catName} {row.catWeight} kg</>}
                       meta={<>{toDateTime(row.measuredAt)}</>}
                       chips={<><span style={badgeStyle('purple')}>人重 {row.personWeight} kg</span><span style={badgeStyle('neutral')}>抱貓重 {row.carryWeight} kg</span></>}
+                      actions={<ActionButton tone="danger" onClick={() => deleteWeight(row.id || row.measuredAt)}>🗑 刪除</ActionButton>}
                       onClick={() => setDetailModal({
                         title: <>{catName} 體重紀錄</>,
                         meta: <>{toDateTime(row.measuredAt)}</>,
@@ -1821,7 +1841,7 @@ export function AdminPage() {
 
         {activeTab === 'tasks' && (
           <div style={{ display: 'grid', gap: '14px' }}>
-            <div style={sectionCard}>
+            <div ref={taskFormRef} style={sectionCard}>
               <div style={{ fontWeight: 800, marginBottom: '12px' }}>{taskForm.id ? '✏️ 編輯任務' : '＋ 新增任務'}</div>
               <div style={{ display: 'grid', gap: '10px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '72px 1fr', gap: '10px' }}>
