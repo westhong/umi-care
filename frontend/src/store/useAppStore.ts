@@ -112,16 +112,10 @@ function todayStr(): string {
 const today = todayStr();
 
 function getInitialLang(): 'zh' | 'en' {
+  // URL param always wins (allows ?lang=zh for admin)
   const urlLang = new URL(location.href).searchParams.get('lang');
   if (urlLang === 'zh' || urlLang === 'en') return urlLang;
-
-  try {
-    const savedLang = window.localStorage.getItem('umi-care-lang');
-    if (savedLang === 'zh' || savedLang === 'en') return savedLang;
-  } catch {
-    // ignore storage errors
-  }
-
+  // Default: English for caregiver interface
   return 'en';
 }
 
@@ -151,12 +145,12 @@ export const useAppStore = create<AppState>((set) => ({
   setExpandedTask: (expandedTask) => set({ expandedTask }),
   setLang: (lang) => {
     try {
-      window.localStorage.setItem('umi-care-lang', lang);
+      // Persist lang in URL only (not localStorage) so default stays EN on fresh load
       const url = new URL(window.location.href);
       url.searchParams.set('lang', lang);
       window.history.replaceState({}, '', url.toString());
     } catch {
-      // ignore persistence errors
+      // ignore
     }
     set({ lang });
   },
