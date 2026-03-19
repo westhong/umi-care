@@ -385,6 +385,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   const [selfReports, setSelfReports] = useState<SelfReportRow[]>([]);
   const [incidents, setIncidents] = useState<IncidentRow[]>([]);
   const [allUnresolvedIncidents, setAllUnresolvedIncidents] = useState<IncidentRow[]>([]);
+  const [allUnacknowledgedSelfReports, setAllUnacknowledgedSelfReports] = useState<SelfReportRow[]>([]);
   const [specialPresets, setSpecialPresets] = useState<SpecialPreset[]>(DEFAULT_PRESETS);
   const [resolutionTemplates, setResolutionTemplates] = useState<ResolutionTemplate[]>(DEFAULT_RESOLUTION_TEMPLATES);
   const [detailModal, setDetailModal] = useState<DetailModalState | null>(null);
@@ -449,12 +450,13 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   }, [setCat, setSettings, setTasks]);
 
   const loadOverview = useCallback(async () => {
-    const [checkinsData, adhocData, selfReportData, incidentData, allIncidentData] = await Promise.all([
+    const [checkinsData, adhocData, selfReportData, incidentData, allIncidentData, allSelfReportData] = await Promise.all([
       get<Checkin[]>(`/api/checkins?date=${todayLocal()}`).catch(() => []),
       get<AdhocTask[]>('/api/adhoc').catch(() => []),
       get<SelfReportRow[]>(`/api/selfreports?date=${todayLocal()}`).catch(() => []),
       get<IncidentRow[]>(`/api/incidents?date=${todayLocal()}`).catch(() => []),
       get<IncidentRow[]>('/api/incidents').catch(() => []),
+      get<SelfReportRow[]>('/api/selfreports').catch(() => []),
     ]);
     setTodayCheckins(checkinsData);
     setAdhoc(adhocData);
@@ -462,6 +464,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     setIncidents(incidentData);
     const allUnresolved = allIncidentData.filter((inc) => !inc.resolved);
     setAllUnresolvedIncidents(allUnresolved);
+    setAllUnacknowledgedSelfReports(allSelfReportData.filter((r) => !r.acknowledged));
   }, []);
 
   const loadRecords = useCallback(async (date: string) => {
@@ -895,7 +898,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     await withBusy(async () => {
       await del(`/api/checkins?date=${recordsDate}&taskId=${encodeURIComponent(taskId)}`);
       flash('已刪除紀錄');
-      await Promise.all([loadRecords(recordsDate), loadOverview()]);
+      await loadOverview();
+      if (activeTab === 'activity') await loadRecords(recordsDate);
     });
   };
 
@@ -908,7 +912,9 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       const statusLabel = processingStatus === 'in-progress' ? '（處理中）' : processingStatus === 'completed' ? '（已完成）' : '';
       flash(note.trim() ? `已確認回報並附上註記${statusLabel}` : `已確認收到回報${statusLabel}`);
       setDetailModal(null);
-      await Promise.all([loadRecords(recordsDate), loadOverview()]);
+      // Load overview first (always needed), then activity if on that tab
+      await loadOverview();
+      if (activeTab === 'activity') await loadRecords(recordsDate);
     });
   };
 
@@ -918,7 +924,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       await post(`/api/selfreports/${id}/unack`, {});
       flash('已取消確認狀態');
       setDetailModal(null);
-      await Promise.all([loadRecords(recordsDate), loadOverview()]);
+      await loadOverview();
+      if (activeTab === 'activity') await loadRecords(recordsDate);
     });
   };
 
@@ -927,7 +934,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     await withBusy(async () => {
       await del(`/api/selfreports/${id}`);
       flash('已刪除主動回報');
-      await Promise.all([loadRecords(recordsDate), loadOverview()]);
+      await loadOverview();
+      if (activeTab === 'activity') await loadRecords(recordsDate);
     });
   };
 
@@ -945,7 +953,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       await post(`/api/incidents/${id}/resolve`, { note: note.trim(), template });
       flash(template ? `已使用範本「${resolutionTemplates.find((t) => t.id === template)?.label}」標記完成` : (note.trim() ? '已標記完成並附上註記' : '已標記為處理完成'));
       setDetailModal(null);
-      await Promise.all([loadRecords(recordsDate), loadOverview()]);
+      await loadOverview();
+      if (activeTab === 'activity') await loadRecords(recordsDate);
     });
   };
 
@@ -954,7 +963,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     await withBusy(async () => {
       await del(`/api/incidents/${id}`);
       flash('已刪除異常回報');
-      await Promise.all([loadRecords(recordsDate), loadOverview()]);
+      await loadOverview();
+      if (activeTab === 'activity') await loadRecords(recordsDate);
     });
   };
 
@@ -1282,10 +1292,10 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                 },
                 {
                   label: '待確認',
-                  value: String(unacknowledgedSelfReports.length),
+                  value: String(allUnacknowledgedSelfReports.length),
                   sub: `共 ${selfReports.length} 則回報`,
-                  bg: unacknowledgedSelfReports.length > 0 ? '#fffbeb' : '#f8fafc',
-                  color: unacknowledgedSelfReports.length > 0 ? '#b45309' : '#64748b',
+                  bg: allUnacknowledgedSelfReports.length > 0 ? '#fffbeb' : '#f8fafc',
+                  color: allUnacknowledgedSelfReports.length > 0 ? '#b45309' : '#64748b',
                 },
                 {
                   label: '最新體重',
@@ -1304,11 +1314,11 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             </div>
 
             {/* ── UNACKNOWLEDGED SELF REPORTS ───────────────── */}
-            {unacknowledgedSelfReports.length > 0 && (
+            {allUnacknowledgedSelfReports.length > 0 && (
               <div style={{ ...sectionCard, borderTop: '3px solid #f59e0b' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <div style={{ fontWeight: 800, color: '#92400e', fontSize: '0.9rem' }}>📝 待確認回報</div>
-                  <span style={badgeStyle('warning')}>{unacknowledgedSelfReports.length} 則</span>
+                  <span style={badgeStyle('warning')}>{allUnacknowledgedSelfReports.length} 則</span>
                 </div>
                 <div style={{ display: 'grid', gap: '8px' }}>
                   {unacknowledgedSelfReports.slice(0, 5).map((row) => (
@@ -1323,8 +1333,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                       </div>
                     </div>
                   ))}
-                  {unacknowledgedSelfReports.length > 5 && (
-                    <button onClick={() => setActiveTab('activity')} style={{ ...subtleButton, fontSize: '0.78rem' }}>還有 {unacknowledgedSelfReports.length - 5} 則 →</button>
+                  {allUnacknowledgedSelfReports.length > 5 && (
+                    <button onClick={() => setActiveTab('activity')} style={{ ...subtleButton, fontSize: '0.78rem' }}>還有 {allUnacknowledgedSelfReports.length - 5} 則 →</button>
                   )}
                 </div>
               </div>
@@ -1525,7 +1535,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>
                   📝 今日回報
-                  {unacknowledgedSelfReports.length > 0 && <span style={{ marginLeft: '6px', ...badgeStyle('warning') }}>{unacknowledgedSelfReports.length} 待確認</span>}
+                  {allUnacknowledgedSelfReports.length > 0 && <span style={{ marginLeft: '6px', ...badgeStyle('warning') }}>{allUnacknowledgedSelfReports.length} 待確認</span>}
                 </div>
               </div>
               {selfReports.length ? (
