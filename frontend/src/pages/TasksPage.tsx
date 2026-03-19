@@ -54,7 +54,7 @@ const selfReportTypeConfig: Record<SelfReportType, { icon: string; severity: 'lo
 };
 
 export function TasksPage({ onAdminOpen }: TasksPageProps) {
-  const { tasks, checkins, cat, catName, currentDate, setTasks, setCheckins, lang, setLang } = useAppStore();
+  const { tasks, checkins, cat, catName, settings, currentDate, setTasks, setCheckins, lang, setLang } = useAppStore();
   const t = useT(lang);
 
   const [loading, setLoading] = useState(true);
@@ -320,7 +320,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             </button>
           </div>
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
-            v5.6.5
+            v{settings?.appVersion || '5.x'}
           </span>
           <div
             onClick={onAdminOpen}

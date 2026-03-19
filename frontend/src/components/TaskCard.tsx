@@ -45,6 +45,11 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
 
   const handleSubmit = async () => {
     if (isDone === null) return;
+    // Validate requireNote: if task requires a note and user is marking as done, note must be filled
+    if (isDone && task.requireNote && !note.trim()) {
+      alert(t('noteRequired') || '請填寫備註（此任務為必填）');
+      return;
+    }
     setSubmitting(true);
     const finalResult = isLitter && isDone ? encodeLitterResult(litterCounts) : (result || null);
     try {
@@ -210,16 +215,22 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder={t('noteOptional')}
+                placeholder={isDone && task.requireNote ? (lang === 'en' ? 'Note required *' : '備註（必填）*') : t('noteOptional')}
                 rows={2}
                 style={{
                   width: '100%', padding: '10px 14px',
-                  background: 'var(--bg-card2)', border: '1px solid var(--glass-border)',
+                  background: 'var(--bg-card2)',
+                  border: `1px solid ${isDone && task.requireNote && !note.trim() ? '#f87171' : 'var(--glass-border)'}`,
                   borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)',
                   fontFamily: 'var(--font)', fontSize: '0.9rem', resize: 'none', marginBottom: '14px',
                   boxSizing: 'border-box',
                 }}
               />
+              {isDone && task.requireNote && !note.trim() && (
+                <div style={{ fontSize: '0.75rem', color: '#f87171', marginTop: '-10px', marginBottom: '10px' }}>
+                  {lang === 'en' ? '* Note is required for this task' : '* 此任務需要填寫備註'}
+                </div>
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <button
