@@ -40,6 +40,11 @@ export default function App() {
     setPage('admin');
   };
 
+  const handleAdminLogout = () => {
+    setAdminMode(false);
+    setPage('tasks');
+  };
+
 
 
   if (pinState === 'loading') {
@@ -76,7 +81,7 @@ export default function App() {
       )}
       {page === 'calendar' && <CalendarPage />}
       {page === 'admin' && adminMode && (
-        <AdminPage />
+        <AdminPage onLogout={handleAdminLogout} />
       )}
 
       {/* Bottom Nav (hidden in admin) */}

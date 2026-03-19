@@ -12,6 +12,7 @@ export function PinOverlay({ mode, onSuccess, onCancel }: PinOverlayProps) {
   const [firstPin, setFirstPin] = useState('');
   const [step, setStep] = useState<'enter' | 'confirm'>('enter');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
   const handleKey = async (key: string) => {
     if (key === '⌫') {
@@ -30,8 +31,10 @@ export function PinOverlay({ mode, onSuccess, onCancel }: PinOverlayProps) {
         if (step === 'enter') {
           setFirstPin(pin);
           setStep('confirm');
-          setError('請再次輸入確認 PIN');
+          setError('');
+          setInfo('✅ 請再次輸入確認 PIN');
         } else {
+          setInfo('');
           if (pin !== firstPin) {
             setError('❌ PIN 不一致，請重新輸入');
             setStep('enter');
@@ -106,6 +109,11 @@ export function PinOverlay({ mode, onSuccess, onCancel }: PinOverlayProps) {
           ))}
         </div>
 
+        {info && (
+          <div style={{ fontSize: '0.82rem', color: '#15803d', marginBottom: '12px', minHeight: '20px' }}>
+            {info}
+          </div>
+        )}
         {error && (
           <div style={{ fontSize: '0.82rem', color: '#f87171', marginBottom: '12px', minHeight: '20px' }}>
             {error}

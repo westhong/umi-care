@@ -368,7 +368,7 @@ function RecordCard({
   );
 }
 
-export function AdminPage() {
+export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   const {
     setAdminMode,
     cat,
@@ -1128,7 +1128,7 @@ export function AdminPage() {
             </div>
           </div>
           <button
-            onClick={() => setAdminMode(false)}
+            onClick={() => { setAdminMode(false); onLogout?.(); }}
             style={{
               background: 'rgba(255,255,255,0.22)', border: 'none', color: '#fff',
               borderRadius: '20px', padding: '8px 16px', fontSize: '0.82rem',
