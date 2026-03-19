@@ -312,7 +312,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             </button>
           </div>
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
-            v5.6.2
+            v5.6.3
           </span>
           <div
             onClick={onAdminOpen}

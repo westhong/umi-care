@@ -128,7 +128,28 @@ const resultPresetMap: Record<string, { label: string; value: string }[]> = {
 };
 
 function todayLocal() {
-  return new Date().toISOString().slice(0, 10);
+  // Use Calgary (Mountain) time to match worker and useAppStore
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const dstStart = (() => {
+    const d = new Date(Date.UTC(year, 2, 1));
+    let sundays = 0;
+    while (sundays < 2) {
+      if (d.getUTCDay() === 0) sundays++;
+      if (sundays < 2) d.setUTCDate(d.getUTCDate() + 1);
+    }
+    d.setUTCHours(9, 0, 0, 0);
+    return d;
+  })();
+  const dstEnd = (() => {
+    const d = new Date(Date.UTC(year, 10, 1));
+    while (d.getUTCDay() !== 0) d.setUTCDate(d.getUTCDate() + 1);
+    d.setUTCHours(8, 0, 0, 0);
+    return d;
+  })();
+  const offset = (now >= dstStart && now < dstEnd) ? -6 : -7;
+  const c = new Date(now.getTime() + offset * 3600000);
+  return `${c.getUTCFullYear()}-${String(c.getUTCMonth() + 1).padStart(2, '0')}-${String(c.getUTCDate()).padStart(2, '0')}`;
 }
 
 function toClock(value?: string) {
@@ -1810,10 +1831,15 @@ export function AdminPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <select value={taskForm.type} onChange={(e) => setTaskForm((s) => ({ ...s, type: e.target.value }))} style={inputStyle}>
                     <option value="other">一般</option>
-                    <option value="feed">餵食</option>
+                    <option value="meal">餐食</option>
+                    <option value="feed">餵食（舊）</option>
                     <option value="treat">零食</option>
                     <option value="weight">量體重</option>
-                    <option value="clean">清潔</option>
+                    <option value="litter">清貓砂</option>
+                    <option value="water">換水</option>
+                    <option value="groom">美容/梳毛</option>
+                    <option value="feeder">自動餵食機</option>
+                    <option value="clean">清潔（舊）</option>
                   </select>
                   <select value={taskForm.scheduleType} onChange={(e) => setTaskForm((s) => ({ ...s, scheduleType: e.target.value }))} style={inputStyle}>
                     <option value="daily">每日</option>
