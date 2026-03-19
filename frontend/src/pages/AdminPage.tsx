@@ -393,6 +393,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   const [adhoc, setAdhoc] = useState<AdhocTask[]>([]);
   const [selfReports, setSelfReports] = useState<SelfReportRow[]>([]);
   const [incidents, setIncidents] = useState<IncidentRow[]>([]);
+  const [allUnresolvedIncidents, setAllUnresolvedIncidents] = useState<IncidentRow[]>([]);
   const [specialPresets, setSpecialPresets] = useState<SpecialPreset[]>(DEFAULT_PRESETS);
   const [resolutionTemplates, setResolutionTemplates] = useState<ResolutionTemplate[]>(DEFAULT_RESOLUTION_TEMPLATES);
   const [detailModal, setDetailModal] = useState<DetailModalState | null>(null);
@@ -439,6 +440,12 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     });
   }, [cat, settings?.catName]);
 
+  useEffect(() => {
+    if (settings?.adminGranularTimeGrouping !== undefined) {
+      setGranularTime(!!settings.adminGranularTimeGrouping);
+    }
+  }, [settings?.adminGranularTimeGrouping]);
+
   const loadBaseData = useCallback(async () => {
     const [taskData, catData, settingsData] = await Promise.all([
       get<Task[]>('/api/tasks').catch(() => []),
@@ -451,16 +458,18 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   }, [setCat, setSettings, setTasks]);
 
   const loadOverview = useCallback(async () => {
-    const [checkinsData, adhocData, selfReportData, incidentData] = await Promise.all([
+    const [checkinsData, adhocData, selfReportData, incidentData, allIncidentData] = await Promise.all([
       get<Checkin[]>(`/api/checkins?date=${todayLocal()}`).catch(() => []),
       get<AdhocTask[]>('/api/adhoc').catch(() => []),
       get<SelfReportRow[]>(`/api/selfreports?date=${todayLocal()}`).catch(() => []),
       get<IncidentRow[]>(`/api/incidents?date=${todayLocal()}`).catch(() => []),
+      get<IncidentRow[]>('/api/incidents').catch(() => []),
     ]);
     setTodayCheckins(checkinsData);
     setAdhoc(adhocData);
     setSelfReports(selfReportData);
     setIncidents(incidentData);
+    setAllUnresolvedIncidents(allIncidentData.filter((inc) => !inc.resolved));
   }, []);
 
   const loadRecords = useCallback(async (date: string) => {
@@ -1142,7 +1151,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
           {[
             { label: '完成', value: `${doneCount}/${totalCount || 0}`, sub: `${pct}%`, color: '#4ade80' },
             { label: '待做', value: pendingCount, sub: pendingCount ? '需要跟進' : '已清空', color: '#fde68a' },
-            { label: '異常 / 回報', value: `${unresolvedIncidents.length}/${selfReports.length}`, sub: '未解 / 今日回報', color: unresolvedIncidents.length ? '#fecaca' : '#f5f5f5' },
+            { label: '異常 / 回報', value: `${allUnresolvedIncidents.length}/${selfReports.length}`, sub: '未解 / 今日回報', color: allUnresolvedIncidents.length ? '#fecaca' : '#f5f5f5' },
             { label: '最新體重', value: latestWeight ? `${latestWeight.catWeight}kg` : '—', sub: latestWeight ? toDateTime(latestWeight.measuredAt) : '尚未記錄', color: '#f5f5f5' },
           ].map((item) => (
             <div key={item.label} style={{ background: 'rgba(255,255,255,0.16)', borderRadius: '14px', padding: '10px 12px' }}>
@@ -1199,19 +1208,19 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
 
         {activeTab === 'overview' && (
           <div style={{ display: 'grid', gap: '14px' }}>
-            <div style={{ ...sectionCard, display: 'grid', gap: '12px', borderTop: `4px solid ${overdueCount || unresolvedIncidents.length ? '#ef4444' : unacknowledgedSelfReports.length ? '#f59e0b' : '#22c55e'}` }}>
+            <div style={{ ...sectionCard, display: 'grid', gap: '12px', borderTop: `4px solid ${overdueCount || allUnresolvedIncidents.length ? '#ef4444' : unacknowledgedSelfReports.length ? '#f59e0b' : '#22c55e'}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontWeight: 800 }}>📌 置頂摘要 / Urgency Bands</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>先把需要反應的事情釘在最上面，再往下看完整流水。</div>
                 </div>
-                <span style={badgeStyle(overdueCount || unresolvedIncidents.length ? 'danger' : unacknowledgedSelfReports.length ? 'warning' : 'success')}>
-                  {overdueCount || unresolvedIncidents.length ? '需要立即注意' : unacknowledgedSelfReports.length ? '有待確認回報' : '目前平穩'}
+                <span style={badgeStyle(overdueCount || allUnresolvedIncidents.length ? 'danger' : unacknowledgedSelfReports.length ? 'warning' : 'success')}>
+                  {overdueCount || allUnresolvedIncidents.length ? '需要立即注意' : unacknowledgedSelfReports.length ? '有待確認回報' : '目前平穩'}
                 </span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
                 {[
-                  { label: '立即處理', value: overdueCount + unresolvedIncidents.length, sub: overdueCount ? `${overdueCount} 項逾時` : '沒有逾時任務', tone: overdueCount + unresolvedIncidents.length ? 'danger' as const : 'success' as const },
+                  { label: '立即處理', value: overdueCount + allUnresolvedIncidents.length, sub: allUnresolvedIncidents.length ? `${allUnresolvedIncidents.length} 件未解決` : overdueCount ? `${overdueCount} 項逾時` : '沒有待處理項目', tone: overdueCount + allUnresolvedIncidents.length ? 'danger' as const : 'success' as const },
                   { label: '待確認回報', value: unacknowledgedSelfReports.length, sub: selfReports.length ? `${acknowledgedSelfReports.length} 則已確認` : '今天沒有回報', tone: unacknowledgedSelfReports.length ? 'warning' as const : 'neutral' as const },
                   { label: '日常流程', value: `${doneCount}/${totalCount || 0}`, sub: skipCount ? `${skipCount} 項略過` : '沒有略過項目', tone: pendingFreshCount ? 'warning' as const : 'success' as const },
                 ].map((item) => (
@@ -1225,19 +1234,19 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               </div>
             </div>
 
-            {(unresolvedIncidents.length > 0 || selfReports.length > 0) && (
+            {(allUnresolvedIncidents.length > 0 || selfReports.length > 0) && (
               <div style={{ display: 'grid', gap: '12px' }}>
-                {!!unresolvedIncidents.length && (
+                {!!allUnresolvedIncidents.length && (
                   <div style={{ ...sectionCard, borderColor: 'rgba(248,113,113,0.38)', background: 'linear-gradient(135deg, rgba(248,113,113,0.09), rgba(248,113,113,0.03))', borderTop: '4px solid #ef4444' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
                       <div>
                         <div style={{ fontWeight: 800, color: '#b91c1c' }}>🆘 異常案件置頂</div>
-                        <div style={{ fontSize: '0.8rem', color: 'rgba(153,27,27,0.78)' }}>未處理案件會優先顯示，避免被一般記錄淹沒。</div>
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(153,27,27,0.78)' }}>所有未處理案件（包含舊日）會優先顯示，避免遺漏。</div>
                       </div>
-                      <span style={badgeStyle('danger')}>{unresolvedIncidents.length} 則待處理</span>
+                      <span style={badgeStyle('danger')}>{allUnresolvedIncidents.length} 則待處理</span>
                     </div>
                     <div style={{ display: 'grid', gap: '10px' }}>
-                      {unresolvedIncidents.map((row) => (
+                      {allUnresolvedIncidents.map((row) => (
                         <RecordCard
                           key={row.id}
                           tone="danger"
@@ -1579,7 +1588,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             <div style={{ ...sectionCard, display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>選擇日期</label>
-                <input type="date" value={recordsDate} onChange={(e) => setRecordsDate(e.target.value)} style={{ ...inputStyle, maxWidth: '220px' }} />
+                <input type="date" value={recordsDate} onChange={(e) => { setRecordsDate(e.target.value); setRecordsFilter('all'); }} style={{ ...inputStyle, maxWidth: '220px' }} />
                 <button onClick={() => loadRecords(recordsDate)} style={subtleButton}>🔄 刷新</button>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
