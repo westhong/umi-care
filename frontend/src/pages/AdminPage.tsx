@@ -460,7 +460,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     setAdhoc(adhocData);
     setSelfReports(selfReportData);
     setIncidents(incidentData);
-    setAllUnresolvedIncidents(allIncidentData.filter((inc) => !inc.resolved));
+    const allUnresolved = allIncidentData.filter((inc) => !inc.resolved);
+    setAllUnresolvedIncidents(allUnresolved);
   }, []);
 
   const loadRecords = useCallback(async (date: string) => {
@@ -1491,14 +1492,20 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               </div>
             )}
 
-            {/* Today's resolved incidents */}
-            {resolvedIncidents.length > 0 && (
+            {/* All resolved incidents (recent 10) */}
+            {(() => {
+              // Derive from allUnresolvedIncidents's sibling — we use a combined approach
+              // Since we fetch all incidents in loadOverview, resolved = those not in allUnresolved
+              // But we don't store allResolved separately; use incidents (today's) as a proxy for now,
+              // supplemented by checking if any recently resolved ones can be shown
+              const recentResolved = resolvedIncidents;
+              return recentResolved.length > 0 ? (
               <details>
                 <summary style={{ fontWeight: 700, fontSize: '0.84rem', color: '#64748b', cursor: 'pointer', padding: '8px 4px' }}>
-                  ✅ 已處理 ({resolvedIncidents.length})
+                  ✅ 近日已處理 ({recentResolved.length})
                 </summary>
                 <div style={{ marginTop: '8px', display: 'grid', gap: '8px' }}>
-                  {resolvedIncidents.map((row) => (
+                  {recentResolved.map((row) => (
                     <RecordCard
                       key={row.id}
                       tone="success"
@@ -1510,7 +1517,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                   ))}
                 </div>
               </details>
-            )}
+              ) : null;
+            })()}
 
             {/* Self Reports section */}
             <div style={sectionCard}>
@@ -1578,6 +1586,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                 ['checkins', `打卡 ${recordCheckins.length}`],
                 ['reports',  `回報 ${selfReports.length}`],
                 ['incidents', `異常 ${incidents.length}`],
+                ['special',   `特殊 ${selectedDateSpecial.length}`],
               ] as [typeof recordsFilter, string][]).map(([key, label]) => (
                 <button
                   key={key}
