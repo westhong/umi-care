@@ -7,7 +7,7 @@ import { useT } from '../i18n';
 import type { Task, Checkin, SelfReport } from '../store/useAppStore';
 import { getTaskStatus } from '../utils/taskStatus';
 import { requestPushPermission, unsubscribePush, isSubscribed, listenPushSound } from '../utils/pushNotify';
-import { LitterCounter, encodeLitterResult } from '../components/LitterCounter';
+import { LitterCounter, encodeLitterResult, formatLitterSummary } from '../components/LitterCounter';
 import type { LitterCounts } from '../components/LitterCounter';
 
 interface TasksPageProps {
@@ -312,7 +312,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             </button>
           </div>
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
-            v5.6.0
+            v5.6.1
           </span>
           <div
             onClick={onAdminOpen}
@@ -370,7 +370,16 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
                 <div key={report.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start', background: 'rgba(255,133,161,0.06)', borderRadius: '12px', padding: '10px 12px' }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {report.icon} {report.title}{report.quantity ? ` ×${report.quantity}${report.unit || ''}` : ''}
+                      {(() => {
+                        if (report.type === 'litter') {
+                          const summary = formatLitterSummary(report.note, t('litterClean'));
+                          return `🪣 ${lang === 'en' ? 'Litter scooped' : '已鏟貓砂'} — ${summary}`;
+                        }
+                        const preset = selfReportTypeConfig[report.type as SelfReportType];
+                        const title = preset ? preset.defaultTitle[lang] : report.title;
+                        const unit = preset ? preset.unit[lang] : (report.unit || '');
+                        return `${report.icon} ${title}${report.quantity ? ` ×${report.quantity}${unit}` : ''}`;
+                      })()}
                     </div>
                     {report.note && (
                       <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.5 }}>{report.note}</div>
