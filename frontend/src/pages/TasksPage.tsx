@@ -7,6 +7,8 @@ import { useT } from '../i18n';
 import type { Task, Checkin, SelfReport } from '../store/useAppStore';
 import { getTaskStatus } from '../utils/taskStatus';
 import { requestPushPermission, unsubscribePush, isSubscribed, listenPushSound } from '../utils/pushNotify';
+import { LitterCounter, encodeLitterResult } from '../components/LitterCounter';
+import type { LitterCounts } from '../components/LitterCounter';
 
 interface TasksPageProps {
   onAdminOpen: () => void;
@@ -57,8 +59,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
   const [selfReports, setSelfReports] = useState<SelfReport[]>([]);
   const [submittingSelfReport, setSubmittingSelfReport] = useState(false);
   const [showLitterModal, setShowLitterModal] = useState(false);
-  const [litterPoop, setLitterPoop] = useState(0);
-  const [litterPee, setLitterPee] = useState(0);
+  const [litterCounts, setLitterCounts] = useState<LitterCounts>({ poop: 0, pee: 0 });
   const [submittingLitter, setSubmittingLitter] = useState(false);
   const [disablingPush, setDisablingPush] = useState(false);
   const [selfReportForm, setSelfReportForm] = useState({
@@ -130,28 +131,24 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
 
   const submitLitterReport = async () => {
     setSubmittingLitter(true);
-    const parts: string[] = [];
-    if (litterPoop > 0) parts.push(`poop:${litterPoop}`);
-    if (litterPee > 0) parts.push(`pee:${litterPee}`);
-    const result = parts.length > 0 ? parts.join(',') : 'clean';
+    const encoded = encodeLitterResult(litterCounts);
     const titleParts: string[] = [];
-    if (litterPoop > 0) titleParts.push(`💩×${litterPoop}`);
-    if (litterPee > 0) titleParts.push(`💦×${litterPee}`);
-    const title = titleParts.length > 0 ? titleParts.join(' ') : (lang === 'en' ? 'Nothing — all clean' : '都沒有');
+    if (litterCounts.poop > 0) titleParts.push(`💩×${litterCounts.poop}`);
+    if (litterCounts.pee > 0) titleParts.push(`💦×${litterCounts.pee}`);
+    const summary = titleParts.length > 0 ? titleParts.join(' ') : t('litterClean');
     try {
       await post('/api/selfreports', {
         type: 'litter',
         severity: 'low',
-        title: `🪣 ${lang === 'en' ? 'Litter scooped' : '已鏟貓砂'} — ${title}`,
+        title: `🪣 ${lang === 'en' ? 'Litter scooped' : '已鏟貓砂'} — ${summary}`,
         icon: '🪣',
         quantity: 1,
         unit: '',
-        note: result,
+        note: encoded,
         reportedAt: new Date().toISOString(),
       });
       setShowLitterModal(false);
-      setLitterPoop(0);
-      setLitterPee(0);
+      setLitterCounts({ poop: 0, pee: 0 });
       await loadData();
     } catch {
       alert(t('selfReportSubmitFailed'));
@@ -315,7 +312,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             </button>
           </div>
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
-            v5.5.0
+            v5.6.0
           </span>
           <div
             onClick={onAdminOpen}
@@ -359,7 +356,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             {t('feedReportBtn')}
           </button>
           <button
-            onClick={() => { setLitterPoop(0); setLitterPee(0); setShowLitterModal(true); }}
+            onClick={() => { setLitterCounts({ poop: 0, pee: 0 }); setShowLitterModal(true); }}
             style={{ padding: '12px 10px', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', cursor: 'pointer', gridColumn: '1 / -1' }}
           >
             {t('litterReportBtn')}
@@ -440,38 +437,16 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
           <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '18px 16px 32px', boxShadow: '0 -18px 40px rgba(15,23,42,0.18)', display: 'grid', gap: '16px' }}>
             <div style={{ width: '42px', height: '4px', borderRadius: '999px', background: 'rgba(61,44,53,0.14)', margin: '0 auto' }} />
             <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{t('litterReportBtn')}</div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '-8px' }}>{t('litterCountLabel')}</div>
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', padding: '8px 0' }}>
-              {/* Poop counter */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flex: 1 }}>
-                <div style={{ fontSize: '2rem' }}>💩</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('litterPoopLabel')}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button type="button" onClick={() => setLitterPoop(Math.max(0, litterPoop - 1))} style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font)' }}>−</button>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 700, minWidth: '32px', textAlign: 'center', color: litterPoop > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{litterPoop}</span>
-                  <button type="button" onClick={() => setLitterPoop(litterPoop + 1)} style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font)' }}>+</button>
-                </div>
-              </div>
-              <div style={{ width: '1px', background: 'var(--glass-border)', alignSelf: 'stretch' }} />
-              {/* Pee counter */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flex: 1 }}>
-                <div style={{ fontSize: '2rem' }}>💦</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('litterPeeLabel')}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button type="button" onClick={() => setLitterPee(Math.max(0, litterPee - 1))} style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font)' }}>−</button>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 700, minWidth: '32px', textAlign: 'center', color: litterPee > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{litterPee}</span>
-                  <button type="button" onClick={() => setLitterPee(litterPee + 1)} style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font)' }}>+</button>
-                </div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'center', fontSize: '0.88rem', color: 'var(--text-muted)', minHeight: '20px' }}>
-              {litterPoop === 0 && litterPee === 0
-                ? `🧹 ${t('litterClean')}`
-                : [litterPoop > 0 ? `💩×${litterPoop}` : '', litterPee > 0 ? `💦×${litterPee}` : ''].filter(Boolean).join('  ')}
-            </div>
+            <LitterCounter
+              counts={litterCounts}
+              onChange={setLitterCounts}
+              poopLabel={t('litterPoopLabel')}
+              peeLabel={t('litterPeeLabel')}
+              cleanLabel={t('litterClean')}
+            />
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={submitLitterReport} disabled={submittingLitter} style={{ flex: 1, padding: '13px', border: 'none', borderRadius: '16px', background: 'linear-gradient(135deg, #ff85a1, #c8a8e9)', color: '#fff', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)', opacity: submittingLitter ? 0.7 : 1 }}>
-                {submittingLitter ? t('submitting') : `🪣 ${lang === 'en' ? 'Done scooping' : '完成鏟貓砂'}`}
+                {submittingLitter ? t('submitting') : t('litterDoneBtn')}
               </button>
               <button onClick={() => setShowLitterModal(false)} style={{ padding: '13px 18px', border: '1px solid var(--glass-border)', borderRadius: '16px', background: 'var(--glass)', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)' }}>
                 {t('cancelBtn')}
