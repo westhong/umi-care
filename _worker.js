@@ -45,13 +45,12 @@ const DEFAULT_TASKS = [
 
 
 const DEFAULT_PERIODIC = [
-  { id: 'p1', icon: '💧', name: '罐頭加水', nameEn: 'Add Water to Can', intervalDays: 3, lastDoneAt: null, note: '不含鮪魚，偏好泥狀' },
-  { id: 'p2', icon: '🍮', name: '貓泥', nameEn: 'Cat Puree', weeklyMax: 3, weeklyCount: 0, weekStart: null, lastDoneAt: null },
-  { id: 'p3', icon: '✂️', name: '剪指甲', nameEn: 'Trim Nails', intervalDays: 14, lastDoneAt: null },
-  { id: 'p4', icon: '👂', name: '清耳朵', nameEn: 'Clean Ears', intervalDays: 14, lastDoneAt: null },
-  { id: 'p5', icon: '🪣', name: '全盆更換貓砂（木薯砂）', nameEn: 'Full Litter Change (Cassava)', intervalDays: 25, lastDoneAt: null, note: '木薯砂，一包' },
-  { id: 'p6', icon: '🛁', name: '洗澡', nameEn: 'Bath', intervalDays: 45, lastDoneAt: null, note: '抗菌洗劑 ×2、低速吹風機、擦拭臉部' },
-  { id: 'p7', icon: '🏥', name: '健康檢查', nameEn: 'Health Checkup', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
+  { id: 'p2', icon: '🍮', name: 'Cat Puree', nameEn: 'Cat Puree', weeklyMax: 3, weeklyCount: 0, weekStart: null, lastDoneAt: null },
+  { id: 'p3', icon: '✂️', name: 'Trim Nails', nameEn: 'Trim Nails', intervalDays: 14, lastDoneAt: null },
+  { id: 'p4', icon: '👂', name: 'Clean Ears', nameEn: 'Clean Ears', intervalDays: 14, lastDoneAt: null },
+  { id: 'p5', icon: '🪣', name: 'Full Litter Change', nameEn: 'Full Litter Change', intervalDays: 25, lastDoneAt: null },
+  { id: 'p6', icon: '🛁', name: 'Bath', nameEn: 'Bath', intervalDays: 45, lastDoneAt: null },
+  { id: 'p7', icon: '🏥', name: 'Health Checkup', nameEn: 'Health Checkup', intervalDays: 365, lastDoneAt: null, note: 'Blood test, X-ray, dental' },
 ];
 
 const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.9.2' };
