@@ -116,6 +116,10 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
   // Quick modal (feeding + litter combined)
   const [showQuickModal, setShowQuickModal] = useState(false);
 
+  // Yesterday backlog
+  const [yesterdayCheckins, setYesterdayCheckins] = useState<Checkin[]>([]);
+  const [showBacklog, setShowBacklog] = useState(false);
+
   const applySelfReportPreset = useCallback((type: SelfReportType) => {
     const preset = selfReportTypeConfig[type];
     setSelfReportForm((prev) => ({
@@ -235,6 +239,17 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     setPeriodicTasks(Array.isArray(data) ? data : []);
   }, []);
 
+  const yesterdayDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
+  const loadBacklog = useCallback(async () => {
+    const checkins = await get<Checkin[]>(`/api/checkins?date=${yesterdayDate}`).catch(() => []);
+    setYesterdayCheckins(checkins);
+  }, [yesterdayDate]);
+
   const submitPeriodicDone = useCallback(async (task: PeriodicTask) => {
     setSubmittingPeriodic(task.id);
     try {
@@ -297,11 +312,11 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     }
   }, [loadData]);
 
-  useEffect(() => { loadData(); loadAdhoc(); loadPeriodic(); }, [loadData, loadAdhoc, loadPeriodic]);
+  useEffect(() => { loadData(); loadAdhoc(); loadPeriodic(); loadBacklog(); }, [loadData, loadAdhoc, loadPeriodic, loadBacklog]);
   useEffect(() => {
-    const timer = setInterval(() => { loadData(); loadAdhoc(); loadPeriodic(); }, 5 * 60 * 1000);
+    const timer = setInterval(() => { loadData(); loadAdhoc(); loadPeriodic(); loadBacklog(); }, 5 * 60 * 1000);
     return () => clearInterval(timer);
-  }, [loadData, loadAdhoc, loadPeriodic]);
+  }, [loadData, loadAdhoc, loadPeriodic, loadBacklog]);
 
   const visibleTasks = tasks.filter((task) => {
     const scheduleType = task.scheduleType || 'daily';
@@ -331,6 +346,22 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
 
   const unacknowledgedCount = useMemo(() => selfReports.filter((r) => !r.acknowledged).length, [selfReports]);
   const recentSelfReports = useMemo(() => selfReports.slice(0, 4), [selfReports]);
+
+  // Yesterday missed tasks
+  const missedYesterdayTasks = useMemo(() => {
+    const doneYesterday = new Set(yesterdayCheckins.map((c) => c.taskId));
+    const yd = new Date(yesterdayDate);
+    const ydDay = yd.getDay(); // 0=Sun
+    return tasks.filter((task) => {
+      if (doneYesterday.has(task.id)) return false;
+      const stype = task.scheduleType || 'daily';
+      if (stype === 'daily') return true;
+      if (stype === 'weekly') return task.weekDays?.includes(ydDay) ?? false;
+      if (stype === 'weekdays') return ydDay >= 1 && ydDay <= 5;
+      if (stype === 'weekends') return ydDay === 0 || ydDay === 6;
+      return true;
+    });
+  }, [tasks, yesterdayCheckins, yesterdayDate]);
 
   // Periodic tasks due today or overdue (intervalDays type only)
   const duePeriodicTasks = useMemo(() => {
@@ -590,6 +621,35 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
                 </div>
                 {doneTasks.map((task) => <TaskCard key={task.id} task={task} checkin={getCheckin(task)} caregiverDate={currentDate} onCheckinUpdate={loadData} />)}
               </>
+            )}
+
+            {/* ── Yesterday Make-up ── */}
+            {missedYesterdayTasks.length > 0 && (
+              <div style={{ marginTop: doneTasks.length > 0 ? '20px' : '0' }}>
+                <button
+                  onClick={() => setShowBacklog((v) => !v)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', padding: '0 0 10px', cursor: 'pointer' }}
+                >
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', color: '#facc15', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                    📋 Yesterday Make-up ({missedYesterdayTasks.length})
+                  </span>
+                  <div style={{ flex: 1, height: '1px', background: 'rgba(250,204,21,0.25)' }} />
+                  <span style={{ fontSize: '0.8rem', color: '#facc15' }}>{showBacklog ? '▲' : '▼'}</span>
+                </button>
+                {showBacklog && (
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    {missedYesterdayTasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        checkin={yesterdayCheckins.find((c) => c.taskId === task.id)}
+                        caregiverDate={yesterdayDate}
+                        onCheckinUpdate={() => { loadData(); loadBacklog(); }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* ── Special Tasks (dispatched by admin) ── */}
