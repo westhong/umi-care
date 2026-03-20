@@ -10,6 +10,19 @@ import { requestPushPermission, unsubscribePush, isSubscribed, listenPushSound }
 import { LitterCounter, encodeLitterResult, formatLitterSummary } from '../components/LitterCounter';
 import type { LitterCounts } from '../components/LitterCounter';
 
+interface PeriodicTask {
+  id: string;
+  icon: string;
+  name: string;
+  nameEn?: string;
+  note?: string;
+  intervalDays?: number;
+  weeklyMax?: number;
+  weeklyCount?: number;
+  weekStart?: string | null;
+  lastDoneAt: string | null;
+}
+
 interface AdhocTask {
   id: string;
   icon: string;
@@ -92,6 +105,12 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
   const [adhocDoneNote, setAdhocDoneNote] = useState<Record<string, string>>({});
   const [submittingAdhoc, setSubmittingAdhoc] = useState<string | null>(null);
   const [acknowledgingAll, setAcknowledgingAll] = useState(false);
+
+  // Periodic care tasks (caregiver self-report)
+  const [periodicTasks, setPeriodicTasks] = useState<PeriodicTask[]>([]);
+  const [expandedPeriodic, setExpandedPeriodic] = useState<string | null>(null);
+  const [periodicNote, setPeriodicNote] = useState<Record<string, string>>({});
+  const [submittingPeriodic, setSubmittingPeriodic] = useState<string | null>(null);
 
   const applySelfReportPreset = useCallback((type: SelfReportType) => {
     const preset = selfReportTypeConfig[type];
@@ -207,6 +226,29 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     setAdhocTasks(Array.isArray(data) ? data.filter((t) => !t.done) : []);
   }, []);
 
+  const loadPeriodic = useCallback(async () => {
+    const data = await get<PeriodicTask[]>('/api/periodic').catch(() => []);
+    setPeriodicTasks(Array.isArray(data) ? data : []);
+  }, []);
+
+  const submitPeriodicDone = useCallback(async (task: PeriodicTask) => {
+    setSubmittingPeriodic(task.id);
+    try {
+      const now = new Date().toISOString();
+      const updatedTask: PeriodicTask = { ...task, lastDoneAt: now };
+      // Build updated list and POST entire list (same as admin)
+      const allTasks = periodicTasks.map((t) => t.id === task.id ? updatedTask : t);
+      await post('/api/periodic', allTasks);
+      setPeriodicTasks(allTasks);
+      setExpandedPeriodic(null);
+      setPeriodicNote((prev) => { const n = { ...prev }; delete n[task.id]; return n; });
+    } catch {
+      alert('Failed to update — please try again');
+    } finally {
+      setSubmittingPeriodic(null);
+    }
+  }, [periodicTasks]);
+
   const submitAdhocAction = useCallback(async (id: string, isDone: boolean) => {
     setSubmittingAdhoc(id);
     try {
@@ -251,11 +293,11 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     }
   }, [loadData]);
 
-  useEffect(() => { loadData(); loadAdhoc(); }, [loadData, loadAdhoc]);
+  useEffect(() => { loadData(); loadAdhoc(); loadPeriodic(); }, [loadData, loadAdhoc, loadPeriodic]);
   useEffect(() => {
-    const timer = setInterval(() => { loadData(); loadAdhoc(); }, 5 * 60 * 1000);
+    const timer = setInterval(() => { loadData(); loadAdhoc(); loadPeriodic(); }, 5 * 60 * 1000);
     return () => clearInterval(timer);
-  }, [loadData, loadAdhoc]);
+  }, [loadData, loadAdhoc, loadPeriodic]);
 
   const visibleTasks = tasks.filter((task) => {
     const scheduleType = task.scheduleType || 'daily';
@@ -285,6 +327,18 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
 
   const unacknowledgedCount = useMemo(() => selfReports.filter((r) => !r.acknowledged).length, [selfReports]);
   const recentSelfReports = useMemo(() => selfReports.slice(0, 4), [selfReports]);
+
+  // Periodic tasks due today or overdue (intervalDays type only)
+  const duePeriodicTasks = useMemo(() => {
+    const now = new Date();
+    return periodicTasks.filter((task) => {
+      if (!task.intervalDays) return false; // skip weeklyMax type
+      if (!task.lastDoneAt) return true; // never done = overdue
+      const due = new Date(task.lastDoneAt);
+      due.setDate(due.getDate() + task.intervalDays);
+      return due <= now; // due today or past due
+    });
+  }, [periodicTasks]);
   const activeSelfReportPreset = selfReportTypeConfig[selfReportForm.type];
 
   const submitSelfReport = async () => {
@@ -580,6 +634,66 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
                                 ⏭️ Skip
                               </button>
                             </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Periodic Care (caregiver self-report) ── */}
+            {duePeriodicTasks.length > 0 && (
+              <div style={{ marginTop: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', color: '#60a5fa', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>🔁 Periodic Care ({duePeriodicTasks.length})</span>
+                  <div style={{ flex: 1, height: '1px', background: 'rgba(96,165,250,0.25)' }} />
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {duePeriodicTasks.map((task) => {
+                    const isExpanded = expandedPeriodic === task.id;
+                    const isSubmitting = submittingPeriodic === task.id;
+                    const daysOverdue = task.lastDoneAt && task.intervalDays
+                      ? Math.abs(Math.ceil((new Date(task.lastDoneAt).getTime() + task.intervalDays * 86400000 - Date.now()) / 86400000))
+                      : null;
+                    const taskName = lang === 'en' && task.nameEn ? task.nameEn : task.name;
+                    return (
+                      <div key={task.id} style={{ background: 'var(--bg-card)', border: '1.5px solid rgba(96,165,250,0.3)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(96,165,250,0.08)' }}>
+                        <div
+                          onClick={() => setExpandedPeriodic(isExpanded ? null : task.id)}
+                          style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{task.icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.3 }}>{taskName}</div>
+                            <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              {task.lastDoneAt
+                                ? `Last done ${Math.floor((Date.now() - new Date(task.lastDoneAt).getTime()) / 86400000)}d ago`
+                                : 'Never done'}
+                              {task.intervalDays && ` · Every ${task.intervalDays} days`}
+                              {daysOverdue !== null && task.lastDoneAt && <span style={{ color: '#f87171', marginLeft: '4px' }}>({daysOverdue}d overdue)</span>}
+                            </div>
+                            {task.note && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', fontStyle: 'italic' }}>{task.note}</div>}
+                          </div>
+                          <span style={{ fontSize: '0.82rem', color: '#60a5fa', fontWeight: 700, flexShrink: 0 }}>{isExpanded ? '▲' : '▼'}</span>
+                        </div>
+                        {isExpanded && (
+                          <div style={{ borderTop: '1px solid rgba(96,165,250,0.15)', padding: '12px 16px 16px', display: 'grid', gap: '10px' }}>
+                            <textarea
+                              value={periodicNote[task.id] || ''}
+                              onChange={(e) => setPeriodicNote((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                              rows={2}
+                              placeholder="Note (optional)"
+                              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-card2)', border: '1px solid var(--glass-border)', borderRadius: '12px', color: 'var(--text-primary)', fontFamily: 'var(--font)', fontSize: '0.88rem', resize: 'none', boxSizing: 'border-box' }}
+                            />
+                            <button
+                              onClick={() => submitPeriodicDone(task)}
+                              disabled={isSubmitting}
+                              style={{ padding: '12px', border: 'none', borderRadius: '12px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff', fontFamily: 'var(--font)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
+                            >
+                              {isSubmitting ? '...' : '✅ Done — mark complete'}
+                            </button>
                           </div>
                         )}
                       </div>
