@@ -54,7 +54,7 @@ const DEFAULT_PERIODIC = [
   { id: 'p7', icon: '🏥', name: '健康檢查', nameEn: 'Health Checkup', intervalDays: 365, lastDoneAt: null, note: '血檢、X-ray、牙科' },
 ];
 
-const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.9.1' };
+const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.9.2' };
 
 function normalizeSettings(raw) {
   return { ...DEFAULT_SETTINGS, ...raw, appVersion: DEFAULT_SETTINGS.appVersion };
@@ -69,7 +69,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '5.9.1', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '5.9.2', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {

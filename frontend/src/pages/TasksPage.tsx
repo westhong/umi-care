@@ -111,6 +111,10 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
   const [expandedPeriodic, setExpandedPeriodic] = useState<string | null>(null);
   const [periodicNote, setPeriodicNote] = useState<Record<string, string>>({});
   const [submittingPeriodic, setSubmittingPeriodic] = useState<string | null>(null);
+  const [showPeriodicModal, setShowPeriodicModal] = useState(false);
+
+  // Quick modal (feeding + litter combined)
+  const [showQuickModal, setShowQuickModal] = useState(false);
 
   const applySelfReportPreset = useCallback((type: SelfReportType) => {
     const preset = selfReportTypeConfig[type];
@@ -484,7 +488,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
           {t('quickReportTitle')}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-          {/* Incident */}
+          {/* LEFT: Incident */}
           <button
             onClick={() => setShowIncidentModal(true)}
             style={{ padding: '14px 6px', border: '1.5px solid rgba(239,68,68,0.35)', borderRadius: '14px', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontFamily: 'var(--font)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', lineHeight: 1.3 }}
@@ -492,21 +496,24 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             <span style={{ fontSize: '1.5rem' }}>🆘</span>
             <span>{lang === 'en' ? 'Incident' : '異常上報'}</span>
           </button>
-          {/* Feed */}
+          {/* MIDDLE: Quick (Feeding + Litter) */}
           <button
-            onClick={() => { applySelfReportPreset('treat'); setShowSelfReportModal(true); }}
+            onClick={() => setShowQuickModal(true)}
             style={{ padding: '14px 6px', border: '1.5px solid rgba(251,146,60,0.35)', borderRadius: '14px', background: 'rgba(251,146,60,0.07)', color: '#f97316', fontFamily: 'var(--font)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', lineHeight: 1.3 }}
           >
-            <span style={{ fontSize: '1.5rem' }}>🍽️</span>
-            <span>{lang === 'en' ? 'Fed cat' : '餵食紀錄'}</span>
+            <span style={{ fontSize: '1.5rem' }}>⚡</span>
+            <span>{lang === 'en' ? 'Quick' : '快速回報'}</span>
           </button>
-          {/* Litter */}
+          {/* RIGHT: Periodic Care */}
           <button
-            onClick={() => { setLitterCounts({ poop: 0, pee: 0 }); setShowLitterModal(true); }}
-            style={{ padding: '14px 6px', border: '1.5px solid rgba(161,161,170,0.35)', borderRadius: '14px', background: 'rgba(161,161,170,0.07)', color: '#71717a', fontFamily: 'var(--font)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', lineHeight: 1.3 }}
+            onClick={() => setShowPeriodicModal(true)}
+            style={{ position: 'relative', padding: '14px 6px', border: '1.5px solid rgba(96,165,250,0.35)', borderRadius: '14px', background: 'rgba(96,165,250,0.07)', color: '#3b82f6', fontFamily: 'var(--font)', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', lineHeight: 1.3 }}
           >
-            <span style={{ fontSize: '1.5rem' }}>🪣</span>
-            <span>{lang === 'en' ? 'Litter' : '清貓砂'}</span>
+            {duePeriodicTasks.length > 0 && (
+              <span style={{ position: 'absolute', top: '6px', right: '8px', background: '#ef4444', color: '#fff', borderRadius: '999px', fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', lineHeight: 1.4 }}>{duePeriodicTasks.length}</span>
+            )}
+            <span style={{ fontSize: '1.5rem' }}>🔁</span>
+            <span>{lang === 'en' ? 'Periodic' : '例行護理'}</span>
           </button>
         </div>
         <div style={{ marginTop: '12px', background: 'rgba(255,255,255,0.68)', border: '1px solid rgba(255,133,161,0.14)', borderRadius: '16px', padding: '12px 12px 10px' }}>
@@ -643,68 +650,110 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
               </div>
             )}
 
-            {/* ── Periodic Care (caregiver self-report) ── */}
-            {duePeriodicTasks.length > 0 && (
-              <div style={{ marginTop: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', color: '#60a5fa', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>🔁 Periodic Care ({duePeriodicTasks.length})</span>
-                  <div style={{ flex: 1, height: '1px', background: 'rgba(96,165,250,0.25)' }} />
-                </div>
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  {duePeriodicTasks.map((task) => {
-                    const isExpanded = expandedPeriodic === task.id;
-                    const isSubmitting = submittingPeriodic === task.id;
-                    const daysOverdue = task.lastDoneAt && task.intervalDays
-                      ? Math.abs(Math.ceil((new Date(task.lastDoneAt).getTime() + task.intervalDays * 86400000 - Date.now()) / 86400000))
-                      : null;
-                    const taskName = lang === 'en' && task.nameEn ? task.nameEn : task.name;
-                    return (
-                      <div key={task.id} style={{ background: 'var(--bg-card)', border: '1.5px solid rgba(96,165,250,0.3)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(96,165,250,0.08)' }}>
-                        <div
-                          onClick={() => setExpandedPeriodic(isExpanded ? null : task.id)}
-                          style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', userSelect: 'none' }}
-                        >
-                          <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{task.icon}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.3 }}>{taskName}</div>
-                            <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              {task.lastDoneAt
-                                ? `Last done ${Math.floor((Date.now() - new Date(task.lastDoneAt).getTime()) / 86400000)}d ago`
-                                : 'Never done'}
-                              {task.intervalDays && ` · Every ${task.intervalDays} days`}
-                              {daysOverdue !== null && task.lastDoneAt && <span style={{ color: '#f87171', marginLeft: '4px' }}>({daysOverdue}d overdue)</span>}
-                            </div>
-                            {task.note && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', fontStyle: 'italic' }}>{task.note}</div>}
-                          </div>
-                          <span style={{ fontSize: '0.82rem', color: '#60a5fa', fontWeight: 700, flexShrink: 0 }}>{isExpanded ? '▲' : '▼'}</span>
-                        </div>
-                        {isExpanded && (
-                          <div style={{ borderTop: '1px solid rgba(96,165,250,0.15)', padding: '12px 16px 16px', display: 'grid', gap: '10px' }}>
-                            <textarea
-                              value={periodicNote[task.id] || ''}
-                              onChange={(e) => setPeriodicNote((prev) => ({ ...prev, [task.id]: e.target.value }))}
-                              rows={2}
-                              placeholder="Note (optional)"
-                              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-card2)', border: '1px solid var(--glass-border)', borderRadius: '12px', color: 'var(--text-primary)', fontFamily: 'var(--font)', fontSize: '0.88rem', resize: 'none', boxSizing: 'border-box' }}
-                            />
-                            <button
-                              onClick={() => submitPeriodicDone(task)}
-                              disabled={isSubmitting}
-                              style={{ padding: '12px', border: 'none', borderRadius: '12px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff', fontFamily: 'var(--font)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
-                            >
-                              {isSubmitting ? '...' : '✅ Done — mark complete'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+
           </>
         )}
       </div>
+
+      {/* ── Quick Modal (Feeding + Litter) ───────────────────── */}
+      {showQuickModal && (
+        <div onClick={() => setShowQuickModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(29,19,28,0.48)', backdropFilter: 'blur(10px)', display: 'grid', alignItems: 'end', zIndex: 999 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '18px 16px 32px', boxShadow: '0 -18px 40px rgba(15,23,42,0.18)', display: 'grid', gap: '14px' }}>
+            <div style={{ width: '42px', height: '4px', borderRadius: '999px', background: 'rgba(61,44,53,0.14)', margin: '0 auto' }} />
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>⚡ {lang === 'en' ? 'Quick Report' : '快速回報'}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {(['treat', 'dry', 'canned', 'other'] as SelfReportType[]).map((type) => {
+                const cfg = selfReportTypeConfig[type];
+                return (
+                  <button
+                    key={type}
+                    onClick={() => { applySelfReportPreset(type); setShowQuickModal(false); setShowSelfReportModal(true); }}
+                    style={{ padding: '14px 10px', border: '1.5px solid rgba(251,146,60,0.3)', borderRadius: '14px', background: 'rgba(251,146,60,0.06)', color: '#f97316', fontFamily: 'var(--font)', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', lineHeight: 1.3 }}
+                  >
+                    <span style={{ fontSize: '1.4rem' }}>{cfg.icon}</span>
+                    <span>{lang === 'en' ? cfg.defaultTitle.en : cfg.defaultTitle.zh}</span>
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => { setShowQuickModal(false); setLitterCounts({ poop: 0, pee: 0 }); setShowLitterModal(true); }}
+                style={{ padding: '14px 10px', border: '1.5px solid rgba(161,161,170,0.3)', borderRadius: '14px', background: 'rgba(161,161,170,0.06)', color: '#71717a', fontFamily: 'var(--font)', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', lineHeight: 1.3 }}
+              >
+                <span style={{ fontSize: '1.4rem' }}>🪣</span>
+                <span>{lang === 'en' ? 'Litter' : '清貓砂'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Periodic Care Modal ────────────────────────────────── */}
+      {showPeriodicModal && (
+        <div onClick={() => setShowPeriodicModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(29,19,28,0.48)', backdropFilter: 'blur(10px)', display: 'grid', alignItems: 'end', zIndex: 999 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '18px 16px 32px', boxShadow: '0 -18px 40px rgba(15,23,42,0.18)', display: 'grid', gap: '14px', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ width: '42px', height: '4px', borderRadius: '999px', background: 'rgba(61,44,53,0.14)', margin: '0 auto' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>🔁 {lang === 'en' ? 'Periodic Care' : '例行護理'}</div>
+              {duePeriodicTasks.length > 0 && <span style={{ fontSize: '0.75rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '999px', padding: '2px 8px', fontWeight: 700 }}>{duePeriodicTasks.length} due</span>}
+            </div>
+            {periodicTasks.filter(t => t.intervalDays).length === 0 ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem', textAlign: 'center', padding: '20px 0' }}>No periodic tasks set up yet</div>
+            ) : (
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {periodicTasks.filter(t => t.intervalDays).map((task) => {
+                  const isExpanded = expandedPeriodic === task.id;
+                  const isSubmitting = submittingPeriodic === task.id;
+                  const isDue = duePeriodicTasks.some(d => d.id === task.id);
+                  const daysAgo = task.lastDoneAt ? Math.floor((Date.now() - new Date(task.lastDoneAt).getTime()) / 86400000) : null;
+                  const daysLeft = task.lastDoneAt && task.intervalDays
+                    ? Math.ceil((new Date(task.lastDoneAt).getTime() + task.intervalDays * 86400000 - Date.now()) / 86400000)
+                    : null;
+                  const taskName = lang === 'en' && task.nameEn ? task.nameEn : task.name;
+                  return (
+                    <div key={task.id} style={{ background: isDue ? 'rgba(239,68,68,0.04)' : 'var(--bg-card2)', border: `1.5px solid ${isDue ? 'rgba(239,68,68,0.2)' : 'rgba(96,165,250,0.2)'}`, borderRadius: '16px', overflow: 'hidden' }}>
+                      <div
+                        onClick={() => setExpandedPeriodic(isExpanded ? null : task.id)}
+                        style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{task.icon}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{taskName}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {daysAgo !== null ? `Last: ${daysAgo}d ago` : 'Never done'}
+                            {task.intervalDays && ` · Every ${task.intervalDays}d`}
+                            {isDue && <span style={{ color: '#f87171', marginLeft: '6px', fontWeight: 700 }}>● Due</span>}
+                            {!isDue && daysLeft !== null && <span style={{ color: '#60a5fa', marginLeft: '6px' }}>{daysLeft}d left</span>}
+                          </div>
+                          {task.note && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '2px' }}>{task.note}</div>}
+                        </div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', flexShrink: 0 }}>{isExpanded ? '▲' : '▼'}</span>
+                      </div>
+                      {isExpanded && (
+                        <div style={{ borderTop: '1px solid rgba(96,165,250,0.12)', padding: '12px 16px 14px', display: 'grid', gap: '10px' }}>
+                          <textarea
+                            value={periodicNote[task.id] || ''}
+                            onChange={(e) => setPeriodicNote((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                            rows={2}
+                            placeholder="Note (optional)"
+                            style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-card)', border: '1px solid var(--glass-border)', borderRadius: '12px', color: 'var(--text-primary)', fontFamily: 'var(--font)', fontSize: '0.88rem', resize: 'none', boxSizing: 'border-box' }}
+                          />
+                          <button
+                            onClick={() => submitPeriodicDone(task)}
+                            disabled={isSubmitting}
+                            style={{ padding: '12px', border: 'none', borderRadius: '12px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff', fontFamily: 'var(--font)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
+                          >
+                            {isSubmitting ? '...' : '✅ Mark as done'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showLitterModal && (
         <div onClick={() => setShowLitterModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(29, 19, 28, 0.48)', backdropFilter: 'blur(10px)', display: 'grid', alignItems: 'end', zIndex: 999 }}>
