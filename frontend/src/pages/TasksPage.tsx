@@ -10,6 +10,16 @@ import { requestPushPermission, unsubscribePush, isSubscribed, listenPushSound }
 import { LitterCounter, encodeLitterResult, formatLitterSummary } from '../components/LitterCounter';
 import type { LitterCounts } from '../components/LitterCounter';
 
+interface AdhocTask {
+  id: string;
+  icon: string;
+  name: string;
+  note?: string;
+  createdAt: string;
+  done: boolean;
+  doneAt?: string;
+}
+
 interface TasksPageProps {
   onAdminOpen: () => void;
 }
@@ -75,6 +85,13 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     quantity: '1',
     note: '',
   });
+
+  // Special (adhoc) tasks
+  const [adhocTasks, setAdhocTasks] = useState<AdhocTask[]>([]);
+  const [expandedAdhoc, setExpandedAdhoc] = useState<string | null>(null);
+  const [adhocDoneNote, setAdhocDoneNote] = useState<Record<string, string>>({});
+  const [submittingAdhoc, setSubmittingAdhoc] = useState<string | null>(null);
+  const [acknowledgingAll, setAcknowledgingAll] = useState(false);
 
   const applySelfReportPreset = useCallback((type: SelfReportType) => {
     const preset = selfReportTypeConfig[type];
@@ -185,6 +202,29 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     }
   };
 
+  const loadAdhoc = useCallback(async () => {
+    const data = await get<AdhocTask[]>('/api/adhoc').catch(() => []);
+    setAdhocTasks(Array.isArray(data) ? data.filter((t) => !t.done) : []);
+  }, []);
+
+  const submitAdhocAction = useCallback(async (id: string, isDone: boolean) => {
+    setSubmittingAdhoc(id);
+    try {
+      if (isDone) {
+        await post(`/api/adhoc/${id}/done`, { note: adhocDoneNote[id] || '' });
+      } else {
+        // Skip = delete from caregiver perspective
+        await post(`/api/adhoc/${id}/done`, { result: 'skip', note: adhocDoneNote[id] || '' });
+      }
+      setExpandedAdhoc(null);
+      await loadAdhoc();
+    } catch {
+      alert('Failed to update special task');
+    } finally {
+      setSubmittingAdhoc(null);
+    }
+  }, [adhocDoneNote, loadAdhoc]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -201,11 +241,21 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     }
   }, [currentDate, setTasks, setCheckins]);
 
-  useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => {
-    const timer = setInterval(loadData, 5 * 60 * 1000);
-    return () => clearInterval(timer);
+  const acknowledgeAll = useCallback(async () => {
+    setAcknowledgingAll(true);
+    try {
+      await post('/api/selfreports/acknowledge-all', {});
+      await loadData();
+    } catch { /* silent */ } finally {
+      setAcknowledgingAll(false);
+    }
   }, [loadData]);
+
+  useEffect(() => { loadData(); loadAdhoc(); }, [loadData, loadAdhoc]);
+  useEffect(() => {
+    const timer = setInterval(() => { loadData(); loadAdhoc(); }, 5 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [loadData, loadAdhoc]);
 
   const visibleTasks = tasks.filter((task) => {
     const scheduleType = task.scheduleType || 'daily';
@@ -233,6 +283,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
     return status === 'done' || status === 'skip';
   });
 
+  const unacknowledgedCount = useMemo(() => selfReports.filter((r) => !r.acknowledged).length, [selfReports]);
   const recentSelfReports = useMemo(() => selfReports.slice(0, 4), [selfReports]);
   const activeSelfReportPreset = selfReportTypeConfig[selfReportForm.type];
 
@@ -322,6 +373,27 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
             v{settings?.appVersion || '5.x'}
           </span>
+          {/* Push notification bell — header shortcut */}
+          {pushStatus !== 'unsupported' && (
+            <div
+              onClick={pushStatus === 'subscribed' ? handlePushDisable : handlePushEnable}
+              title={pushStatus === 'subscribed' ? 'Notifications on — tap to disable' : pushStatus === 'denied' ? 'Notifications blocked in browser settings' : 'Enable push notifications'}
+              style={{
+                position: 'relative',
+                width: '36px', height: '36px',
+                background: pushStatus === 'subscribed' ? 'rgba(74,222,128,0.13)' : 'rgba(255,133,161,0.1)',
+                border: `1px solid ${pushStatus === 'subscribed' ? 'rgba(74,222,128,0.35)' : 'rgba(255,133,161,0.2)'}`,
+                borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: pushStatus === 'denied' ? 'not-allowed' : 'pointer', fontSize: '1rem',
+                opacity: disablingPush ? 0.5 : 1,
+              }}
+            >
+              {pushStatus === 'subscribed' ? '🔔' : '🔕'}
+              {pushStatus === 'unknown' && (
+                <span style={{ position: 'absolute', top: '1px', right: '1px', width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', border: '1.5px solid var(--bg-primary)' }} />
+              )}
+            </div>
+          )}
           <div
             onClick={onAdminOpen}
             style={{ width: '40px', height: '40px', background: 'rgba(255,133,161,0.12)', border: '1px solid rgba(255,133,161,0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.1rem' }}
@@ -332,25 +404,26 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
         </div>
       </div>
 
-      {pushStatus === 'unknown' && (
-        <div style={{ margin: '14px 16px 0', background: 'rgba(102,126,234,0.1)', border: '1px solid rgba(102,126,234,0.3)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-          <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{t('pushEnableHint')}</span>
-          <button onClick={handlePushEnable} style={{ padding: '7px 14px', borderRadius: '20px', border: 'none', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: 'white', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'var(--font)' }}>
-            {t('pushEnableBtn')}
-          </button>
-        </div>
-      )}
-      {pushStatus === 'subscribed' && (
-        <div style={{ margin: '14px 16px 0', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: '0.78rem', color: '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-          <span>{t('pushEnabled')}</span>
-          <button onClick={handlePushDisable} disabled={disablingPush} style={{ padding: '5px 12px', borderRadius: '20px', border: '1px solid rgba(74,222,128,0.4)', background: 'transparent', color: '#4ade80', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font)', whiteSpace: 'nowrap' }}>
-            {disablingPush ? t('pushDisabling') : t('pushDisableBtn')}
-          </button>
-        </div>
-      )}
-      {pushStatus === 'denied' && <div style={{ margin: '14px 16px 0', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: '0.78rem', color: '#f87171' }}>{t('pushDenied')}</div>}
+      {/* Push notification status — compact inline hint only when denied */}
+      {pushStatus === 'denied' && <div style={{ margin: '8px 16px 0', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 'var(--radius-sm)', padding: '8px 14px', fontSize: '0.76rem', color: '#f87171' }}>Notifications blocked — enable in browser settings</div>}
 
       <ProgressRing pct={pct} done={done} total={total} catName={cat?.name || catName} sub={msgs[idx]} />
+
+      {/* Unacknowledged self-reports alert banner */}
+      {unacknowledgedCount > 0 && (
+        <div style={{ margin: '0 16px 10px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: '14px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#b45309' }}>
+            📝 {unacknowledgedCount} {lang === 'zh' ? '則回報待確認' : 'report(s) unacknowledged'}
+          </span>
+          <button
+            onClick={acknowledgeAll}
+            disabled={acknowledgingAll}
+            style={{ padding: '6px 12px', border: '1px solid rgba(245,158,11,0.5)', borderRadius: '999px', background: 'rgba(245,158,11,0.15)', color: '#92400e', fontFamily: 'var(--font)', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', opacity: acknowledgingAll ? 0.7 : 1 }}
+          >
+            {acknowledgingAll ? '...' : (lang === 'zh' ? '全部確認' : 'Acknowledge All')}
+          </button>
+        </div>
+      )}
 
       <div style={{ padding: '0 16px 16px' }}>
         <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--primary)', fontWeight: 700, marginBottom: '10px' }}>
@@ -456,6 +529,64 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
                 </div>
                 {doneTasks.map((task) => <TaskCard key={task.id} task={task} checkin={getCheckin(task)} caregiverDate={currentDate} onCheckinUpdate={loadData} />)}
               </>
+            )}
+
+            {/* ── Special Tasks (dispatched by admin) ── */}
+            {adhocTasks.length > 0 && (
+              <div style={{ marginTop: doneTasks.length > 0 || pendingTasks.length > 0 || overdueTasks.length > 0 ? '20px' : '0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', color: '#c084fc', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>✨ Special Tasks ({adhocTasks.length})</span>
+                  <div style={{ flex: 1, height: '1px', background: 'rgba(192,132,252,0.25)' }} />
+                </div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {adhocTasks.map((task) => {
+                    const isExpanded = expandedAdhoc === task.id;
+                    const isSubmitting = submittingAdhoc === task.id;
+                    return (
+                      <div key={task.id} style={{ background: 'var(--bg-card)', border: '1.5px solid rgba(192,132,252,0.3)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(192,132,252,0.08)' }}>
+                        <div
+                          onClick={() => setExpandedAdhoc(isExpanded ? null : task.id)}
+                          style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{task.icon || '📌'}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.3 }}>{task.name}</div>
+                            {task.note && <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.5 }}>{task.note}</div>}
+                          </div>
+                          <span style={{ fontSize: '0.82rem', color: '#c084fc', fontWeight: 700, flexShrink: 0 }}>{isExpanded ? '▲' : '▼'}</span>
+                        </div>
+                        {isExpanded && (
+                          <div style={{ borderTop: '1px solid rgba(192,132,252,0.15)', padding: '12px 16px 16px', display: 'grid', gap: '10px' }}>
+                            <textarea
+                              value={adhocDoneNote[task.id] || ''}
+                              onChange={(e) => setAdhocDoneNote((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                              rows={2}
+                              placeholder="Note (optional)"
+                              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-card2)', border: '1px solid var(--glass-border)', borderRadius: '12px', color: 'var(--text-primary)', fontFamily: 'var(--font)', fontSize: '0.88rem', resize: 'none', boxSizing: 'border-box' }}
+                            />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={() => submitAdhocAction(task.id, true)}
+                                disabled={isSubmitting}
+                                style={{ flex: 1, padding: '12px', border: 'none', borderRadius: '12px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', fontFamily: 'var(--font)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
+                              >
+                                {isSubmitting ? '...' : '✅ Done'}
+                              </button>
+                              <button
+                                onClick={() => submitAdhocAction(task.id, false)}
+                                disabled={isSubmitting}
+                                style={{ padding: '12px 16px', border: '1px solid var(--glass-border)', borderRadius: '12px', background: 'var(--glass)', color: 'var(--text-secondary)', fontFamily: 'var(--font)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', opacity: isSubmitting ? 0.7 : 1 }}
+                              >
+                                ⏭️ Skip
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </>
         )}

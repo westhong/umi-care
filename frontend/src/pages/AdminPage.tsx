@@ -187,32 +187,30 @@ function getTimeGroup(timestamp: string, granular = false): string {
   try {
     const hour = new Date(timestamp).getHours();
     if (granular) {
-      // Hourly buckets for more granular view
-      if (hour >= 0 && hour < 3) return '🌙 深夜 (00:00-02:59)';
-      if (hour >= 3 && hour < 6) return '🌃 清晨 (03:00-05:59)';
-      if (hour >= 6 && hour < 9) return '🌅 早晨 (06:00-08:59)';
-      if (hour >= 9 && hour < 12) return '☀️ 上午 (09:00-11:59)';
-      if (hour >= 12 && hour < 15) return '☀️ 中午 (12:00-14:59)';
-      if (hour >= 15 && hour < 18) return '🌤️ 下午 (15:00-17:59)';
-      if (hour >= 18 && hour < 21) return '🌆 傍晚 (18:00-20:59)';
-      return '🌙 晚上 (21:00-23:59)';
+      if (hour >= 0 && hour < 3) return '🌙 Late Night (00:00–02:59)';
+      if (hour >= 3 && hour < 6) return '🌃 Early Morning (03:00–05:59)';
+      if (hour >= 6 && hour < 9) return '🌅 Morning (06:00–08:59)';
+      if (hour >= 9 && hour < 12) return '☀️ Late Morning (09:00–11:59)';
+      if (hour >= 12 && hour < 15) return '☀️ Noon (12:00–14:59)';
+      if (hour >= 15 && hour < 18) return '🌤️ Afternoon (15:00–17:59)';
+      if (hour >= 18 && hour < 21) return '🌆 Evening (18:00–20:59)';
+      return '🌙 Night (21:00–23:59)';
     }
-    // Default 4-period grouping
-    if (hour >= 5 && hour < 12) return '🌅 早上 (05:00-11:59)';
-    if (hour >= 12 && hour < 17) return '☀️ 下午 (12:00-16:59)';
-    if (hour >= 17 && hour < 21) return '🌆 傍晚 (17:00-20:59)';
-    return '🌙 晚上 (21:00-04:59)';
+    if (hour >= 5 && hour < 12) return '🌅 Morning (05:00–11:59)';
+    if (hour >= 12 && hour < 17) return '☀️ Afternoon (12:00–16:59)';
+    if (hour >= 17 && hour < 21) return '🌆 Evening (17:00–20:59)';
+    return '🌙 Night (21:00–04:59)';
   } catch {
-    return '🕐 時間未知';
+    return '🕐 Unknown Time';
   }
 }
 
 function getSeverityBadge(severity?: string) {
   const severityMap = {
-    low: { label: '低', tone: 'neutral' as const },
-    medium: { label: '中', tone: 'warning' as const },
-    high: { label: '高', tone: 'danger' as const },
-    critical: { label: '緊急', tone: 'danger' as const },
+    low: { label: 'Low', tone: 'neutral' as const },
+    medium: { label: 'Medium', tone: 'warning' as const },
+    high: { label: 'High', tone: 'danger' as const },
+    critical: { label: 'Critical', tone: 'danger' as const },
   };
   const config = severityMap[severity as keyof typeof severityMap] || severityMap.medium;
   return <span style={badgeStyle(config.tone)}>🚨 {config.label}</span>;
@@ -372,6 +370,11 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
 
   const catName = cat?.name || settings?.catName || '屋咪';
   const taskFormRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartY = useRef(0);
+  const pullThresholdMet = useRef(false);
+  const loadAllRef = useRef<(() => void) | undefined>(undefined);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('today');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -1042,6 +1045,39 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     }
   };
 
+  loadAllRef.current = () => {
+    Promise.all([loadBaseData(), loadOverview(), loadWeights(), loadSpecialPresets(), loadResolutionTemplates(), loadPeriodicTasks()]).catch(() => undefined);
+  };
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onTouchStart = (e: TouchEvent) => {
+      if (el.scrollTop === 0) touchStartY.current = e.touches[0].clientY;
+      pullThresholdMet.current = false;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (el.scrollTop !== 0) return;
+      const delta = e.touches[0].clientY - touchStartY.current;
+      pullThresholdMet.current = delta > 70;
+      setPullRefreshing(delta > 70);
+    };
+    const onTouchEnd = () => {
+      if (!pullThresholdMet.current) { setPullRefreshing(false); return; }
+      pullThresholdMet.current = false;
+      loadAllRef.current?.();
+      window.setTimeout(() => setPullRefreshing(false), 1200);
+    };
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: true });
+    el.addEventListener('touchend', onTouchEnd);
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
+
   const resetTemplateDraft = () => {
     setTemplateDraft({ id: '', label: '', note: '' });
   };
@@ -1146,7 +1182,14 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   };
 
   return (
-    <div style={{ paddingBottom: '80px', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div ref={containerRef} style={{ paddingBottom: '80px', minHeight: '100vh', background: 'var(--bg)' }}>
+
+      {/* ── PULL-TO-REFRESH INDICATOR ─────────────────────── */}
+      {pullRefreshing && (
+        <div style={{ position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(192,132,252,0.2)', color: '#c084fc', padding: '6px 18px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700, zIndex: 200, whiteSpace: 'nowrap' }}>
+          ↻ Refreshing...
+        </div>
+      )}
 
       {/* ── TOP BAR ───────────────────────────────────────── */}
       <div style={{
@@ -1179,11 +1222,11 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
         {/* ── TABS ─────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '0' }}>
           {([
-            ['today',     '今日',   doneCount + '/' + (totalCount||0)],
-            ['incidents', '🆘 異常', allUnresolvedIncidents.length > 0 ? String(allUnresolvedIncidents.length) : ''],
-            ['activity',  '📋 紀錄', ''],
-            ['manage',    '✏️ 任務', ''],
-            ['settings',  '⚙️ 設定', ''],
+            ['today',     'Today',     doneCount + '/' + (totalCount||0)],
+            ['incidents', '🆘 Alerts',  allUnresolvedIncidents.length > 0 ? String(allUnresolvedIncidents.length) : ''],
+            ['activity',  '📋 Records', ''],
+            ['manage',    '✏️ Manage',  ''],
+            ['settings',  '⚙️ Settings',''],
           ] as [AdminTab, string, string][]).map(([key, label, badge]) => (
             <button
               key={key}
@@ -1591,12 +1634,12 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             {/* Stream filters */}
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {([
-                ['all', `全部 ${recordStream.length}`],
-                ['attention', `⚠️ 待注意 ${recordStream.filter(i => i.lane === 'attention').length}`],
-                ['checkins', `打卡 ${recordCheckins.length}`],
-                ['reports',  `回報 ${selfReports.length}`],
-                ['incidents', `異常 ${incidents.length}`],
-                ['special',   `特殊 ${selectedDateSpecial.length}`],
+                ['all',       `All ${recordStream.length}`],
+                ['attention', `⚠️ Attention ${recordStream.filter(i => i.lane === 'attention').length}`],
+                ['checkins',  `Check-ins ${recordCheckins.length}`],
+                ['reports',   `Reports ${selfReports.length}`],
+                ['incidents', `Incidents ${incidents.length}`],
+                ['special',   `Special ${selectedDateSpecial.length}`],
               ] as [typeof recordsFilter, string][]).map(([key, label]) => (
                 <button
                   key={key}
@@ -1611,11 +1654,11 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             {/* Toggle granular time */}
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
               <input type="checkbox" checked={granularTime} onChange={(e) => persistGranularTimeSetting(e.target.checked)} />
-              細粒度時間分組（小時）
+              Hourly grouping
             </label>
 
             {/* Unified stream */}
-            {filteredRecordStream.length ? (
+            {filteredRecordStream.length > 0 ? (
               <div style={{ display: 'grid', gap: '8px' }}>
                 {(() => {
                   const grouped: Record<string, RecordStreamItem[]> = {};
@@ -1625,8 +1668,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                     grouped[g].push(item);
                   });
                   const groupOrder = granularTime
-                    ? ['🌙 深夜 (00:00-02:59)', '🌃 清晨 (03:00-05:59)', '🌅 早晨 (06:00-08:59)', '☀️ 上午 (09:00-11:59)', '☀️ 中午 (12:00-14:59)', '🌤️ 下午 (15:00-17:59)', '🌆 傍晚 (18:00-20:59)', '🌙 晚上 (21:00-23:59)', '🕐 時間未知']
-                    : ['🌅 早上 (05:00-11:59)', '☀️ 下午 (12:00-16:59)', '🌆 傍晚 (17:00-20:59)', '🌙 晚上 (21:00-04:59)', '🕐 時間未知'];
+                    ? ['🌙 Late Night (00:00–02:59)', '🌃 Early Morning (03:00–05:59)', '🌅 Morning (06:00–08:59)', '☀️ Late Morning (09:00–11:59)', '☀️ Noon (12:00–14:59)', '🌤️ Afternoon (15:00–17:59)', '🌆 Evening (18:00–20:59)', '🌙 Night (21:00–23:59)', '🕐 Unknown Time']
+                    : ['🌅 Morning (05:00–11:59)', '☀️ Afternoon (12:00–16:59)', '🌆 Evening (17:00–20:59)', '🌙 Night (21:00–04:59)', '🕐 Unknown Time'];
                   return groupOrder.flatMap((gl) => {
                     const items = grouped[gl];
                     if (!items?.length) return [];
@@ -1649,7 +1692,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                   });
                 })()}
               </div>
-            ) : <EmptyState title="這個篩選下沒有紀錄" subtitle="換個 filter 或改日期試試" />}
+            ) : <EmptyState title="No records for this filter" subtitle="Try a different filter or date" />}
           </div>
         )}
 
@@ -1731,10 +1774,10 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               </div>
             </div>
 
-            {/* Pending special */}
+            {/* Pending special tasks */}
             {pendingSpecial.length > 0 && (
               <div style={sectionCard}>
-                <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>📌 待完成特殊任務 ({pendingSpecial.length})</div>
+                <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>📌 Pending Special Tasks ({pendingSpecial.length})</div>
                 <div style={{ display: 'grid', gap: '8px' }}>
                   {pendingSpecial.map((row) => (
                     <RecordCard
@@ -1742,7 +1785,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                       tone="warning"
                       title={<>{row.icon} {row.name}</>}
                       meta={<>{toDateTime(row.createdAt)}{row.note ? ` · ${row.note}` : ''}</>}
-                      chips={<span style={badgeStyle('warning')}>待完成</span>}
+                      chips={<span style={badgeStyle('warning')}>Pending</span>}
                       actions={<ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑</ActionButton>}
                     />
                   ))}
@@ -1750,22 +1793,73 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               </div>
             )}
 
-            {/* Quick preset manager */}
-            {specialPresets.length > 0 && (
-              <details>
-                <summary style={{ fontWeight: 700, fontSize: '0.84rem', color: '#64748b', cursor: 'pointer', padding: '8px 4px' }}>⚙️ 快捷任務管理 ({specialPresets.length})</summary>
-                <div style={{ marginTop: '8px', display: 'grid', gap: '6px' }}>
+            {/* All completed special tasks */}
+            {(() => {
+              const allDone = adhoc.filter((row) => row.done);
+              if (!allDone.length) return null;
+              return (
+                <div style={sectionCard}>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>✅ Completed ({allDone.length})</div>
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    {allDone.map((row) => (
+                      <RecordCard
+                        key={row.id}
+                        tone="success"
+                        title={<>{row.icon} {row.name}</>}
+                        meta={<>{toDateTime(row.doneAt || row.createdAt)}{row.note ? ` · ${row.note}` : ''}</>}
+                        chips={<><span style={badgeStyle('success')}>Done</span>{row.doneNote && <span style={badgeStyle('neutral')}>{row.doneNote}</span>}</>}
+                        actions={<ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑</ActionButton>}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Preset manager */}
+            <div style={sectionCard}>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '12px' }}>⚙️ Manage Quick Presets ({specialPresets.length})</div>
+              {specialPresets.length > 0 && (
+                <div style={{ display: 'grid', gap: '6px', marginBottom: '12px' }}>
                   {specialPresets.map((preset) => (
                     <RecordCard
                       key={preset.id}
                       title={<>{preset.icon} {preset.name}</>}
-                      meta={<>{preset.note || '—'}</>}
-                      actions={<ActionButton tone="danger" onClick={() => savePresets(specialPresets.filter(r => r.id !== preset.id))}>✕</ActionButton>}
+                      meta={preset.note ? <>{preset.note}</> : undefined}
+                      actions={<ActionButton tone="danger" onClick={() => savePresets(specialPresets.filter(r => r.id !== preset.id))}>🗑 Remove</ActionButton>}
                     />
                   ))}
                 </div>
-              </details>
-            )}
+              )}
+              {specialPresets.length === 0 && <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '10px' }}>No presets yet</div>}
+              {/* Add new preset inline */}
+              <div style={{ display: 'grid', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--glass-border)' }}>
+                <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Add Preset</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr', gap: '8px' }}>
+                  <input
+                    value={specialForm.icon}
+                    onChange={(e) => setSpecialForm(s => ({ ...s, icon: e.target.value }))}
+                    style={inputStyle}
+                    placeholder="📌"
+                  />
+                  <input
+                    value={specialForm.name}
+                    onChange={(e) => setSpecialForm(s => ({ ...s, name: e.target.value }))}
+                    style={inputStyle}
+                    placeholder="Preset name"
+                  />
+                </div>
+                <input
+                  value={specialForm.note}
+                  onChange={(e) => setSpecialForm(s => ({ ...s, note: e.target.value }))}
+                  style={inputStyle}
+                  placeholder="Note (optional)"
+                />
+                <button onClick={addCurrentAsPreset} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff', width: 'fit-content' }}>
+                  ＋ Save as Preset
+                </button>
+              </div>
+            </div>
 
             {/* ── 任務排程 ─────────────────────────────────── */}
             <div ref={taskFormRef} style={sectionCard}>

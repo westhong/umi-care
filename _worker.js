@@ -507,6 +507,24 @@ async function handleApi(request, env, url) {
       return json({ ok: true, item });
     }
 
+    if (path === '/selfreports/acknowledge-all' && method === 'POST') {
+      const raw = await KV.get('selfreports:list');
+      const list = raw ? JSON.parse(raw) : [];
+      const now = new Date().toISOString();
+      let count = 0;
+      for (const item of list) {
+        if (!item.acknowledged) {
+          item.acknowledged = true;
+          item.acknowledgedAt = now;
+          item.acknowledgedNote = '';
+          item.processingStatus = item.processingStatus || 'pending';
+          count++;
+        }
+      }
+      await KV.put('selfreports:list', JSON.stringify(list));
+      return json({ ok: true, count });
+    }
+
     const selfReportDelMatch = path.match(/^\/selfreports\/(sr_\d+)$/);
     if (selfReportDelMatch && method === 'DELETE') {
       const id = selfReportDelMatch[1];

@@ -54,6 +54,7 @@ export interface SelfReport {
   unit: string;
   note: string;
   reportedAt: string;
+  acknowledged?: boolean;
 }
 
 export interface AppState {
