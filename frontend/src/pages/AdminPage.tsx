@@ -112,30 +112,30 @@ interface DetailModalState {
 }
 
 const DEFAULT_PRESETS: SpecialPreset[] = [
-  { id: 'litter', icon: '🧹', name: '換貓砂' },
-  { id: 'water', icon: '🚰', name: '換水 / 洗水碗' },
-  { id: 'feeder', icon: '🤖', name: '檢查飼料機' },
-  { id: 'med', icon: '💊', name: '餵藥 / 保健品' },
+  { id: 'litter', icon: '🧹', name: 'Clean litter box' },
+  { id: 'water', icon: '🚰', name: 'Refresh water / wash bowl' },
+  { id: 'feeder', icon: '🤖', name: 'Check auto-feeder' },
+  { id: 'med', icon: '💊', name: 'Give medication / supplement' },
 ];
 
 const scheduleLabel: Record<string, string> = {
-  daily: '每日',
-  weekly: '每週指定日',
-  weekdays: '平日',
-  weekends: '週末',
+  daily: 'Daily',
+  weekly: 'Weekly (specific days)',
+  weekdays: 'Weekdays',
+  weekends: 'Weekends',
 };
 
-const weekDayLabels = ['日', '一', '二', '三', '四', '五', '六'];
+const weekDayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const resultPresetMap: Record<string, { label: string; value: string }[]> = {
   feed: [
-    { label: '乾乾', value: '乾乾' },
-    { label: '主食罐', value: '主食罐' },
-    { label: '副食罐', value: '副食罐' },
+    { label: 'Dry food', value: 'Dry food' },
+    { label: 'Wet food (main)', value: 'Wet food (main)' },
+    { label: 'Wet food (side)', value: 'Wet food (side)' },
   ],
   treat: [
-    { label: '貓條', value: '貓條' },
-    { label: '零食', value: '零食' },
-    { label: '貓泥', value: '貓泥' },
+    { label: 'Churu', value: 'Churu' },
+    { label: 'Treats', value: 'Treats' },
+    { label: 'Cat puree', value: 'Cat puree' },
   ],
   weight: [],
 };
@@ -217,12 +217,12 @@ function getSeverityBadge(severity?: string) {
 }
 
 const DEFAULT_RESOLUTION_TEMPLATES: ResolutionTemplate[] = [
-  { id: 'monitor', label: '持續觀察', note: '已知悉，將持續觀察狀況變化' },
-  { id: 'vet_contact', label: '聯絡獸醫', note: '已聯絡獸醫諮詢，待進一步指示' },
-  { id: 'med_given', label: '已給藥', note: '已按處方給予藥物' },
-  { id: 'cleaned', label: '已清理', note: '已清理現場並消毒' },
-  { id: 'diet_adjust', label: '調整飲食', note: '已調整飲食內容，暫停零食' },
-  { id: 'resolved', label: '問題解決', note: '問題已獲解決，恢復正常' },
+  { id: 'monitor', label: 'Monitor', note: 'Noted — will continue to monitor the situation' },
+  { id: 'vet_contact', label: 'Contacted vet', note: 'Contacted vet for advice, awaiting further instructions' },
+  { id: 'med_given', label: 'Medication given', note: 'Medication administered as prescribed' },
+  { id: 'cleaned', label: 'Cleaned up', note: 'Area cleaned and disinfected' },
+  { id: 'diet_adjust', label: 'Diet adjusted', note: 'Diet adjusted, treats paused for now' },
+  { id: 'resolved', label: 'Resolved', note: 'Issue resolved, back to normal' },
 ];
 
 function isTaskVisible(task: Task, date = new Date()) {
@@ -583,13 +583,13 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   }), [timelineRows]);
 
   const completionSummary = useMemo(() => {
-    if (!totalCount) return '今天沒有排程任務';
-    if (!pendingCount && !skipCount && !overdueCount) return '所有排程任務已完成';
+    if (!totalCount) return 'No scheduled tasks today';
+    if (!pendingCount && !skipCount && !overdueCount) return 'All scheduled tasks complete';
     const bits = [] as string[];
-    if (overdueCount) bits.push(`${overdueCount} 項已逾時`);
-    if (pendingFreshCount) bits.push(`${pendingFreshCount} 項待處理`);
-    if (skipCount) bits.push(`${skipCount} 項已略過`);
-    return bits.join('，');
+    if (overdueCount) bits.push(`${overdueCount} overdue`);
+    if (pendingFreshCount) bits.push(`${pendingFreshCount} pending`);
+    if (skipCount) bits.push(`${skipCount} skipped`);
+    return bits.join(', ');
   }, [overdueCount, pendingCount, pendingFreshCount, skipCount, totalCount]);
 
   const recordStream = useMemo<RecordStreamItem[]>(() => {
@@ -604,17 +604,17 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
         title: <>{task.icon || '📋'} {task.name}</>,
         meta: <>{toDateTime(row.time)}{row.note ? ` · ${row.note}` : ''}</>,
         chips: <>
-          <span style={badgeStyle(row.isDone ? 'success' : 'neutral')}>{row.isDone ? '完成' : '略過'}</span>
+          <span style={badgeStyle(row.isDone ? 'success' : 'neutral')}>{row.isDone ? 'Done' : 'Skipped'}</span>
           {row.result && <span style={badgeStyle('purple')}>{row.result}</span>}
-          {!!task.scheduledTimes?.length && <span style={badgeStyle('neutral')}>預定 {(task.scheduledTimes || []).join(' / ')}</span>}
+          {!!task.scheduledTimes?.length && <span style={badgeStyle('neutral')}>Scheduled {(task.scheduledTimes || []).join(' / ')}</span>}
         </>,
-        detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>預定時間：{(task.scheduledTimes || []).join(' / ') || '—'}</div><div>備註：{row.note || '—'}</div></div>,
-        actions: <ActionButton tone="danger" onClick={() => deleteCheckin(row.taskId)}>🗑 刪除</ActionButton>,
+        detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>Scheduled: {(task.scheduledTimes || []).join(' / ') || '—'}</div><div>Note: {row.note || '—'}</div></div>,
+        actions: <ActionButton tone="danger" onClick={() => deleteCheckin(row.taskId)}>🗑 Delete</ActionButton>,
       };
     });
 
     const selfReportItems = selfReports.map((row) => {
-      const statusLabel = row.processingStatus === 'in-progress' ? '處理中' : row.processingStatus === 'completed' ? '已完成' : row.acknowledged ? '已確認' : '待確認';
+      const statusLabel = row.processingStatus === 'in-progress' ? 'In progress' : row.processingStatus === 'completed' ? 'Completed' : row.acknowledged ? 'Acknowledged' : 'Pending';
       const statusTone = row.processingStatus === 'completed' ? 'success' : row.processingStatus === 'in-progress' ? 'purple' : row.acknowledged ? 'neutral' : 'warning';
       const needsAttention = !row.acknowledged || row.severity === 'high' || row.severity === 'medium';
       const itemTone: 'default' | 'danger' | 'warning' | 'success' = row.severity === 'high' ? 'danger' : row.acknowledged ? 'default' : 'warning';
@@ -633,17 +633,17 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
           {row.quantity ? <span style={badgeStyle('purple')}>{row.quantity}{row.unit || ''}</span> : null}
           <span style={badgeStyle(statusTone)}>{statusLabel}</span>
         </>,
-        detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>備註：{row.note || '—'}</div><div>管理員確認：{row.acknowledgedAt ? `${toDateTime(row.acknowledgedAt)}${row.acknowledgedNote ? ` · ${row.acknowledgedNote}` : ''}` : '尚未確認'}</div>{row.processingStatus && <div>處理狀態：{statusLabel}</div>}</div>,
+        detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>Note: {row.note || '—'}</div><div>Acknowledged: {row.acknowledgedAt ? `${toDateTime(row.acknowledgedAt)}${row.acknowledgedNote ? ` · ${row.acknowledgedNote}` : ''}` : 'Not yet'}</div>{row.processingStatus && <div>Status: {statusLabel}</div>}</div>,
         actions: <>
           {!row.acknowledged && (
             <>
-              <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'pending')}>👀 確認收到</ActionButton>
-              <ActionButton onClick={() => acknowledgeSelfReport(row.id, 'in-progress')}>⚙️ 處理中</ActionButton>
-              <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'completed')}>✅ 已完成</ActionButton>
+              <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'pending')}>👀 Acknowledge</ActionButton>
+              <ActionButton onClick={() => acknowledgeSelfReport(row.id, 'in-progress')}>⚙️ In Progress</ActionButton>
+              <ActionButton tone="success" onClick={() => acknowledgeSelfReport(row.id, 'completed')}>✅ Done</ActionButton>
             </>
           )}
-          {row.acknowledged && <ActionButton onClick={() => cancelAcknowledgment(row.id)}>↩️ 取消確認</ActionButton>}
-          <ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 刪除</ActionButton>
+          {row.acknowledged && <ActionButton onClick={() => cancelAcknowledgment(row.id)}>↩️ Undo</ActionButton>}
+          <ActionButton tone="danger" onClick={() => deleteSelfReport(row.id)}>🗑 Delete</ActionButton>
         </>,
       };
     });
@@ -659,19 +659,19 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
         tone: itemTone,
         lane: itemLane,
         title: <>{row.resolved ? '✅' : '🆘'} {row.type}</>,
-        meta: <>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}{row.resolvedAt ? ` · 已於 ${toDateTime(row.resolvedAt)} 處理` : ''}</>,
+        meta: <>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}{row.resolvedAt ? ` · Resolved at ${toDateTime(row.resolvedAt)}` : ''}</>,
         chips: <>
-          <span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? '已處理' : '待處理'}</span>
+          <span style={badgeStyle(row.resolved ? 'success' : 'danger')}>{row.resolved ? 'Resolved' : 'Unresolved'}</span>
           {row.severity && getSeverityBadge(row.severity)}
-          {row.hasPhoto && <span style={badgeStyle('warning')}>附照片</span>}
-          {row.resolutionTemplate && <span style={badgeStyle('purple')}>範本：{resolutionTemplates.find((t) => t.id === row.resolutionTemplate)?.label}</span>}
+          {row.hasPhoto && <span style={badgeStyle('warning')}>📷 Photo</span>}
+          {row.resolutionTemplate && <span style={badgeStyle('purple')}>Template: {resolutionTemplates.find((t) => t.id === row.resolutionTemplate)?.label}</span>}
         </>,
-      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>嚴重程度：{row.severity ? getSeverityBadge(row.severity) : '未標記'}</div><div>說明：{row.note || '—'}</div><div>處理註記：{row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>處理時間：{toDateTime(row.resolvedAt)}</div> : null}{row.resolutionTemplate ? <div>使用範本：{resolutionTemplates.find((t) => t.id === row.resolutionTemplate)?.label}</div> : null}</div>,
+      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>Severity: {row.severity ? getSeverityBadge(row.severity) : 'Not set'}</div><div>Note: {row.note || '—'}</div><div>Resolution note: {row.resolvedNote || '—'}</div>{row.resolvedAt ? <div>Resolved at: {toDateTime(row.resolvedAt)}</div> : null}{row.resolutionTemplate ? <div>Template used: {resolutionTemplates.find((t) => t.id === row.resolutionTemplate)?.label}</div> : null}</div>,
       actions: <>
-        {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 查看照片</ActionButton>}
+        {row.hasPhoto && <ActionButton onClick={() => openIncidentPhoto(row.id)}>🖼 View photo</ActionButton>}
         {!row.resolved && (
           <div style={{ display: 'grid', gap: '8px', width: '100%' }}>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>快速處理範本：</div>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Quick resolution templates:</div>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {resolutionTemplates.map((tpl) => (
                 <ActionButton key={tpl.id} tone="success" onClick={() => resolveIncident(row.id, tpl.id)}>
@@ -679,10 +679,10 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                 </ActionButton>
               ))}
             </div>
-            <ActionButton onClick={() => resolveIncident(row.id)}>✏️ 自訂處理</ActionButton>
+            <ActionButton onClick={() => resolveIncident(row.id)}>✏️ Custom note</ActionButton>
           </div>
         )}
-        <ActionButton tone="danger" onClick={() => deleteIncident(row.id)}>🗑 刪除</ActionButton>
+        <ActionButton tone="danger" onClick={() => deleteIncident(row.id)}>🗑 Delete</ActionButton>
       </>,
     };
     });
@@ -696,12 +696,12 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       title: <>{row.icon} {row.name}</>,
       meta: <>{toDateTime(row.doneAt)}</>,
       chips: <>
-        <span style={badgeStyle('success')}>已完成</span>
-        {row.note && <span style={badgeStyle('neutral')}>派發：{row.note}</span>}
-        {row.doneNote && <span style={badgeStyle('success')}>完成：{row.doneNote}</span>}
+        <span style={badgeStyle('success')}>Done</span>
+        {row.note && <span style={badgeStyle('neutral')}>Note: {row.note}</span>}
+        {row.doneNote && <span style={badgeStyle('success')}>Completion: {row.doneNote}</span>}
       </>,
-      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>派發備註：{row.note || '—'}</div><div>完成備註：{row.doneNote || '—'}</div></div>,
-      actions: <ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 刪除</ActionButton>,
+      detailBody: <div style={{ display: 'grid', gap: '8px' }}><div>Dispatch note: {row.note || '—'}</div><div>Completion note: {row.doneNote || '—'}</div></div>,
+      actions: <ActionButton tone="danger" onClick={() => deleteSpecialTask(row.id)}>🗑 Delete</ActionButton>,
     }));
 
     return [...incidentItems, ...selfReportItems, ...checkinItems, ...specialItems]
@@ -729,7 +729,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       await fn();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      flash(`❌ 操作失敗：${msg}`);
+      flash(`❌ Operation failed: ${msg}`);
     } finally {
       setBusy(false);
     }
@@ -771,7 +771,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
 
   const saveTask = async () => {
     if (!taskForm.name.trim()) {
-      flash('請先輸入任務名稱');
+      flash('Please enter a task name');
       return;
     }
 
@@ -779,12 +779,12 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     if (taskForm.newTime && !times.includes(taskForm.newTime)) times.push(taskForm.newTime);
     times.sort();
     if (!times.length) {
-      flash('請至少加入一個時間');
+      flash('Please add at least one time');
       return;
     }
 
     if (taskForm.scheduleType === 'weekly' && !taskForm.weekDays.length) {
-      flash('每週任務請選擇星期');
+      flash('Please select days for weekly tasks');
       return;
     }
 
@@ -815,7 +815,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     await withBusy(async () => {
       await post('/api/tasks', nextTasks);
       setTasks(nextTasks);
-      flash(taskForm.id ? '任務已更新' : '任務已新增');
+      flash(taskForm.id ? 'Task updated' : 'Task added');
       resetTaskForm();
       setRefreshKey((value) => value + 1);
     });
@@ -823,13 +823,13 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
 
   const removeTask = async (taskId: string) => {
     const task = tasks.find((row) => row.id === taskId);
-    if (!task || !window.confirm(`刪除任務：${task.name}？`)) return;
+    if (!task || !window.confirm(`Delete task: ${task.name}?`)) return;
     const nextTasks = tasks.filter((row) => row.id !== taskId);
     await withBusy(async () => {
       await post('/api/tasks', nextTasks);
       setTasks(nextTasks);
       if (taskForm.id === taskId) resetTaskForm();
-      flash('任務已刪除');
+      flash('Task deleted');
       setRefreshKey((value) => value + 1);
     });
   };
@@ -838,32 +838,32 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     const person = parseFloat(weightForm.personWeight);
     const carry = parseFloat(weightForm.carryWeight);
     if (isNaN(person) || isNaN(carry)) {
-      flash('請輸入有效的體重數字');
+      flash('Please enter a valid weight');
       return;
     }
     if (carry <= person) {
-      flash('抱貓重必須大於人重');
+      flash('Holding weight must be greater than your own weight');
       return;
     }
     await withBusy(async () => {
       await post('/api/weights', { personWeight: person, carryWeight: carry, note: weightForm.note.trim() });
       setWeightForm({ personWeight: '', carryWeight: '', note: '' });
-      flash(`已新增體重紀錄（${(carry - person).toFixed(2)} kg）`);
+      flash(`Weight recorded (${(carry - person).toFixed(2)} kg)`);
       await loadWeights();
     });
   };
 
   const deleteWeight = async (id: string) => {
-    if (!window.confirm('確定刪除此體重紀錄？')) return;
+    if (!window.confirm('Delete this weight record?')) return;
     await withBusy(async () => {
       await del(`/api/weights?id=${encodeURIComponent(id)}`);
-      flash('已刪除體重紀錄');
+      flash('Weight record deleted');
       await loadWeights();
     });
   };
 
   const markPeriodicDone = async (task: PeriodicTask) => {
-    const note = window.prompt(`標記「${task.name}」已完成？\n可選：加上備註`, '') ?? null;
+    const note = window.prompt(`Mark "${task.name}" as done? (optional note)`, '') ?? null;
     if (note === null) return; // cancelled
     const now = new Date().toISOString();
     const updatedTask: PeriodicTask = {
@@ -892,28 +892,28 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     await withBusy(async () => {
       await post('/api/periodic', nextList);
       setPeriodicTasks(nextList);
-      flash(`已標記「${task.name}」完成`);
+      flash(`Marked "${task.name}" as done`);
     });
   };
 
   const deleteCheckin = async (taskId: string) => {
-    if (!window.confirm('確定刪除此打卡紀錄？')) return;
+    if (!window.confirm('Delete this check-in record?')) return;
     await withBusy(async () => {
       await del(`/api/checkins?date=${recordsDate}&taskId=${encodeURIComponent(taskId)}`);
-      flash('已刪除紀錄');
+      flash('Record deleted');
       await loadOverview();
       if (activeTab === 'activity') await loadRecords(recordsDate);
     });
   };
 
   const acknowledgeSelfReport = async (id: string, processingStatus?: 'pending' | 'in-progress' | 'completed') => {
-    const prompted = window.prompt('可選：留下確認註記（例如已查看、稍後補貨、正在處理）', '');
+    const prompted = window.prompt('Optional: add a note (e.g. checked, will restock, handling now)', '');
     if (prompted === null) return; // user cancelled
     const note = prompted;
     await withBusy(async () => {
       await post(`/api/selfreports/${id}/ack`, { note: note.trim(), processingStatus });
-      const statusLabel = processingStatus === 'in-progress' ? '（處理中）' : processingStatus === 'completed' ? '（已完成）' : '';
-      flash(note.trim() ? `已確認回報並附上註記${statusLabel}` : `已確認收到回報${statusLabel}`);
+      const statusLabel = processingStatus === 'in-progress' ? ' (in progress)' : processingStatus === 'completed' ? ' (completed)' : '';
+      flash(note.trim() ? `Report acknowledged with note${statusLabel}` : `Report acknowledged${statusLabel}`);
       setDetailModal(null);
       // Load overview first (always needed), then activity if on that tab
       await loadOverview();
@@ -922,10 +922,10 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   };
 
   const cancelAcknowledgment = async (id: string) => {
-    if (!window.confirm('取消這個回報的確認狀態？之後可以重新確認。')) return;
+    if (!window.confirm('Undo acknowledgment? You can re-acknowledge later.')) return;
     await withBusy(async () => {
       await post(`/api/selfreports/${id}/unack`, {});
-      flash('已取消確認狀態');
+      flash('Acknowledgment cancelled');
       setDetailModal(null);
       await loadOverview();
       if (activeTab === 'activity') await loadRecords(recordsDate);
@@ -933,10 +933,10 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   };
 
   const deleteSelfReport = async (id: string) => {
-    if (!window.confirm('刪除此主動回報？')) return;
+    if (!window.confirm('Delete this report?')) return;
     await withBusy(async () => {
       await del(`/api/selfreports/${id}`);
-      flash('已刪除主動回報');
+      flash('Report deleted');
       await loadOverview();
       if (activeTab === 'activity') await loadRecords(recordsDate);
     });
@@ -948,13 +948,13 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       const tpl = resolutionTemplates.find((t) => t.id === template);
       note = tpl?.note || '';
     } else {
-      const prompted = window.prompt('可選：留下處理註記（例如已聯絡照護者、已清理）', '');
+      const prompted = window.prompt('Optional: add a resolution note (e.g. contacted caregiver, cleaned up)', '');
       if (prompted === null) return; // user cancelled
       note = prompted;
     }
     await withBusy(async () => {
       await post(`/api/incidents/${id}/resolve`, { note: note.trim(), template });
-      flash(template ? `已使用範本「${resolutionTemplates.find((t) => t.id === template)?.label}」標記完成` : (note.trim() ? '已標記完成並附上註記' : '已標記為處理完成'));
+      flash(template ? `Resolved using template: ${resolutionTemplates.find((t) => t.id === template)?.label}` : (note.trim() ? 'Resolved with note' : 'Marked as resolved'));
       setDetailModal(null);
       await loadOverview();
       if (activeTab === 'activity') await loadRecords(recordsDate);
@@ -962,10 +962,10 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
   };
 
   const deleteIncident = async (id: string) => {
-    if (!window.confirm('刪除此異常回報？')) return;
+    if (!window.confirm('Delete this incident report?')) return;
     await withBusy(async () => {
       await del(`/api/incidents/${id}`);
-      flash('已刪除異常回報');
+      flash('Incident deleted');
       await loadOverview();
       if (activeTab === 'activity') await loadRecords(recordsDate);
     });
@@ -973,7 +973,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
 
   const dispatchSpecialTask = async () => {
     if (!specialForm.name.trim()) {
-      flash('請輸入特殊任務名稱');
+      flash('Please enter a task name');
       return;
     }
     await withBusy(async () => {
@@ -983,18 +983,18 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
         note: specialForm.note.trim(),
       });
       setSpecialForm({ icon: '📌', name: '', note: '' });
-      flash('特殊任務已派發');
+      flash('Special task dispatched');
       await loadOverview();
     });
   };
 
   const deleteSpecialTask = async (id: string) => {
     const row = adhoc.find((item) => item.id === id);
-    const label = row?.done ? '刪除此特殊任務紀錄？' : '將這個特殊任務自待辦中移除（dismiss）？';
+    const label = row?.done ? 'Delete this special task record?' : 'Remove this special task from the queue?';
     if (!window.confirm(label)) return;
     await withBusy(async () => {
       await del(`/api/adhoc/${id}`);
-      flash(row?.done ? '特殊任務紀錄已刪除' : '特殊任務已移出待辦');
+      flash(row?.done ? 'Special task record deleted' : 'Special task dismissed');
       setDetailModal(null);
       await loadOverview();
       if (activeTab === 'activity') await loadRecords(recordsDate);
@@ -1003,7 +1003,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
 
   const saveCatProfile = async () => {
     if (!catForm.name?.trim()) {
-      flash('請輸入貓咪名稱');
+      flash('Please enter a cat name');
       return;
     }
     await withBusy(async () => {
@@ -1021,7 +1021,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
         await post('/api/settings', nextSettings);
         setSettings(nextSettings);
       }
-      flash('貓咪資料已儲存');
+      flash('Cat info saved');
       setRefreshKey((value) => value + 1);
     });
   };
@@ -1038,10 +1038,10 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     try {
       await post('/api/settings', nextSettings);
       setSettings(nextSettings);
-      flash(checked ? '已切換為細粒度時間分組' : '已切換為預設時間分組');
+      flash(checked ? 'Switched to hourly grouping' : 'Switched to default grouping');
     } catch {
       setGranularTime(!!settings?.adminGranularTimeGrouping);
-      flash('時間分組偏好儲存失敗');
+      flash('Failed to save grouping preference');
     }
   };
 
@@ -1096,7 +1096,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     const label = templateDraft.label.trim();
     const note = templateDraft.note.trim();
     if (!label || !note) {
-      flash('請先填好範本名稱與內容');
+      flash('Please fill in the template name and note');
       return;
     }
     const id = (templateDraft.id.trim() || label)
@@ -1104,29 +1104,29 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       .replace(/[^a-z0-9_-]+/g, '_')
       .replace(/^_+|_+$/g, '');
     if (!id) {
-      flash('請輸入有效的範本代號');
+      flash('Please enter a valid template ID');
       return;
     }
     if (resolutionTemplates.some((template) => template.id === id)) {
-      flash('範本代號已存在，請換一個');
+      flash('Template ID already exists, please choose another');
       return;
     }
-    await saveResolutionTemplates([...resolutionTemplates, { id, label, note }], '處理範本已新增');
+    await saveResolutionTemplates([...resolutionTemplates, { id, label, note }], 'Resolution template added');
   };
 
   const removeResolutionTemplate = async (id: string) => {
     if (resolutionTemplates.length <= 1) {
-      flash('至少保留一個處理範本');
+      flash('Keep at least one resolution template');
       return;
     }
     const target = resolutionTemplates.find((template) => template.id === id);
     if (!target || !window.confirm(`移除範本：${target.label}？`)) return;
-    await saveResolutionTemplates(resolutionTemplates.filter((template) => template.id !== id), '處理範本已移除');
+    await saveResolutionTemplates(resolutionTemplates.filter((template) => template.id !== id), 'Resolution template removed');
   };
 
   const changePin = async () => {
     if (!pinForm.oldPin || !pinForm.newPin) {
-      flash('請輸入舊 PIN 與新 PIN');
+      flash('Please enter the current PIN and a new PIN');
       return;
     }
     setBusy(true);
@@ -1138,13 +1138,13 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       });
       const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        flash(`❌ PIN 變更失敗：${data.error || '舊 PIN 不正確'}`);
+        flash(`❌ PIN change failed: ${data.error || 'Incorrect current PIN'}`);
         return;
       }
       setPinForm({ oldPin: '', newPin: '' });
-      flash('✅ PIN 已更新');
+      flash('✅ PIN updated');
     } catch {
-      flash('❌ PIN 變更失敗，請重試');
+      flash('❌ Failed to change PIN, please try again');
     } finally {
       setBusy(false);
     }
@@ -1155,13 +1155,13 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
     try {
       await post('/api/adhoc/presets', nextPresets);
     } catch {
-      flash('預設快捷任務暫時未能儲存');
+      flash('Could not save quick task');
     }
   };
 
   const addCurrentAsPreset = async () => {
     if (!specialForm.name.trim()) {
-      flash('先輸入任務名稱才可存成快捷');
+      flash('Enter a task name first');
       return;
     }
     const nextPresets = [
@@ -1174,7 +1174,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
       },
     ];
     await savePresets(nextPresets);
-    flash('已加入快捷任務');
+    flash('Quick task added');
   };
 
   const openIncidentPhoto = (id: string) => {
@@ -1203,7 +1203,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               🛠️ Admin
               {(allUnresolvedIncidents.length > 0 || overdueCount > 0) && (
                 <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ef4444', color: '#fff', borderRadius: '999px', padding: '2px 8px' }}>
-                  {allUnresolvedIncidents.length + overdueCount} 待處理
+                  {allUnresolvedIncidents.length + overdueCount} pending
                 </span>
               )}
             </div>
@@ -1215,7 +1215,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             onClick={() => { setAdminMode(false); onLogout?.(); }}
             style={{ background: 'rgba(255,255,255,0.18)', border: 'none', color: '#fff', borderRadius: '20px', padding: '7px 14px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
           >
-            登出
+            Logout
           </button>
         </div>
 
@@ -1274,14 +1274,14 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
           </div>
         )}
         {busy && (
-          <div style={{ marginTop: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>⏳ 處理中…</div>
+          <div style={{ marginTop: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>⏳ Processing…</div>
         )}
       </div>
 
       <div style={{ padding: '12px 14px', display: 'grid', gap: '12px' }}>
 
         {/* ════════════════════════════════════════════════════
-            TAB: 今日 TODAY
+            TAB: Today
             ════════════════════════════════════════════════════ */}
         {activeTab === 'today' && (
           <div style={{ display: 'grid', gap: '12px' }}>
@@ -1290,7 +1290,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             {(allUnresolvedIncidents.length > 0 || overdueCount > 0 || overduePeriodicTasks.length > 0) && (
               <div style={{ background: 'linear-gradient(135deg, #fef2f2, #fff5f5)', border: '2px solid #fca5a5', borderRadius: '18px', padding: '14px 16px' }}>
                 <div style={{ fontWeight: 800, color: '#b91c1c', fontSize: '0.9rem', marginBottom: '10px' }}>
-                  🚨 需要立即注意
+                  🚨 Needs immediate attention
                 </div>
                 <div style={{ display: 'grid', gap: '8px' }}>
                   {allUnresolvedIncidents.length > 0 && (
@@ -1298,14 +1298,14 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                       onClick={() => setActiveTab('incidents')}
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #fca5a5', borderRadius: '12px', padding: '10px 14px', cursor: 'pointer', fontFamily: 'var(--font)' }}
                     >
-                      <span style={{ fontWeight: 700, color: '#991b1b', fontSize: '0.88rem' }}>🆘 未處理異常</span>
-                      <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', padding: '3px 10px', fontSize: '0.78rem', fontWeight: 800 }}>{allUnresolvedIncidents.length} 件 →</span>
+                      <span style={{ fontWeight: 700, color: '#991b1b', fontSize: '0.88rem' }}>🆘 Unresolved incidents</span>
+                      <span style={{ background: '#ef4444', color: '#fff', borderRadius: '999px', padding: '3px 10px', fontSize: '0.78rem', fontWeight: 800 }}>{allUnresolvedIncidents.length}  →</span>
                     </button>
                   )}
                   {overdueCount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #fca5a5', borderRadius: '12px', padding: '10px 14px' }}>
-                      <span style={{ fontWeight: 700, color: '#991b1b', fontSize: '0.88rem' }}>⏰ 任務已逾時</span>
-                      <span style={{ background: '#f97316', color: '#fff', borderRadius: '999px', padding: '3px 10px', fontSize: '0.78rem', fontWeight: 800 }}>{overdueCount} 項</span>
+                      <span style={{ fontWeight: 700, color: '#991b1b', fontSize: '0.88rem' }}>⏰ Tasks overdue</span>
+                      <span style={{ background: '#f97316', color: '#fff', borderRadius: '999px', padding: '3px 10px', fontSize: '0.78rem', fontWeight: 800 }}>{overdueCount}</span>
                     </div>
                   )}
                   {overduePeriodicTasks.length > 0 && (
@@ -1314,9 +1314,9 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #fde68a', borderRadius: '12px', padding: '10px 14px', cursor: 'pointer', fontFamily: 'var(--font)' }}
                     >
                       <span style={{ fontWeight: 700, color: '#92400e', fontSize: '0.88rem' }}>
-                        🔁 逾期護理：{overduePeriodicTasks.map(t => t.icon + t.name).join('、')}
+                        🔁 逾期護理：{overduePeriodicTasks.map(t => t.icon + t.name).join(', ')}
                       </span>
-                      <span style={{ background: '#f59e0b', color: '#fff', borderRadius: '999px', padding: '3px 10px', fontSize: '0.78rem', fontWeight: 800 }}>{overduePeriodicTasks.length} 項 →</span>
+                      <span style={{ background: '#f59e0b', color: '#fff', borderRadius: '999px', padding: '3px 10px', fontSize: '0.78rem', fontWeight: 800 }}>{overduePeriodicTasks.length} →</span>
                     </button>
                   )}
                 </div>
@@ -1327,23 +1327,23 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
               {[
                 {
-                  label: '完成率',
+                  label: 'Completion',
                   value: `${pct}%`,
-                  sub: `${doneCount}/${totalCount} 項`,
+                  sub: `${doneCount}/${totalCount}`,
                   bg: pct === 100 ? '#f0fdf4' : pct >= 50 ? '#fefce8' : '#fef2f2',
                   color: pct === 100 ? '#15803d' : pct >= 50 ? '#a16207' : '#b91c1c',
                 },
                 {
-                  label: '待確認',
+                  label: 'Unacknowledged',
                   value: String(allUnacknowledgedSelfReports.length),
-                  sub: `共 ${selfReports.length} 則回報`,
+                  sub: `${selfReports.length} report(s)`,
                   bg: allUnacknowledgedSelfReports.length > 0 ? '#fffbeb' : '#f8fafc',
                   color: allUnacknowledgedSelfReports.length > 0 ? '#b45309' : '#64748b',
                 },
                 {
-                  label: '最新體重',
+                  label: 'Latest weight',
                   value: latestWeight ? `${latestWeight.catWeight}kg` : '—',
-                  sub: latestWeight ? toDateTime(latestWeight.measuredAt) : '未記錄',
+                  sub: latestWeight ? toDateTime(latestWeight.measuredAt) : 'Not recorded',
                   bg: '#f8fafc',
                   color: '#475569',
                 },
@@ -1360,8 +1360,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             {allUnacknowledgedSelfReports.length > 0 && (
               <div style={{ ...sectionCard, borderTop: '3px solid #f59e0b' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <div style={{ fontWeight: 800, color: '#92400e', fontSize: '0.9rem' }}>📝 待確認回報</div>
-                  <span style={badgeStyle('warning')}>{allUnacknowledgedSelfReports.length} 則</span>
+                  <div style={{ fontWeight: 800, color: '#92400e', fontSize: '0.9rem' }}>📝 Pending acknowledgment</div>
+                  <span style={badgeStyle('warning')}>{allUnacknowledgedSelfReports.length} pending</span>
                 </div>
                 <div style={{ display: 'grid', gap: '8px' }}>
                   {unacknowledgedSelfReports.slice(0, 5).map((row) => (
@@ -1372,12 +1372,12 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{toDateTime(row.reportedAt)}{row.note ? ` · ${row.note}` : ''}</div>
                       </div>
                       <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                        <button onClick={() => acknowledgeSelfReport(row.id, 'pending')} style={{ ...buttonBase, padding: '6px 10px', fontSize: '0.75rem', background: 'rgba(74,222,128,0.12)', color: '#15803d', border: '1px solid rgba(74,222,128,0.3)' }}>✓ 確認</button>
+                        <button onClick={() => acknowledgeSelfReport(row.id, 'pending')} style={{ ...buttonBase, padding: '6px 10px', fontSize: '0.75rem', background: 'rgba(74,222,128,0.12)', color: '#15803d', border: '1px solid rgba(74,222,128,0.3)' }}>✓ Ack</button>
                       </div>
                     </div>
                   ))}
                   {allUnacknowledgedSelfReports.length > 5 && (
-                    <button onClick={() => setActiveTab('activity')} style={{ ...subtleButton, fontSize: '0.78rem' }}>還有 {allUnacknowledgedSelfReports.length - 5} 則 →</button>
+                    <button onClick={() => setActiveTab('activity')} style={{ ...subtleButton, fontSize: '0.78rem' }}>{allUnacknowledgedSelfReports.length - 5} more →</button>
                   )}
                 </div>
               </div>
@@ -1387,7 +1387,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             <div style={sectionCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>
-                  ⏱️ 任務狀況
+                  ⏱️ Task Status
                   <span style={{ marginLeft: '8px', fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-muted)' }}>{completionSummary}</span>
                 </div>
                 <button onClick={() => setRefreshKey(k => k + 1)} style={{ ...subtleButton, padding: '5px 10px', fontSize: '0.76rem' }}>🔄</button>
@@ -1397,8 +1397,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                 <div style={{ display: 'grid', gap: '6px' }}>
                   {/* Overdue + Pending first, then done/skip collapsed */}
                   {[
-                    { rows: timelineGroups.overdue, label: '已逾時', color: '#ef4444', bg: 'rgba(248,113,113,0.07)', badge: 'danger' as const },
-                    { rows: timelineGroups.pending, label: '待處理', color: '#f59e0b', bg: 'rgba(245,158,11,0.05)', badge: 'warning' as const },
+                    { rows: timelineGroups.overdue, label: 'Overdue', color: '#ef4444', bg: 'rgba(248,113,113,0.07)', badge: 'danger' as const },
+                    { rows: timelineGroups.pending, label: 'Pending', color: '#f59e0b', bg: 'rgba(245,158,11,0.05)', badge: 'warning' as const },
                   ].map((g) => g.rows.length ? (
                     <div key={g.label}>
                       <div style={{ fontSize: '0.72rem', fontWeight: 700, color: g.color, marginBottom: '4px', paddingLeft: '4px' }}>{g.label} ({g.rows.length})</div>
@@ -1407,7 +1407,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                           <span style={{ fontSize: '1.1rem' }}>{row.task.icon || '📋'}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{row.task.name}</div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>預定 {(row.task.scheduledTimes || []).join('、') || '—'}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Scheduled {(row.task.scheduledTimes || []).join(', ') || '—'}</div>
                           </div>
                           <span style={{ fontSize: '0.7rem', fontWeight: 700, color: g.color }}>{g.label}</span>
                         </div>
@@ -1419,7 +1419,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                   {(timelineGroups.done.length > 0 || timelineGroups.skip.length > 0) && (
                     <details style={{ marginTop: '4px' }}>
                       <summary style={{ fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', userSelect: 'none' }}>
-                        ✅ 已完成 {timelineGroups.done.length} · 略過 {timelineGroups.skip.length}
+                        ✅ Done {timelineGroups.done.length} · Skipped {timelineGroups.skip.length}
                       </summary>
                       <div style={{ marginTop: '6px', display: 'grid', gap: '4px' }}>
                         {[...timelineGroups.done, ...timelineGroups.skip].map((row) => (
@@ -1427,7 +1427,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                             <span style={{ fontSize: '1rem' }}>{row.task.icon || '📋'}</span>
                             <div style={{ flex: 1, fontSize: '0.82rem' }}>{row.task.name}</div>
                             <span style={{ fontSize: '0.7rem', color: row.status === 'done' ? '#15803d' : '#94a3b8' }}>
-                              {row.status === 'done' ? `✓ ${toClock(row.checkin?.time)}` : '略過'}
+                              {row.status === 'done' ? `✓ ${toClock(row.checkin?.time)}` : 'Skipped'}
                             </span>
                           </div>
                         ))}
@@ -1436,15 +1436,15 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                   )}
                 </div>
               ) : (
-                <EmptyState title="今天沒有排程任務" />
+                <EmptyState title="No scheduled tasks today" />
               )}
             </div>
 
             {/* ── TODAY'S ACTIVITY FEED (last 6) ──────────── */}
             <div style={sectionCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>📰 今日最新動態</div>
-                <button onClick={() => setActiveTab('activity')} style={{ ...subtleButton, fontSize: '0.76rem', padding: '5px 10px' }}>全部 →</button>
+                <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>📰 Today's Activity</div>
+                <button onClick={() => setActiveTab('activity')} style={{ ...subtleButton, fontSize: '0.76rem', padding: '5px 10px' }}>All →</button>
               </div>
               {(() => {
                 const events = [
@@ -1473,16 +1473,16 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                       if (ev.kind === 'incident') {
                         const r = ev.data as IncidentRow;
                         return <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '8px', borderRadius: '10px', background: 'rgba(248,113,113,0.06)' }}>
-                          <span>🆘</span><div style={{ flex: 1, fontSize: '0.83rem', fontWeight: 600 }}>{r.type}</div><span style={{ fontSize: '0.72rem', color: r.resolved ? '#15803d' : '#b91c1c' }}>{r.resolved ? '已處理' : '待處理'}</span>
+                          <span>🆘</span><div style={{ flex: 1, fontSize: '0.83rem', fontWeight: 600 }}>{r.type}</div><span style={{ fontSize: '0.72rem', color: r.resolved ? '#15803d' : '#b91c1c' }}>{r.resolved ? 'Resolved' : 'Unresolved'}</span>
                         </div>;
                       }
                       const r = ev.data as AdhocTask;
                       return <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '8px', borderRadius: '10px', background: 'rgba(139,92,246,0.05)' }}>
-                        <span>{r.icon}</span><div style={{ flex: 1, fontSize: '0.83rem', fontWeight: 600 }}>{r.name}</div><span style={{ fontSize: '0.72rem', color: '#7c3aed' }}>特殊任務</span>
+                        <span>{r.icon}</span><div style={{ flex: 1, fontSize: '0.83rem', fontWeight: 600 }}>{r.name}</div><span style={{ fontSize: '0.72rem', color: '#7c3aed' }}>Special task</span>
                       </div>;
                     })}
                   </div>
-                ) : <EmptyState title="今天還沒有動態" />;
+                ) : <EmptyState title="No activity today" />;
               })()}
             </div>
 
@@ -1490,7 +1490,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
         )}
 
         {/* ════════════════════════════════════════════════════
-            TAB: 🆘 異常 INCIDENTS
+            TAB: Alerts
             ════════════════════════════════════════════════════ */}
         {activeTab === 'incidents' && (
           <div style={{ display: 'grid', gap: '12px' }}>
@@ -1499,7 +1499,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             {allUnresolvedIncidents.length > 0 ? (
               <div>
                 <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '8px', color: '#b91c1c' }}>
-                  🆘 未處理 ({allUnresolvedIncidents.length})
+                  🆘 Unresolved ({allUnresolvedIncidents.length})
                 </div>
                 <div style={{ display: 'grid', gap: '10px' }}>
                   {allUnresolvedIncidents.map((row) => (
@@ -1511,14 +1511,14 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                             {toDateTime(row.reportedAt)}
                             {row.note ? ` · ${row.note}` : ''}
-                            {row.severity && ` · ${row.severity === 'critical' ? '🔴 緊急' : row.severity === 'high' ? '🟠 高' : row.severity === 'medium' ? '🟡 中' : '🟢 低'}`}
+                            {row.severity && ` · ${row.severity === 'critical' ? '🔴 Critical' : row.severity === 'high' ? '🟠 High' : row.severity === 'medium' ? '🟡 Medium' : '🟢 Low'}`}
                           </div>
-                          {row.hasPhoto && <div style={{ marginTop: '4px' }}><button onClick={() => openIncidentPhoto(row.id)} style={{ ...subtleButton, fontSize: '0.74rem', padding: '4px 8px' }}>🖼 查看照片</button></div>}
+                          {row.hasPhoto && <div style={{ marginTop: '4px' }}><button onClick={() => openIncidentPhoto(row.id)} style={{ ...subtleButton, fontSize: '0.74rem', padding: '4px 8px' }}>🖼 View photo</button></div>}
                         </div>
                       </div>
                       {/* Quick resolve buttons */}
                       <div style={{ display: 'grid', gap: '6px' }}>
-                        <div style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '2px' }}>快速處理：</div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '2px' }}>Quick resolve:</div>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                           {resolutionTemplates.slice(0, 4).map((tpl) => (
                             <button key={tpl.id} onClick={() => resolveIncident(row.id, tpl.id)} style={{ ...buttonBase, padding: '7px 12px', fontSize: '0.78rem', background: 'rgba(74,222,128,0.1)', color: '#15803d', border: '1px solid rgba(74,222,128,0.3)' }}>
@@ -1526,11 +1526,11 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                             </button>
                           ))}
                           <button onClick={() => resolveIncident(row.id)} style={{ ...buttonBase, padding: '7px 12px', fontSize: '0.78rem', background: 'var(--glass)', color: 'var(--text-secondary)' }}>
-                            ✏️ 自訂…
+                            ✏️ Custom…
                           </button>
                         </div>
                         <button onClick={() => deleteIncident(row.id)} style={{ ...buttonBase, padding: '6px 10px', fontSize: '0.74rem', color: '#dc2626', background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.2)', width: 'fit-content', marginTop: '2px' }}>
-                          🗑 刪除
+                          🗑 Delete
                         </button>
                       </div>
                     </div>
@@ -1540,8 +1540,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             ) : (
               <div style={{ ...sectionCard, textAlign: 'center', padding: '32px', background: '#f0fdf4', border: '1px solid rgba(74,222,128,0.3)' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>✅</div>
-                <div style={{ fontWeight: 800, color: '#15803d', fontSize: '1rem' }}>目前沒有未處理異常</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>所有案件已妥善處理</div>
+                <div style={{ fontWeight: 800, color: '#15803d', fontSize: '1rem' }}>No unresolved incidents</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>All incidents have been handled</div>
               </div>
             )}
 
@@ -1555,7 +1555,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               return recentResolved.length > 0 ? (
               <details>
                 <summary style={{ fontWeight: 700, fontSize: '0.84rem', color: '#64748b', cursor: 'pointer', padding: '8px 4px' }}>
-                  ✅ 近日已處理 ({recentResolved.length})
+                  ✅ Recently resolved ({recentResolved.length})
                 </summary>
                 <div style={{ marginTop: '8px', display: 'grid', gap: '8px' }}>
                   {recentResolved.map((row) => (
@@ -1577,15 +1577,15 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             <div style={sectionCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>
-                  📝 今日回報
-                  {allUnacknowledgedSelfReports.length > 0 && <span style={{ marginLeft: '6px', ...badgeStyle('warning') }}>{allUnacknowledgedSelfReports.length} 待確認</span>}
+                  📝 Today's Reports
+                  {allUnacknowledgedSelfReports.length > 0 && <span style={{ marginLeft: '6px', ...badgeStyle('warning') }}>{allUnacknowledgedSelfReports.length} pending</span>}
                 </div>
               </div>
               {selfReports.length ? (
                 <div style={{ display: 'grid', gap: '8px' }}>
                   {selfReports.map((row) => {
                     const statusTone = row.processingStatus === 'completed' ? 'success' : row.processingStatus === 'in-progress' ? 'purple' : row.acknowledged ? 'neutral' : 'warning';
-                    const statusLabel = row.processingStatus === 'in-progress' ? '處理中' : row.processingStatus === 'completed' ? '已完成' : row.acknowledged ? '已確認' : '待確認';
+                    const statusLabel = row.processingStatus === 'in-progress' ? 'In progress' : row.processingStatus === 'completed' ? 'Completed' : row.acknowledged ? 'Acknowledged' : 'Pending';
                     return (
                       <div key={row.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', background: row.acknowledged ? 'rgba(61,44,53,0.03)' : 'rgba(245,158,11,0.06)', border: `1px solid ${row.acknowledged ? 'rgba(61,44,53,0.08)' : 'rgba(245,158,11,0.25)'}`, borderRadius: '12px', padding: '10px 12px' }}>
                         <span style={{ fontSize: '1.2rem' }}>{row.icon || '📝'}</span>
@@ -1597,8 +1597,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
                           {!row.acknowledged ? (
                             <>
-                              <button onClick={() => acknowledgeSelfReport(row.id, 'pending')} style={{ ...buttonBase, padding: '5px 10px', fontSize: '0.74rem', background: 'rgba(74,222,128,0.1)', color: '#15803d', border: '1px solid rgba(74,222,128,0.3)' }}>✓ 確認</button>
-                              <button onClick={() => acknowledgeSelfReport(row.id, 'completed')} style={{ ...buttonBase, padding: '5px 10px', fontSize: '0.74rem', background: 'rgba(74,222,128,0.1)', color: '#15803d', border: '1px solid rgba(74,222,128,0.3)' }}>✅ 完成</button>
+                              <button onClick={() => acknowledgeSelfReport(row.id, 'pending')} style={{ ...buttonBase, padding: '5px 10px', fontSize: '0.74rem', background: 'rgba(74,222,128,0.1)', color: '#15803d', border: '1px solid rgba(74,222,128,0.3)' }}>✓ Ack</button>
+                              <button onClick={() => acknowledgeSelfReport(row.id, 'completed')} style={{ ...buttonBase, padding: '5px 10px', fontSize: '0.74rem', background: 'rgba(74,222,128,0.1)', color: '#15803d', border: '1px solid rgba(74,222,128,0.3)' }}>✅ Done</button>
                             </>
                           ) : (
                             <button onClick={() => cancelAcknowledgment(row.id)} style={{ ...buttonBase, padding: '5px 8px', fontSize: '0.72rem' }}>↩</button>
@@ -1609,13 +1609,13 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                     );
                   })}
                 </div>
-              ) : <EmptyState title="今日沒有回報" />}
+              ) : <EmptyState title="No reports today" />}
             </div>
           </div>
         )}
 
         {/* ════════════════════════════════════════════════════
-            TAB: 📋 紀錄 ACTIVITY
+            TAB: Records
             ════════════════════════════════════════════════════ */}
         {activeTab === 'activity' && (
           <div style={{ display: 'grid', gap: '12px' }}>
@@ -1625,9 +1625,9 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               <input type="date" value={recordsDate} onChange={(e) => { setRecordsDate(e.target.value); setRecordsFilter('all'); }} style={{ ...inputStyle, maxWidth: '180px', fontSize: '0.86rem', padding: '9px 10px' }} />
               <button onClick={() => loadRecords(recordsDate)} style={subtleButton}>🔄</button>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                <span style={badgeStyle('neutral')}>打卡 {recordCheckins.length}</span>
-                <span style={badgeStyle('warning')}>回報 {selfReports.length}</span>
-                <span style={badgeStyle(unresolvedIncidents.length ? 'danger' : 'neutral')}>異常 {incidents.length}</span>
+                <span style={badgeStyle('neutral')}>Check-ins {recordCheckins.length}</span>
+                <span style={badgeStyle('warning')}>Reports {selfReports.length}</span>
+                <span style={badgeStyle(unresolvedIncidents.length ? 'danger' : 'neutral')}>Incidents {incidents.length}</span>
               </div>
             </div>
 
@@ -1675,7 +1675,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                     if (!items?.length) return [];
                     return [
                       <div key={`h-${gl}`} style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', padding: '6px 8px', background: 'rgba(155,135,245,0.08)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{gl}</span><span style={{ color: 'var(--text-muted)' }}>{items.length} 筆</span>
+                        <span>{gl}</span><span style={{ color: 'var(--text-muted)' }}>{items.length} items</span>
                       </div>,
                       ...items.map((item) => (
                         <RecordCard
@@ -1697,7 +1697,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
         )}
 
         {/* ════════════════════════════════════════════════════
-            TAB: ✏️ 任務 MANAGE
+            TAB: Manage
             ════════════════════════════════════════════════════ */}
         {activeTab === 'manage' && (
           <div style={{ display: 'grid', gap: '12px' }}>
@@ -1706,8 +1706,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             <div style={sectionCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>
-                  🔁 週期護理
-                  {overduePeriodicTasks.length > 0 && <span style={{ marginLeft: '6px', ...badgeStyle('danger') }}>{overduePeriodicTasks.length} 逾期</span>}
+                  🔁 Periodic Care
+                  {overduePeriodicTasks.length > 0 && <span style={{ marginLeft: '6px', ...badgeStyle('danger') }}>{overduePeriodicTasks.length} overdue</span>}
                 </div>
                 <button onClick={() => loadPeriodicTasks()} style={{ ...subtleButton, fontSize: '0.76rem', padding: '5px 10px' }}>🔄</button>
               </div>
@@ -1732,28 +1732,28 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: '0.86rem' }}>{task.name}</div>
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {task.lastDoneAt ? `上次：${toDateTime(task.lastDoneAt)}` : '從未完成'}
-                            {task.intervalDays && ` · 每 ${task.intervalDays} 天`}
+                            {task.lastDoneAt ? `Last: ${toDateTime(task.lastDoneAt)}` : 'Never done'}
+                            {task.intervalDays && ` · Every ${task.intervalDays} day(s)`}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                           <span style={badgeStyle(tone)}>
-                            {isOverdue ? `逾 ${Math.abs(daysLeft ?? 0)} 天` : daysLeft === 0 ? '今天' : daysLeft !== null ? `${daysLeft}d` : '—'}
+                            {isOverdue ? `${Math.abs(daysLeft ?? 0)}d overdue` : daysLeft === 0 ? 'Today' : daysLeft !== null ? `${daysLeft}d` : '—'}
                           </span>
                           <button onClick={() => markPeriodicDone(task)} style={{ ...buttonBase, padding: '6px 12px', fontSize: '0.76rem', background: 'rgba(74,222,128,0.12)', color: '#15803d', border: '1px solid rgba(74,222,128,0.3)' }}>
-                            ✅ 完成
+                            ✅ Done
                           </button>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              ) : <EmptyState title="載入中…" />}
+              ) : <EmptyState title="Loading…" />}
             </div>
 
             {/* ── 特殊任務派發 ─────────────────────────────── */}
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>✨ 派發特殊任務</div>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>✨ Dispatch Special Task</div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
                 {specialPresets.map((preset) => (
                   <button key={preset.id} onClick={() => setSpecialForm({ icon: preset.icon, name: preset.name, note: preset.note || '' })} style={{ ...subtleButton, fontSize: '0.78rem', padding: '6px 10px' }}>
@@ -1763,13 +1763,13 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               </div>
               <div style={{ display: 'grid', gap: '8px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr', gap: '8px' }}>
-                  <input value={specialForm.icon} onChange={(e) => setSpecialForm(s => ({ ...s, icon: e.target.value }))} style={inputStyle} placeholder="圖示" />
+                  <input value={specialForm.icon} onChange={(e) => setSpecialForm(s => ({ ...s, icon: e.target.value }))} style={inputStyle} placeholder="Icon" />
                   <input value={specialForm.name} onChange={(e) => setSpecialForm(s => ({ ...s, name: e.target.value }))} style={inputStyle} placeholder="任務名稱" />
                 </div>
                 <input value={specialForm.note} onChange={(e) => setSpecialForm(s => ({ ...s, note: e.target.value }))} style={inputStyle} placeholder="備註（選填）" />
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={dispatchSpecialTask} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>🚀 派發</button>
-                  <button onClick={addCurrentAsPreset} style={subtleButton}>💾 存快捷</button>
+                  <button onClick={dispatchSpecialTask} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>🚀 Dispatch</button>
+                  <button onClick={addCurrentAsPreset} style={subtleButton}>💾 Save as preset</button>
                 </div>
               </div>
             </div>
@@ -1863,18 +1863,18 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
 
             {/* ── 任務排程 ─────────────────────────────────── */}
             <div ref={taskFormRef} style={sectionCard}>
-              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>{taskForm.id ? '✏️ 編輯任務' : '＋ 新增任務'}</div>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>{taskForm.id ? '✏️ Edit Task' : '＋ New Task'}</div>
               <div style={{ display: 'grid', gap: '8px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: '8px' }}>
-                  <input value={taskForm.icon} onChange={(e) => setTaskForm(s => ({ ...s, icon: e.target.value }))} style={inputStyle} placeholder="圖示" />
+                  <input value={taskForm.icon} onChange={(e) => setTaskForm(s => ({ ...s, icon: e.target.value }))} style={inputStyle} placeholder="Icon" />
                   <input value={taskForm.name} onChange={(e) => setTaskForm(s => ({ ...s, name: e.target.value }))} style={inputStyle} placeholder="任務名稱" />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <select value={taskForm.type} onChange={(e) => setTaskForm(s => ({ ...s, type: e.target.value }))} style={inputStyle}>
-                    {[['other','一般'],['meal','餐食'],['treat','零食'],['weight','量體重'],['litter','清貓砂'],['water','換水'],['groom','美容/梳毛'],['feeder','自動餵食機']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                    {[['other','General'],['meal','Meal'],['treat','Treat'],['weight','Weight'],['litter','Litter'],['water','Water'],['groom','Grooming'],['feeder','Auto-feeder']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                   <select value={taskForm.scheduleType} onChange={(e) => setTaskForm(s => ({ ...s, scheduleType: e.target.value }))} style={inputStyle}>
-                    {[['daily','每日'],['weekly','每週指定日'],['weekdays','平日'],['weekends','週末']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                    {[['daily','Daily'],['weekly','Weekly (specific days)'],['weekdays','Weekdays'],['weekends','Weekends']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </div>
                 {taskForm.scheduleType === 'weekly' && (
@@ -1892,7 +1892,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                 )}
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <input type="time" value={taskForm.newTime} onChange={(e) => setTaskForm(s => ({ ...s, newTime: e.target.value }))} style={{ ...inputStyle, maxWidth: '140px' }} />
-                  <button type="button" onClick={() => { if (!taskForm.newTime || taskForm.scheduledTimes.includes(taskForm.newTime)) return; setTaskForm(s => ({ ...s, scheduledTimes: [...s.scheduledTimes, s.newTime].sort(), newTime: '' })); }} style={subtleButton}>＋ 加時間</button>
+                  <button type="button" onClick={() => { if (!taskForm.newTime || taskForm.scheduledTimes.includes(taskForm.newTime)) return; setTaskForm(s => ({ ...s, scheduledTimes: [...s.scheduledTimes, s.newTime].sort(), newTime: '' })); }} style={subtleButton}>＋ Add time</button>
                 </div>
                 {!!taskForm.scheduledTimes.length && (
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -1905,18 +1905,18 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'center' }}>
                   <select value={taskForm.resultPreset} onChange={(e) => setTaskForm(s => ({ ...s, resultPreset: e.target.value }))} style={inputStyle}>
-                    <option value="none">不需要結果選項</option>
-                    <option value="feed">餵食結果</option>
-                    <option value="treat">零食結果</option>
+                    <option value="none">No result options</option>
+                    <option value="feed">Feed results</option>
+                    <option value="treat">Treat results</option>
                   </select>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                     <input type="checkbox" checked={taskForm.requireNote} onChange={(e) => setTaskForm(s => ({ ...s, requireNote: e.target.checked }))} />
-                    需備註
+                    Requires note
                   </label>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={saveTask} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>💾 儲存</button>
-                  <button onClick={resetTaskForm} style={subtleButton}>↺ 清空</button>
+                  <button onClick={saveTask} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>💾 Save</button>
+                  <button onClick={resetTaskForm} style={subtleButton}>↺ Clear</button>
                 </div>
               </div>
             </div>
@@ -1924,7 +1924,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             {/* Task list */}
             <div style={sectionCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>排程任務 ({tasks.length})</div>
+                <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>Scheduled Tasks ({tasks.length})</div>
               </div>
               {tasks.length ? (
                 <div style={{ display: 'grid', gap: '8px' }}>
@@ -1932,8 +1932,8 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                     <RecordCard
                       key={task.id}
                       title={<>{task.icon || '📋'} {task.name}</>}
-                      meta={<>{scheduleLabel[task.scheduleType || 'daily']}{task.weekDays?.length ? ` · ${task.weekDays.map(d => weekDayLabels[d]).join('、')}` : ''}</>}
-                      chips={<>{(task.scheduledTimes || []).map(t => <span key={t} style={badgeStyle('purple')}>{t}</span>)}{task.requireNote && <span style={badgeStyle('warning')}>需備註</span>}</>}
+                      meta={<>{scheduleLabel[task.scheduleType || 'daily']}{task.weekDays?.length ? ` · ${task.weekDays.map(d => weekDayLabels[d]).join(', ')}` : ''}</>}
+                      chips={<>{(task.scheduledTimes || []).map(t => <span key={t} style={badgeStyle('purple')}>{t}</span>)}{task.requireNote && <span style={badgeStyle('warning')}>Requires note</span>}</>}
                       actions={<>
                         <ActionButton onClick={() => editTask(task)}>✏️</ActionButton>
                         <ActionButton tone="danger" onClick={() => removeTask(task.id)}>🗑</ActionButton>
@@ -1941,57 +1941,57 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                     />
                   ))}
                 </div>
-              ) : <EmptyState title="尚無任務" />}
+              ) : <EmptyState title="No tasks yet" />}
             </div>
           </div>
         )}
 
         {/* ════════════════════════════════════════════════════
-            TAB: ⚙️ 設定 SETTINGS
+            TAB: Settings
             ════════════════════════════════════════════════════ */}
         {activeTab === 'settings' && (
           <div style={{ display: 'grid', gap: '12px' }}>
 
             {/* Cat profile */}
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>🐾 貓咪資料</div>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>🐾 Cat Profile</div>
               <div style={{ display: 'grid', gap: '8px' }}>
                 <input value={catForm.name || ''} onChange={(e) => setCatForm(s => ({ ...s, name: e.target.value }))} style={inputStyle} placeholder="名字" />
-                <input value={catForm.breed || ''} onChange={(e) => setCatForm(s => ({ ...s, breed: e.target.value }))} style={inputStyle} placeholder="品種" />
+                <input value={catForm.breed || ''} onChange={(e) => setCatForm(s => ({ ...s, breed: e.target.value }))} style={inputStyle} placeholder="Breed" />
                 <input type="date" value={catForm.birthdate || ''} onChange={(e) => setCatForm(s => ({ ...s, birthdate: e.target.value }))} style={inputStyle} />
-                <textarea value={catForm.notes || ''} onChange={(e) => setCatForm(s => ({ ...s, notes: e.target.value }))} rows={3} style={inputStyle} placeholder="備註" />
-                <button onClick={saveCatProfile} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff', width: 'fit-content' }}>💾 儲存貓咪資料</button>
+                <textarea value={catForm.notes || ''} onChange={(e) => setCatForm(s => ({ ...s, notes: e.target.value }))} rows={3} style={inputStyle} placeholder="Notes" />
+                <button onClick={saveCatProfile} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff', width: 'fit-content' }}>💾 Save cat profile</button>
               </div>
             </div>
 
             {/* Weight entry */}
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>⚖️ 新增體重紀錄</div>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>⚖️ Add Weight Record</div>
               <div style={{ display: 'grid', gap: '8px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
-                    <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>人重 (kg)</label>
+                    <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Your weight (kg)</label>
                     <input type="number" step="0.1" value={weightForm.personWeight} onChange={(e) => setWeightForm(s => ({ ...s, personWeight: e.target.value }))} style={inputStyle} placeholder={String(settings?.lastPersonWeight ?? 66.5)} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>抱貓重 (kg)</label>
-                    <input type="number" step="0.1" value={weightForm.carryWeight} onChange={(e) => setWeightForm(s => ({ ...s, carryWeight: e.target.value }))} style={inputStyle} placeholder="例：70.3" />
+                    <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>Holding weight (kg)</label>
+                    <input type="number" step="0.1" value={weightForm.carryWeight} onChange={(e) => setWeightForm(s => ({ ...s, carryWeight: e.target.value }))} style={inputStyle} placeholder="e.g. 70.3" />
                   </div>
                 </div>
                 {weightForm.personWeight && weightForm.carryWeight && !isNaN(parseFloat(weightForm.carryWeight) - parseFloat(weightForm.personWeight)) && (
-                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary)' }}>貓重：{(parseFloat(weightForm.carryWeight) - parseFloat(weightForm.personWeight)).toFixed(2)} kg</div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary)' }}>Cat weight: {(parseFloat(weightForm.carryWeight) - parseFloat(weightForm.personWeight)).toFixed(2)} kg</div>
                 )}
                 <input value={weightForm.note} onChange={(e) => setWeightForm(s => ({ ...s, note: e.target.value }))} style={inputStyle} placeholder="備註（選填）" />
-                <button onClick={addWeight} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff', width: 'fit-content' }}>💾 新增</button>
+                <button onClick={addWeight} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff', width: 'fit-content' }}>💾 Add</button>
               </div>
               {/* Weight history */}
               <div style={{ marginTop: '14px', display: 'grid', gap: '6px' }}>
                 {(latestWeight || previousWeight) && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px', marginBottom: '8px' }}>
                     {[
-                      { label: '最新', value: latestWeight ? `${latestWeight.catWeight}kg` : '—', sub: latestWeight ? toDateTime(latestWeight.measuredAt) : '' },
-                      { label: '差異', value: weightDelta != null ? `${weightDelta > 0 ? '+' : ''}${weightDelta}kg` : '—', sub: '' },
-                      { label: '近5平均', value: recentWeightAverage != null ? `${recentWeightAverage}kg` : '—', sub: '' },
+                      { label: 'Latest', value: latestWeight ? `${latestWeight.catWeight}kg` : '—', sub: latestWeight ? toDateTime(latestWeight.measuredAt) : '' },
+                      { label: 'Change', value: weightDelta != null ? `${weightDelta > 0 ? '+' : ''}${weightDelta}kg` : '—', sub: '' },
+                      { label: '5-pt avg', value: recentWeightAverage != null ? `${recentWeightAverage}kg` : '—', sub: '' },
                     ].map(s => (
                       <div key={s.label} style={{ background: 'rgba(61,44,53,0.03)', borderRadius: '12px', padding: '10px', textAlign: 'center' }}>
                         <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>{s.label}</div>
@@ -2003,14 +2003,14 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                 )}
                 {weights.length ? (
                   <details>
-                    <summary style={{ fontSize: '0.8rem', color: '#64748b', cursor: 'pointer', padding: '4px' }}>歷史紀錄 ({weights.length} 筆)</summary>
+                    <summary style={{ fontSize: '0.8rem', color: '#64748b', cursor: 'pointer', padding: '4px' }}>History ({weights.length} records)</summary>
                     <div style={{ marginTop: '8px', display: 'grid', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
                       {[...weights].reverse().map((row) => (
                         <RecordCard
                           key={row.id || row.measuredAt}
                           title={<>{catName} {row.catWeight} kg</>}
                           meta={<>{toDateTime(row.measuredAt)}</>}
-                          chips={<><span style={badgeStyle('purple')}>人重 {row.personWeight}kg</span><span style={badgeStyle('neutral')}>抱貓 {row.carryWeight}kg</span></>}
+                          chips={<><span style={badgeStyle('purple')}>Person {row.personWeight}kg</span><span style={badgeStyle('neutral')}>Holding {row.carryWeight}kg</span></>}
                           actions={<ActionButton tone="danger" onClick={() => deleteWeight(row.id || row.measuredAt)}>🗑</ActionButton>}
                         />
                       ))}
@@ -2023,17 +2023,17 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             {/* Resolution templates */}
             <div style={sectionCard}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>🧩 處理範本</div>
-                <span style={badgeStyle('purple')}>{resolutionTemplates.length} 個</span>
+                <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>🧩 Resolution Templates</div>
+                <span style={badgeStyle('purple')}>{resolutionTemplates.length}</span>
               </div>
               <div style={{ display: 'grid', gap: '8px', marginBottom: '12px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <input value={templateDraft.label} onChange={(e) => setTemplateDraft(s => ({ ...s, label: e.target.value, id: s.id || e.target.value }))} style={inputStyle} placeholder="範本名稱" />
-                  <input value={templateDraft.id} onChange={(e) => setTemplateDraft(s => ({ ...s, id: e.target.value }))} style={inputStyle} placeholder="代號（英文）" />
+                  <input value={templateDraft.id} onChange={(e) => setTemplateDraft(s => ({ ...s, id: e.target.value }))} style={inputStyle} placeholder="ID (English)" />
                 </div>
                 <textarea value={templateDraft.note} onChange={(e) => setTemplateDraft(s => ({ ...s, note: e.target.value }))} rows={2} style={inputStyle} placeholder="預設處理內容" />
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={addResolutionTemplate} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>➕ 新增</button>
+                  <button onClick={addResolutionTemplate} style={{ ...buttonBase, background: 'linear-gradient(135deg, var(--primary), #c084fc)', color: '#fff' }}>➕ Add</button>
                   <button onClick={resetTemplateDraft} style={subtleButton}>↺</button>
                 </div>
               </div>
@@ -2052,21 +2052,21 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
 
             {/* PIN change */}
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>🔐 變更管理員 PIN</div>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '10px' }}>🔐 Change Admin PIN</div>
               <div style={{ display: 'grid', gap: '8px', maxWidth: '320px' }}>
-                <input type="password" value={pinForm.oldPin} onChange={(e) => setPinForm(s => ({ ...s, oldPin: e.target.value }))} style={inputStyle} placeholder="舊 PIN" />
-                <input type="password" value={pinForm.newPin} onChange={(e) => setPinForm(s => ({ ...s, newPin: e.target.value }))} style={inputStyle} placeholder="新 PIN（至少 4 位）" />
-                <button onClick={changePin} style={{ ...subtleButton, width: 'fit-content' }}>🔄 更新 PIN</button>
+                <input type="password" value={pinForm.oldPin} onChange={(e) => setPinForm(s => ({ ...s, oldPin: e.target.value }))} style={inputStyle} placeholder="Current PIN" />
+                <input type="password" value={pinForm.newPin} onChange={(e) => setPinForm(s => ({ ...s, newPin: e.target.value }))} style={inputStyle} placeholder="New PIN (min 4 digits)" />
+                <button onClick={changePin} style={{ ...subtleButton, width: 'fit-content' }}>🔄 Update PIN</button>
               </div>
             </div>
 
             {/* System info */}
             <div style={sectionCard}>
-              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '8px' }}>ℹ️ 系統資訊</div>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '8px' }}>ℹ️ System Info</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                <div>版本：v{settings?.appVersion || '5.7'}</div>
+                <div>Version: v{settings?.appVersion || '5.7'}</div>
                 <div>貓名：{settings?.catName || catName}</div>
-                <div>上次人重：{settings?.lastPersonWeight ?? '—'} kg</div>
+                <div>Last person weight: {settings?.lastPersonWeight ?? '—'} kg</div>
               </div>
             </div>
 
@@ -2085,7 +2085,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
                 <div style={{ fontSize: '1rem', fontWeight: 800, lineHeight: 1.4 }}>{detailModal.title}</div>
                 {detailModal.meta && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>{detailModal.meta}</div>}
               </div>
-              <button onClick={() => setDetailModal(null)} style={{ ...subtleButton, padding: '6px 10px', flexShrink: 0 }}>關閉</button>
+              <button onClick={() => setDetailModal(null)} style={{ ...subtleButton, padding: '6px 10px', flexShrink: 0 }}>Close</button>
             </div>
             {detailModal.chips && <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>{detailModal.chips}</div>}
             {detailModal.body && <div style={{ borderRadius: '14px', padding: '12px', background: 'rgba(61,44,53,0.03)', color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.7 }}>{detailModal.body}</div>}

@@ -144,7 +144,11 @@ export function TaskCard({ task, checkin, caregiverDate, onCheckinUpdate }: Task
                 {checkin.isDone ? t('statusDone') : t('statusSkip')}
                 {checkin.result && (
                   <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '8px', fontSize: '0.85rem' }}>
-                    {isLitter ? formatLitterSummary(checkin.result, t('litterClean')) : checkin.result}
+                    {isLitter ? formatLitterSummary(checkin.result, t('litterClean')) : (() => {
+                      const opt = task.resultOptions?.find((o) => o.value === checkin.result);
+                      if (opt) return lang === 'en' && 'labelEn' in opt && typeof opt.labelEn === 'string' && opt.labelEn ? opt.labelEn : opt.label;
+                      return checkin.result;
+                    })()}
                   </span>
                 )}
               </div>
