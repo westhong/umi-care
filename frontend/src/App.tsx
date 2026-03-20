@@ -11,8 +11,14 @@ import type { CatProfile, Settings } from './store/useAppStore';
 type Page = 'tasks' | 'calendar' | 'admin';
 
 export default function App() {
-  const { adminMode, setAdminMode, setCat, setSettings } = useAppStore();
+  const { adminMode, setAdminMode, setCat, setSettings, refreshCurrentDate } = useAppStore();
   const [page, setPage] = useState<Page>('tasks');
+
+  // Refresh current date every minute to handle midnight crossover
+  useEffect(() => {
+    const interval = setInterval(refreshCurrentDate, 60_000);
+    return () => clearInterval(interval);
+  }, [refreshCurrentDate]);
   const [pinState, setPinState] = useState<'loading' | 'setup' | 'ready'>('loading');
   const [showAdminLogin, setShowAdminLogin] = useState(false);
 

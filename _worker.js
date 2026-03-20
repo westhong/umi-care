@@ -88,6 +88,9 @@ async function handleApi(request, env, url) {
       const body = await request.json();
       const stored = await KV.get('pin');
       if (!stored) return json({ valid: false, error: 'No PIN set' }, 400);
+      if (!body.pin || typeof body.pin !== 'string') {
+        return json({ valid: false, error: 'PIN required' }, 400);
+      }
       // Rate-limit: max 10 attempts per hour per CF worker (KV-based)
       const rlKey = 'pin:attempts';
       const rlRaw = await KV.get(rlKey);
@@ -114,6 +117,9 @@ async function handleApi(request, env, url) {
       if (!stored) return json({ error: 'No PIN set' }, 400);
       // Validate new PIN
       if (!body.newPin || body.newPin.length < 4) return json({ error: 'New PIN must be at least 4 digits' }, 400);
+      if (!body.oldPin || typeof body.oldPin !== 'string') {
+        return json({ error: 'oldPin required' }, 400);
+      }
       // Rate-limit on change attempts (shared with verify)
       const rlKey = 'pin:attempts';
       const rlRaw = await KV.get(rlKey);
@@ -429,7 +435,8 @@ async function handleApi(request, env, url) {
       const body = await request.json();
       const raw = await KV.get('selfreports:list');
       const list = raw ? JSON.parse(raw) : [];
-      const quantity = Math.max(1, Math.min(9, parseInt(body.quantity || 1, 10) || 1));
+      const rawQty = parseFloat(body.quantity) || 1;
+      const quantity = Math.max(0.5, Math.min(9.5, Math.round(rawQty * 2) / 2)); // snap to 0.5 steps
       const item = {
         id: 'sr_' + Date.now(),
         type: body.type || 'other',
@@ -738,7 +745,7 @@ export default {
     const activeTasks = tasks.filter(task => isTaskActiveOnCalgaryDate(task, now));
     const checkinsRaw = await KV.get('checkins:' + today);
     const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
-    const doneIds = new Set(checkins.map(c => c.taskId));
+    const doneIds = new Set(checkins.filter(c => c.isDone).map(c => c.taskId));
 
     // Get cat name for push title
     const catRaw = await KV.get('cat:profile');
@@ -963,6 +970,33 @@ async function handlePushApi(path, method, request, env) {
     return json({ ok: false, status, error: pushBody }, 500);
   }
 
+  // GET /api/calendar/day?date=YYYY-MM-DD — aggregate daily data for calendar view
+  if (path === '/calendar/day' && method === 'GET') {
+    const date = url.searchParams.get('date');
+    if (!date) return json({ error: 'date parameter is required (format: YYYY-MM-DD)' }, 400);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: 'invalid date format, expected YYYY-MM-DD' }, 400);
+    try {
+      const [checkinsRaw, incidentsRaw, selfreportsRaw, weightsRaw] = await Promise.all([
+        KV.get(`checkins:${date}`),
+        KV.get('incidents:list'),
+        KV.get('selfreports:list'),
+        KV.get('weights:list'),
+      ]);
+      const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
+      const incidentsList = incidentsRaw ? JSON.parse(incidentsRaw) : [];
+      const selfreportsList = selfreportsRaw ? JSON.parse(selfreportsRaw) : [];
+      const weightsList = weightsRaw ? JSON.parse(weightsRaw) : [];
+      const incidents = incidentsList.filter(inc => getCalgaryDateStr(new Date(inc.reportedAt || Date.now())) === date);
+      const selfReports = selfreportsList.filter(sr => getCalgaryDateStr(new Date(sr.reportedAt || sr.createdAt || Date.now())) === date);
+      const weights = weightsList.filter(w => getCalgaryDateStr(new Date(w.measuredAt)) === date);
+      const done = checkins.filter(c => c.isDone).length;
+      const skipped = checkins.filter(c => !c.isDone).length;
+      return json({ date, checkins, summary: { done, skipped, total: checkins.length }, incidents, selfReports, weights });
+    } catch (err) {
+      return json({ error: 'Internal server error', details: err.message }, 500);
+    }
+  }
+
   // GET /api/push/debug — check last push result and subscription info
   if (path === '/push/debug' && method === 'GET') {
     const sub = await KV.get('push:subscription');
@@ -1003,7 +1037,7 @@ async function handlePushApi(path, method, request, env) {
     const activeTasks = tasks.filter(task => isTaskActiveOnCalgaryDate(task, now));
     const checkinsRaw = await KV.get('checkins:' + today);
     const checkins = checkinsRaw ? JSON.parse(checkinsRaw) : [];
-    const doneIds = new Set(checkins.map(c => c.taskId));
+    const doneIds = new Set(checkins.filter(c => c.isDone).map(c => c.taskId));
 
     const overdue = [];
     for (const task of activeTasks) {

@@ -83,6 +83,7 @@ export interface AppState {
   setLang: (lang: 'zh' | 'en') => void;
   setAdhocRequests: (requests: AdhocRequest[]) => void;
   setSelfReports: (reports: SelfReport[]) => void;
+  refreshCurrentDate: () => void;
 }
 
 function todayStr(): string {
@@ -156,4 +157,11 @@ export const useAppStore = create<AppState>((set) => ({
   },
   setAdhocRequests: (adhocRequests) => set({ adhocRequests }),
   setSelfReports: (selfReports) => set({ selfReports }),
+  refreshCurrentDate: () => {
+    const newDate = todayStr();
+    set((state) => {
+      if (state.currentDate === newDate) return {};
+      return { currentDate: newDate, caregiverDate: newDate };
+    });
+  },
 }));

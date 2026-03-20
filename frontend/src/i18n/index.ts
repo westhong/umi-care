@@ -135,6 +135,12 @@ const zh: LangStrings = {
   pushDisableBtn: '關閉通知',
   pushDisabling: '正在關閉...',
   pushDisabled: '🔕 通知已關閉',
+  calendarToday: '今日',
+  calendarNoRecords: '無記錄',
+  calendarSectionCheckins: '任務記錄',
+  calendarSectionFeeding: '餵食回報',
+  calendarSectionIncidents: '異常狀況',
+  calendarSectionWeight: '體重記錄',
 };
 
 const en: LangStrings = {
@@ -270,6 +276,12 @@ const en: LangStrings = {
   pushDisableBtn: 'Turn off',
   pushDisabling: 'Turning off...',
   pushDisabled: '🔕 Notifications turned off',
+  calendarToday: 'Today',
+  calendarNoRecords: 'No records',
+  calendarSectionCheckins: 'Task records',
+  calendarSectionFeeding: 'Feeding reports',
+  calendarSectionIncidents: 'Incidents',
+  calendarSectionWeight: 'Weight records',
 };
 
 const translations: Record<string, LangStrings> = { zh, en };
