@@ -57,7 +57,7 @@ const DEFAULT_PERIODIC = [
 const DEFAULT_SETTINGS = { lastPersonWeight: 66.5, catName: '屋咪', appVersion: '5.9.0' };
 
 function normalizeSettings(raw) {
-  return { ...DEFAULT_SETTINGS, ...raw };
+  return { ...DEFAULT_SETTINGS, ...raw, appVersion: DEFAULT_SETTINGS.appVersion };
 }
 
 async function handleApi(request, env, url) {
@@ -69,7 +69,7 @@ async function handleApi(request, env, url) {
 
   try {
     // PING
-    if (path === '/ping') return json({ ok: true, version: '5.7.2', kv: !!KV });
+    if (path === '/ping') return json({ ok: true, version: '5.9.0', kv: !!KV });
 
     // PIN
     if (path === '/pin/check') {
@@ -200,12 +200,30 @@ async function handleApi(request, env, url) {
           await KV.put('tasks:list', JSON.stringify(DEFAULT_TASKS));
           return json(DEFAULT_TASKS);
         }
-        // Merge nameEn from DEFAULT_TASKS for tasks that don't have it
+        // Merge nameEn + labelEn from DEFAULT_TASKS for tasks that don't have them
+        const LABEL_EN_MAP = {
+          '正常進食 ✅': 'Ate normally ✅', '少量進食': 'Ate a little', '完全不吃': 'Refused to eat',
+          '已更換 ✅': 'Replaced ✅', '僅補水': 'Topped up only',
+          '💩 有便便': '💩 Poop', '💦 有尿尿': '💦 Pee', '💩💦 都有': '💩💦 Both', '✨ 都沒有': '✨ Clean',
+          '完成 ✅': 'Done ✅', '部分完成': 'Partially done', '略過': 'Skipped',
+          '已給予 ✅': 'Given ✅',
+          '✅ 飼料充足，無需補充': '✅ Feeder full', '🔄 已補充飼料': '🔄 Refilled', '⚠️ 飼料快用完，需買': '⚠️ Running low',
+        };
         const defaultMap = Object.fromEntries(DEFAULT_TASKS.map(t => [t.id, t]));
-        const tasks = JSON.parse(raw).map(t => ({
-          ...t,
-          nameEn: t.nameEn || defaultMap[t.id]?.nameEn || t.name,
-        }));
+        const tasks = JSON.parse(raw).map(t => {
+          const def = defaultMap[t.id];
+          const resultOptions = (t.resultOptions || []).map((opt, i) => {
+            if (opt.labelEn) return opt;
+            const defOpt = def?.resultOptions?.find(d => d.value === opt.value) || def?.resultOptions?.[i];
+            const labelEn = defOpt?.labelEn || LABEL_EN_MAP[opt.label] || opt.label;
+            return { ...opt, labelEn };
+          });
+          return {
+            ...t,
+            nameEn: t.nameEn || def?.nameEn || t.name,
+            resultOptions,
+          };
+        });
         return json(tasks);
       }
       if (method === 'POST') {

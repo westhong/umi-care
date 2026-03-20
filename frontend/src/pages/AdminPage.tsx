@@ -1208,7 +1208,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
               )}
             </div>
             <div style={{ fontSize: '0.78rem', opacity: 0.88, marginTop: '2px' }}>
-              {catName} · {todayLocal()} · v{settings?.appVersion || '5.7'}
+              {catName} · {todayLocal()} · v{settings?.appVersion || '5.9.0'}
             </div>
           </div>
           <button
@@ -2064,7 +2064,7 @@ export function AdminPage({ onLogout }: { onLogout?: () => void }) {
             <div style={sectionCard}>
               <div style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '8px' }}>ℹ️ System Info</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                <div>Version: v{settings?.appVersion || '5.7'}</div>
+                <div>Version: v{settings?.appVersion || '5.9.0'}</div>
                 <div>貓名：{settings?.catName || catName}</div>
                 <div>Last person weight: {settings?.lastPersonWeight ?? '—'} kg</div>
               </div>

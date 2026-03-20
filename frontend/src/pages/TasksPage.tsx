@@ -371,7 +371,7 @@ export function TasksPage({ onAdminOpen }: TasksPageProps) {
             </button>
           </div>
           <span style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', background: 'rgba(255,133,161,0.15)', color: 'var(--text-muted)', border: '1px solid rgba(255,133,161,0.25)', borderRadius: '10px', padding: '2px 7px' }}>
-            v{settings?.appVersion || '5.x'}
+            v{settings?.appVersion || '5.9.0'}
           </span>
           {/* Push notification bell — header shortcut */}
           {pushStatus !== 'unsupported' && (
