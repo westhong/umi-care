@@ -65,7 +65,7 @@ cd frontend && npm run build
 
 Output goes to `frontend/dist/`, which Wrangler serves as static assets.
 
-## v5.9.0 — 2026-03-20 (Current)
+## v5.9.1 — 2026-03-20 (Current)
 
 ### New Features
 - ✅ **ISS-07 Pull-to-refresh** — AdminPage: pull down from top (>70px) shows ↻ pill and reloads all admin data
